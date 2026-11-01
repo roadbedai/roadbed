@@ -1,0 +1,44 @@
+name: roadbed-watch
+
+on:
+  pull_request:
+    paths:
+      - "packages/roadbed/src/roadbed/watch.py"
+      - "packages/roadbed/src/roadbed/license_policy.py"
+      - "packages/roadbed/src/roadbed/cli/watch.py"
+      - "packages/roadbed/src/roadbed/cli/main.py"
+      - "packages/roadbed/tests/watch/**"
+      - "packages/roadbed/tests/cli/test_cli_watch.py"
+      - "packages/roadbed/tests/cassettes/**"
+      - ".github/workflows/roadbed-watch.yml"
+  push:
+    branches: [main]
+    paths:
+      - "packages/roadbed/src/roadbed/watch.py"
+      - "packages/roadbed/src/roadbed/license_policy.py"
+      - "packages/roadbed/src/roadbed/cli/watch.py"
+      - "packages/roadbed/tests/watch/**"
+      - "packages/roadbed/tests/cassettes/**"
+
+permissions:
+  contents: read
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    env:
+      ROADBED_VCR_RECORD: none   # replay cassettes only; an unrecorded request fails
+      HF_HUB_OFFLINE: "1"
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      DO_NOT_TRACK: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - name: Lint (ruff)
+        run: uv run ruff check packages/roadbed/src/roadbed/watch.py packages/roadbed/src/roadbed/license_policy.py packages/roadbed/src/roadbed/cli packages/roadbed/tests/watch packages/roadbed/tests/cli/test_cli_watch.py
+      - name: Type check (mypy)
+        run: uv run mypy
+      - name: Watch and license tests, cassettes only, outbound sockets blocked
+        run: PYTHONPATH=packages/roadbed/tests/watch uv run pytest -q -p no_network packages/roadbed/tests/watch packages/roadbed/tests/cli/test_cli_watch.py
