@@ -1,5 +1,7 @@
 """Remote commands against a respx fake of the control plane (test_cli_fakeapi.py): rebase, status, seal, promote,
 rollback, init --check. The fake serves spec fixture files; the tests check what the CLI prints, sends and exits with.
+Server-side rules (SoD, RBAC, promote preconditions) are W11/W20's; here a fake deny only checks that the CLI reports
+the server's code, rule and audit seq and exits 3. Nothing here claims the server enforces them.
 """
 
 from __future__ import annotations
@@ -164,7 +166,7 @@ def test_rebase_failed_state_exits_3(cli_env):
     assert r.exit_code == 3 and r.output.strip().splitlines()[-1] == "failed: rebase #13 cost cap reached"
 
 
-def test_rebase_sod_01_is_a_remote_error(cli_env):
+def test_rebase_server_sod_deny_is_reported_exit_3(cli_env):
     with respx.mock(base_url=URL) as m:
         m.post("/v1/models/claims-triage/rebases").mock(
             return_value=problem(403, "sod_violation", "you sealed the holdout", rule="SoD-01", audit_seq=1390))
@@ -283,7 +285,7 @@ def test_seal(cli_env):
     assert "SYNTHETIC data" in r.output
 
 
-def test_seal_by_developer_is_denied(cli_env):
+def test_seal_server_deny_is_reported_exit_3(cli_env):
     with respx.mock(base_url=URL) as m:
         m.post("/v1/holdouts").mock(return_value=problem(403, "sod_violation", "only a validator seals", rule="SoD-05", audit_seq=1203))
         r = cli.invoke(app, ["seal", "--model", "claims-triage", "--snapshot", "S-1", "--rows", "1", "--seed", "0", "--by", "line"])
@@ -324,7 +326,7 @@ def test_promote_retry_key_is_sent(cli_env):
     (lambda: problem(409, "rebase_blocked", "rebase 14 is blocked"), "409 rebase_blocked: rebase 14 is blocked"),
     (lambda: problem(401, "unauthorized", "no valid token"), "401 unauthorized"),
 ])
-def test_promote_refusals_exit_3(cli_env, resp, needle):
+def test_promote_server_refusals_are_reported_exit_3(cli_env, resp, needle):
     with respx.mock(base_url=URL) as m:
         m.post("/v1/aliases/claims-triage-prod:promote").mock(return_value=resp())
         r = cli.invoke(app, ["promote", "14", "--alias", "claims-triage-prod"])

@@ -83,7 +83,7 @@ class Fixture:
             "predicting": f"{p['holdout']['rows']} holdout rows",
             "benchmarking": f"{self.cost['total_eur']} EUR",
             "gating": f"gate {self.gate['status']}",
-            "evidence": "pack v1",
+            "evidence": "evidence pack signed",
         }
         out = [{"state": s, "at": _ts(self.meta["created_at"], i), "detail": details[s]} for i, s in enumerate(STEPS)]
         k = len(out)
@@ -125,6 +125,7 @@ class Fixture:
               "created_at": self.meta["created_at"], "gate": self.gate["status"], "delta": self.scores["overall"]["delta"]}
         return {
             "summary": {"model": cfg["model"], "tenant": cfg["tenant"], "synthetic": True, "alias": cfg["alias"]["name"],
+                        # The fixtures have no ingest log; the training snapshot's row count (receipt) stands in.
                         "version": cfg["alias"]["version"], "base": cfg["base"], "verdicts_this_week": self.receipt["predicate"]["snapshot"]["rows"],
                         "last_rebase": rs},
             "config": cfg, "versions": [], "recent_rebases": [rs],

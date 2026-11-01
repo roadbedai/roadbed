@@ -6,7 +6,7 @@ started rebase #14  claims-triage → Qwen/Qwen3.8-4B @1d4bf0f2ff60
 10:35:00  predicting  60 holdout rows
 10:36:00  benchmarking  0.0 EUR
 10:37:00  gating  gate blocked
-10:38:00  evidence  pack v1
+10:38:00  evidence  evidence pack signed
 10:39:00  blocked  F-0001 logged; alias unchanged
 MOCK executor: no training or inference ran; numbers are from fixture predictions
 SYNTHETIC data
