@@ -12,14 +12,13 @@ from rich.text import Text
 
 MINUS = "−"
 
-# Exit codes
+# Exit codes (W21): 0 ok, 2 usage or bad local input, 3 remote error, 4 a check failed.
 EXIT_OK = 0
-EXIT_ERROR = 1
-EXIT_NO_MATCH = 2
-EXIT_BLOCKED = 3
-EXIT_VERIFY_FAILED = 4
+EXIT_USAGE = 2  # bad arguments, no asset repo, a local file missing or not valid, no Hub match
+EXIT_REMOTE = 3  # control plane or Hub unreachable or returned an error (incl. 401, 403, 409)
+EXIT_VERIFY_FAILED = 4  # verify, eval reproduce, audit verify or evidence verify failed; a gate that blocked
 
-STATUS_STYLE = {"pass": "green", "blocked": "red", "fail": "red", "ok": "green"}
+STATUS_STYLE = {"pass": "green", "blocked": "red", "fail": "red", "ok": "green", "failed": "red", "awaiting_signoff": "green"}
 
 
 def console() -> Console:

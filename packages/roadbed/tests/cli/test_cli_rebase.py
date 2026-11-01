@@ -72,7 +72,7 @@ def test_rebase_pass(asset: Path):
 def test_rebase_blocked(asset: Path):
     before = (asset / "roadbed.yaml").read_bytes()
     r = _rebase(asset, 14)
-    assert r.exit_code == 3, r.output
+    assert r.exit_code == 4, r.output  # W21: a blocked gate exits 4 (Day 0: 3)
     assert _last(r.output) == BLOCK_LINE
     d = asset / "rebases/14"
     gate = _validate(d / "gate.json", "gate")
@@ -85,13 +85,13 @@ def test_rebase_blocked(asset: Path):
     assert (d / "report.md").read_text().rstrip().endswith(BLOCK_LINE)
     # rerun is idempotent: same finding id, no duplicates
     r2 = _rebase(asset, 14)
-    assert r2.exit_code == 3 and _last(r2.output) == BLOCK_LINE
+    assert r2.exit_code == 4 and _last(r2.output) == BLOCK_LINE
     assert sorted(p.name for p in (asset / "findings").iterdir()) == ["F-0001.yaml", "F-0002.yaml", "F-0003.yaml"]
 
 
 def test_rebase_json(asset: Path):
     r = _rebase(asset, 14, "--json")
-    assert r.exit_code == 3
+    assert r.exit_code == 4
     data = json.loads(r.output)
     assert data["status"] == "blocked" and data["final"] == BLOCK_LINE and data["findings"] == ["F-0003"]
     assert data["synthetic"] is True
@@ -104,19 +104,19 @@ def test_rebase_cwd_and_model_mismatch(asset: Path, monkeypatch):
     r = runner.invoke(app, ["rebase", "claims-triage", "--from-predictions", "rebases/13"])
     assert r.exit_code == 0, r.output
     r = runner.invoke(app, ["rebase", "other-model", "--from-predictions", "rebases/13"])
-    assert r.exit_code == 1 and "does not match" in r.output
+    assert r.exit_code == 2 and "does not match" in r.output
 
 
 def test_rebase_license_denied(asset: Path):
     r = _rebase(asset, 13, "--license", "llama3")
-    assert r.exit_code == 3
+    assert r.exit_code == 4
     assert _last(r.output).startswith("blocked: license llama3 denied")
 
 
 def test_rebase_base_from_watch_cache(asset: Path, _cache_dir: Path):
     (asset / "rebases/13/rebase.yaml").unlink()
     r = _rebase(asset, 13)
-    assert r.exit_code == 1 and "no base model" in r.output
+    assert r.exit_code == 2 and "no base model" in r.output
     _cache_dir.mkdir(parents=True)
     (_cache_dir / "watch.json").write_text(json.dumps({"last": "Qwen/Qwen3.*", "entries": {"Qwen/Qwen3.*": {
         "glob": "Qwen/Qwen3.*", "repo": "Qwen/Qwen3.8-27B", "sha": "a" * 40, "license": "apache-2.0",

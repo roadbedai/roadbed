@@ -2143,6 +2143,7 @@ dev = [
     { name = "mypy" },
     { name = "pytest" },
     { name = "pytest-cov" },
+    { name = "respx" },
     { name = "ruff" },
     { name = "vcrpy" },
 ]
@@ -2157,6 +2158,7 @@ dev = [
     { name = "mypy", specifier = ">=1.13" },
     { name = "pytest", specifier = ">=8" },
     { name = "pytest-cov", specifier = ">=5" },
+    { name = "respx", specifier = ">=0.22" },
     { name = "ruff", specifier = ">=0.8" },
     { name = "vcrpy", specifier = ">=7" },
 ]
