@@ -1,0 +1,40 @@
+name: roadbed-cli
+
+on:
+  pull_request:
+    paths:
+      - "packages/roadbed/src/roadbed/cli/**"
+      - "packages/roadbed/tests/test_cli_*.py"
+      - "packages/roadbed/tests/cli/**"
+      - "packages/roadbed/tests/cli_fixtures/**"
+      - "spec/examples/**"
+      - "spec/conformance/vectors/**"
+      - ".github/workflows/roadbed-cli.yml"
+  push:
+    branches: [main]
+    paths:
+      - "packages/roadbed/src/roadbed/cli/**"
+      - "packages/roadbed/tests/test_cli_*.py"
+      - "packages/roadbed/tests/cli_fixtures/**"
+
+permissions:
+  contents: read
+
+jobs:
+  cli:
+    runs-on: ubuntu-latest
+    env:
+      ROADBED_VCR_RECORD: none
+      HF_HUB_OFFLINE: "1"
+      DO_NOT_TRACK: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - name: Lint (ruff)
+        run: uv run ruff check packages/roadbed/src/roadbed/cli packages/roadbed/tests
+      - name: Type check (mypy)
+        run: uv run mypy
+      - name: CLI tests, outbound sockets blocked
+        run: PYTHONPATH=packages/roadbed/tests/watch uv run pytest -q -p no_network packages/roadbed/tests/test_cli_config.py packages/roadbed/tests/test_cli_fakeapi.py packages/roadbed/tests/test_cli_offline.py packages/roadbed/tests/test_cli_remote.py packages/roadbed/tests/test_cli_surface.py packages/roadbed/tests/cli
