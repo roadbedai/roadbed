@@ -97,6 +97,27 @@ def _bench_job(receipt: dict[str, Any]) -> dict[str, Any]:
     return job
 
 
+def _attest_spec(receipt: dict[str, Any]) -> dict[str, Any]:
+    """W01c: the attest spec of rebase 13. It binds the train, eval and bench receipts and signs rebases/13/receipt.json."""
+    def ref(job: str) -> dict[str, Any]:
+        return {"oid": hashlib.sha256(f"{job} receipt.json".encode()).hexdigest(), "size": 2048}
+
+    return {
+        "kind": "rebase",
+        "receipts": [ref(j) for j in ("job-rebase-13-train", "job-rebase-13-eval-incumbent",
+                                      "job-rebase-13-eval-candidate", "job-rebase-13-bench")],
+        "subjects": receipt["subject"], "receipt_path": "rebases/13/receipt.json",
+        "config": receipt["predicate"]["config"], "outputs": ["receipt"],
+    }
+
+
+def _attest_job(receipt: dict[str, Any]) -> dict[str, Any]:
+    job = _job(receipt)
+    job["id"], job["spec"] = "job-rebase-13-attest", _attest_spec(receipt)
+    job["cost_cap_eur"] = None
+    return job
+
+
 def p_adapter(receipt: dict[str, Any]) -> str:
     return str(receipt["subject"][0]["digest"]["sha256"])
 
@@ -173,6 +194,9 @@ def valid_cases() -> dict[str, Any]:
         },
         "verdict-in": {"verdict_id": "vd-7f3a-0001", "interaction_id": "int-7f3a-0001", "action": "fix", "verdict": {"route": "standard", "severity": 3},
                        "reason_code": "severity_low", "ts": TS, "synthetic": True},
+        "verdict-record": {"verdict_id": "vd-7f3a-0001", "interaction_id": "int-7f3a-0001", "action": "fix",
+                           "verdict": {"route": "standard", "severity": 3}, "reason_code": "severity_low", "ts": TS,
+                           "synthetic": True, "actor": "vik"},
         "outcome-in": {"outcome_id": "oc-7f3a-0001", "interaction_id": "int-7f3a-0001", "outcome": {"paid": True, "litigated": False},
                        "source": "system_of_record", "observed_at": "2026-12-01T00:00:00Z", "synthetic": True},
     }
@@ -188,10 +212,29 @@ def extra_valid_cases() -> dict[str, list[tuple[str, Any, str]]]:
     bench["predicate"]["job"] = {"id": "job-rebase-13-bench", "kind": "bench"}
     del bench["predicate"]["snapshot"], bench["predicate"]["holdout"]
     first = _json("versions/v12/receipt.json")
+    no_config = copy.deepcopy(receipt)
+    del no_config["predicate"]["config"]
+    partial_config = copy.deepcopy(receipt)
+    partial_config["predicate"]["config"] = {"seal_sha256": receipt["predicate"]["config"]["seal_sha256"]}
+    audit = valid_cases()["audit-event"]
+    cost = _json("rebases/13/cost.json")
     return {
         "executor-job": [("eval-with-snapshot", _eval_job(receipt), "an eval job carries the snapshot ref its receipt copies"),
-                         ("bench-with-refs", _bench_job(receipt), "a bench job may carry snapshot and sealed holdout refs")],
-        "receipt": [("bench-without-data", bench, "a bench receipt may leave out snapshot and holdout")],
+                         ("bench-with-refs", _bench_job(receipt), "a bench job may carry snapshot and sealed holdout refs"),
+                         ("attest-rebase", _attest_job(receipt),
+                          "an attest job (kind rebase) binds the job receipts and signs rebases/N/receipt.json (W01c)")],
+        "receipt": [("bench-without-data", bench, "a bench receipt may leave out snapshot and holdout"),
+                    ("without-config", no_config, "config is optional: a W01b receipt without it stays valid (W01c)"),
+                    ("partial-config", partial_config, "each config digest is optional (W01c)")],
+        "audit-event": [("payload-safe-bounds", {**audit, "payload": {"rebase": 13, "max": 9007199254740991,
+                                                                    "min": -9007199254740991, "ratio": 0.25}},
+                         "payload numbers up to 2^53-1 in size are valid (W01c)"),
+                        ("object-hash-id", {**audit, "object": {"type": "subject", "id": "tok_7f3a91c2"}},
+                         "object ids are ids, tokens or hashes (W01c)")],
+        "cost": [("bench-cap-null", {**cost, "cap_eur": None},
+                  "a bench job's cost.json has cap_eur null; the control plane sets it from policy/gate.yaml (W01c)")],
+        "interaction-in": [("id-128", {**valid_cases()["interaction-in"], "interaction_id": "i" * 128},
+                            "interaction_id may be 128 characters (W01c)")],
         "job-lease": [("first-receipt", {"job": {**_job(first), "receipt_path": "versions/v12/receipt.json"},
                                          "lease_id": "lease-0001", "attempt": 1, "max_attempts": 3,
                                          "lease_until": "2026-10-20T08:05:00Z", "audit_seq": 900, "prev_receipt": None},
@@ -277,7 +320,9 @@ INVALID: dict[str, list[tuple[str, Mut, str]]] = {
                  "only a bench receipt may leave out snapshot (W01b)"),
                 ("eval-without-holdout", _all(_set({"id": "job-rebase-13-eval", "kind": "eval"}, "predicate", "job"),
                                               _del("predicate", "holdout")),
-                 "an eval receipt names its sealed holdout (W01b)")],
+                 "an eval receipt names its sealed holdout (W01b)"),
+                ("config-prefixed-digest", _set("sha256:" + H, "predicate", "config", "lock_sha256"),
+                 "config digests are bare lowercase hex (W01c)")],
     "signature": [("rsa", _set("rsa", "alg"), "alg must be ed25519")],
     "rebase": [("unknown-state", _set("merged", "state"), "state must be a rebase state of the orchestrator")],
     "contamination": [
@@ -323,7 +368,14 @@ INVALID: dict[str, list[tuple[str, Mut, str]]] = {
                     ("free-text-key", _set({"comment": "ok"}, "payload"), "free-text payload keys are rejected"),
                     ("free-text-payload", _set({"note": {"text": "call me"}}, "payload"),
                     "payload values must be scalars (ids, hashes, aggregates)"),
-                    ("unknown-rule", _set("SoD-09", "rule"), "rule must be SoD-01 to SoD-05")],
+                    ("unknown-rule", _set("SoD-09", "rule"), "rule must be SoD-01 to SoD-05"),
+                    ("object-type-upper", _set("Rebase", "object", "type"), "object.type is ^[a-z][a-z_]{0,63}$ (W01c)"),
+                    ("object-id-space", _set("Jane Doe", "object", "id"), "object.id has no spaces (W01c)"),
+                    ("object-id-long", _set("a" * 257, "object", "id"), "object.id is at most 256 characters (W01c)"),
+                    ("payload-int-unsafe", _set({"rebase": 9007199254740992}, "payload"),
+                     "payload integers stay within +-(2^53-1) (W01c)"),
+                    ("payload-number-unsafe", _set({"ratio": -1e300}, "payload"),
+                     "payload numbers stay within +-(2^53-1) (W01c)")],
     "approval": [("unknown-decision", _set("lgtm", "decision"), "decision is an enum"),
                  ("validator-approves", _set("approved", "decision"),
                   "a validator records validated, validated_with_findings or rejected (review probe)"),
@@ -331,7 +383,17 @@ INVALID: dict[str, list[tuple[str, Mut, str]]] = {
                   "an approver records approved or rejected (review probe)"),
                  ("free-text-comment", _set("looks fine to me", "comment"), "no free-text comment"),
                  ("bad-ref", _set(["call Jane"], "refs"), "refs are finding, correction-test, audit or rebase ids")],
-    "executor-job": [("unknown-kind", _set("finetune", "spec", "kind"), "spec.kind must be train, eval or bench"),
+    "executor-job": [("unknown-kind", _set("finetune", "spec", "kind"), "spec.kind must be train, eval, bench or rebase"),
+                     ("attest-no-receipts", lambda o: o.update(spec={**_attest_spec(_json("rebases/13/receipt.json")), "receipts": []}),
+                      "an attest job binds at least one receipt (W01c)"),
+                     ("attest-no-subjects", lambda o: o.update(spec={**_attest_spec(_json("rebases/13/receipt.json")), "subjects": []}),
+                      "an attest job names at least one subject (W01c)"),
+                     ("attest-version-path", lambda o: o.update(spec={**_attest_spec(_json("rebases/13/receipt.json")),
+                                                                      "receipt_path": "versions/v13/receipt.json"}),
+                      "an attest job signs rebases/N/receipt.json (W01c)"),
+                     ("attest-adapter-output", lambda o: o.update(spec={**_attest_spec(_json("rebases/13/receipt.json")),
+                                                                        "outputs": ["adapter", "receipt"]}),
+                      "an attest job outputs the receipt only (W01c)"),
                      ("no-parts", _set([], "spec", "snapshot", "parts"), "the runner needs the snapshot part oids"),
                      ("no-storage", _del("storage"), "the job names its bucket"),
                      ("secret-in-credentials", _set("AKIA/secret+key=", "storage", "credentials"),
@@ -354,9 +416,16 @@ INVALID: dict[str, list[tuple[str, Mut, str]]] = {
                     "receipt_sig is required when state is succeeded (verifier probe)")],
     "alias-config": [("canary-weight", _set(2.0, "aliases", "claims-triage-prod", "canary", "weight"),
                       "canary.weight must be in [0, 1]")],
-    "interaction-in": [("no-profile", _del("profile_id"), "profile_id is required: ingest without it is a 422")],
+    "interaction-in": [("no-profile", _del("profile_id"), "profile_id is required: ingest without it is a 422"),
+                       ("id-too-long", _set("i" * 129, "interaction_id"), "interaction_id is at most 128 characters (W01c)"),
+                       ("id-empty", _set("", "interaction_id"), "interaction_id is not empty")],
     "verdict-in": [("fix-without-verdict", _del("verdict"), "a fix must carry verdict and reason_code"),
-                   ("unknown-action", _set("delete", "action"), "action must be approve, fix, reject or escalate"), SYN_STR],
+                   ("unknown-action", _set("delete", "action"), "action must be approve, fix, reject or escalate"), SYN_STR,
+                   ("client-sets-actor", _set("vik", "actor"), "the request body has no actor: the server sets it (W01c)")],
+    "verdict-record": [("no-actor", _del("actor"), "a stored verdict names its actor (W01c)"),
+                       ("email-actor", _set("jane.doe@acme.example", "actor"),
+                        "actor is a user id, never an email address (W01c)"),
+                       ("fix-without-verdict", _del("verdict"), "a fix must carry verdict and reason_code")],
     "outcome-in": [("bad-source", _set("email", "source"), "source must be system_of_record or csv"), SYN_STR],
 }
 

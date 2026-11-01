@@ -727,6 +727,25 @@ _DATA_UNLESS_BENCH: Any = {
 }
 
 
+class ReceiptConfig(_Model):
+    """The evaluation configuration a receipt binds: sha256 of the file bytes the job ran against (W01c).
+
+    Each field is optional for compatibility. The control plane fills all six for a rebase receipt.
+    `roadbed verify` checks each one that is present (SPEC.md, Signatures and receipts).
+    """
+
+    roadbed_yaml_sha256: Sha256Hex | None = Field(default=None, description="sha256 of roadbed.yaml bytes.")
+    slices_sha256: Sha256Hex | None = Field(default=None, description="sha256 of the evals.slices file bytes.")
+    scorers_sha256: Sha256Hex | None = Field(default=None, description="sha256 of the evals.scorers file bytes.")
+    gate_policy_sha256: Sha256Hex | None = Field(
+        default=None, description="sha256 of the gate policy file bytes (policy/gate.yaml). Not gate.json policy_sha256.",
+    )
+    seal_sha256: Sha256Hex | None = Field(default=None, description="sha256 of the holdout SEAL.json bytes.")
+    lock_sha256: Sha256Hex | None = Field(
+        default=None, description="sha256 of the roadbed.lock bytes the job started from. It never lists this receipt.",
+    )
+
+
 class RunPredicate(_Model):
     model_config = ConfigDict(extra="ignore", json_schema_extra={"allOf": [_EXECUTOR_NO_GPU, _DATA_UNLESS_BENCH]})
 
@@ -753,6 +772,9 @@ class RunPredicate(_Model):
     cost: RunCost
     executor: ExecutorRef
     synthetic: bool | None = None
+    config: ReceiptConfig | None = Field(
+        default=None, description="Optional (W01c). Digests of the evaluation configuration. Always set on rebase receipts.",
+    )
 
     @model_validator(mode="after")
     def _mock_has_no_gpu(self) -> RunPredicate:
@@ -1151,13 +1173,16 @@ class LineageEdge(_Aliased):
 
 
 class AuditObject(_Model):
-    type: str = Field(description="e.g. rebase, holdout, alias, subject.")
-    id: str
+    type: str = Field(pattern=r"^[a-z][a-z_]{0,63}$", description="e.g. rebase, holdout, alias, subject.")
+    id: str = Field(pattern=r"^[A-Za-z0-9:_./+=-]{1,256}$", max_length=256, description="An id, token or hash. No spaces.")
 
 
 AuditRule = Literal["SoD-01", "SoD-02", "SoD-03", "SoD-04", "SoD-05", "RBAC"]
 PayloadKey = Annotated[str, Field(pattern=r"^[a-z_]{1,64}$")]
 PayloadText = Annotated[str, Field(pattern=r"^[A-Za-z0-9:_./+=-]{1,256}$", max_length=256)]
+SAFE_INT = 9007199254740991  # 2**53 - 1: every JSON reader holds it exactly
+PayloadInt = Annotated[int, Field(ge=-SAFE_INT, le=SAFE_INT)]
+PayloadNumber = Annotated[float, Field(ge=-SAFE_INT, le=SAFE_INT)]
 FREE_TEXT_KEYS = ("note", "comment", "text", "message", "description", "detail", "reason", "name", "email", "phone")
 
 
@@ -1181,7 +1206,7 @@ class AuditEvent(_Model):
     rule: AuditRule | None = Field(
         default=None, description="Required when outcome is denied: the SoD rule, or RBAC for a role-matrix deny."
     )
-    payload: dict[PayloadKey, PayloadText | int | float | bool | None] = Field(
+    payload: dict[PayloadKey, PayloadText | PayloadInt | PayloadNumber | bool | None] = Field(
         description="Ids, tokens, hashes and numbers only. Strings have no spaces and at most 256 characters. "
         "Free-text keys (note, comment, text, ...) are rejected.",
         json_schema_extra={"propertyNames": {"not": {"enum": list(FREE_TEXT_KEYS)}}, "additionalProperties": False},
@@ -1272,6 +1297,7 @@ class HoldoutInput(HoldoutSealRef):
 TrainOutput = Literal["adapter", "receipt"]
 EvalOutput = Literal["predictions", "receipt"]
 BenchOutput = Literal["bench", "receipt"]
+AttestOutput = Literal["receipt"]
 
 
 class TrainSpec(_Model):
@@ -1325,6 +1351,26 @@ class BenchSpec(_Model):
     outputs: list[BenchOutput] = Field(description="Artifacts the result must name: bench (cost.json input) and receipt.")
 
 
+class AttestSpec(_Model):
+    """Sign the rebase receipt (rebases/N/receipt.json) that binds the train, eval and bench receipts (W01c).
+
+    The control plane runs it in process (mock, replay) or on the runner, which holds the receipt key.
+    """
+
+    kind: Literal["rebase"]
+    receipts: list[ObjectRef] = Field(min_length=1, description="The train, eval and bench receipts to bind, by oid.")
+    subjects: list[Subject] = Field(
+        min_length=1, description="Receipt subjects: the adapter (oid:<hex>) and both prediction files by asset path.",
+    )
+    receipt_path: str = Field(
+        pattern=r"^rebases/\d+/receipt\.json$", description="Where the signed receipt goes, rebases/N/receipt.json.",
+    )
+    config: ReceiptConfig | None = Field(
+        default=None, description="Optional. The evaluation configuration digests; the receipt copies them.",
+    )
+    outputs: list[AttestOutput] = Field(description="Artifacts the result must name: receipt.")
+
+
 class ExecutorJob(_Model):
     """A unit of GPU work. Self-contained: the runner needs nothing else from the control plane."""
 
@@ -1333,7 +1379,7 @@ class ExecutorJob(_Model):
     id: str = Field(min_length=1)
     model: str
     rebase: int | None = None
-    spec: Annotated[TrainSpec | EvalSpec | BenchSpec, Field(discriminator="kind")]
+    spec: Annotated[TrainSpec | EvalSpec | BenchSpec | AttestSpec, Field(discriminator="kind")]
     storage: BucketRef = Field(description="Bucket for inputs (by oid) and outputs (content-addressed).")
     cost_cap_eur: float | None = Field(default=None, gt=0)
     created_at: UtcTs
@@ -1502,7 +1548,7 @@ class InteractionIn(_Request):
 
     model_config = ConfigDict(extra="forbid", title="Interaction (in)")
 
-    interaction_id: str = Field(min_length=1)
+    interaction_id: str = Field(min_length=1, max_length=128, description="Client-made id. Retries with the same id are no-ops.")
     model: str
     alias: str | None = None
     version: str
@@ -1544,6 +1590,14 @@ class VerdictIn(_Request):
         if self.action == "fix" and (self.verdict is None or self.reason_code is None):
             raise ValueError("a fix needs verdict and reason_code")
         return self
+
+
+class VerdictRecord(VerdictIn):
+    """A stored verdict: the VerdictIn body plus the server-set actor (W01c). Never a request body."""
+
+    model_config = ConfigDict(extra="ignore", title="Verdict record")
+
+    actor: ActorId = Field(description="User id of the authenticated principal. The server sets it; clients never send it.")
 
 
 class OutcomeIn(_Request):
@@ -1605,6 +1659,7 @@ SCHEMA_MODELS: dict[str, type[BaseModel]] = {
     "alias-config": AliasConfig,
     "interaction-in": InteractionIn,
     "verdict-in": VerdictIn,
+    "verdict-record": VerdictRecord,
     "outcome-in": OutcomeIn,
 }
 

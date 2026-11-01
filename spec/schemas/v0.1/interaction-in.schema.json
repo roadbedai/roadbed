@@ -5,6 +5,8 @@
   "description": "POST /v1/interactions body. Pseudonymised client-side; 422 without profile_id.",
   "properties": {
     "interaction_id": {
+      "description": "Client-made id. Retries with the same id are no-ops.",
+      "maxLength": 128,
       "minLength": 1,
       "title": "Interaction Id",
       "type": "string"

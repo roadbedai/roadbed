@@ -1,0 +1,48 @@
+{
+  "id": "job-rebase-13-train",
+  "model": "claims-triage",
+  "rebase": 13,
+  "spec": {
+    "kind": "rebase",
+    "receipts": [
+      {
+        "oid": "e17753d45cc321d4e7e45fca9f8db123ec387250de3ec7b0c72d8341de7a8d98",
+        "size": 2048
+      },
+      {
+        "oid": "07d69692a932a2fe577b14cf024fca307857de09549cc6e5f18ba8ff5f21f17a",
+        "size": 2048
+      },
+      {
+        "oid": "1368f8871fc1ee4b5c835c4dba43e2bfb6654b71561e614bc2074b5c0b189a05",
+        "size": 2048
+      },
+      {
+        "oid": "152c2edb865bdced0ce86c79fa214771159ddbd44523a4a7568c2d9f890ceba1",
+        "size": 2048
+      }
+    ],
+    "subjects": [],
+    "receipt_path": "rebases/13/receipt.json",
+    "config": {
+      "roadbed_yaml_sha256": "04862317db319c698641f7cec7537245e3f99c12493f4d4ab10fb8210bd3cd5c",
+      "slices_sha256": "5bf836c54abdbe0684e05868b36f61353f1fb9ab84bfe99b3a19298c475613e5",
+      "scorers_sha256": "870d18e2c95174ea342f6cc1e11ae765ca53dd6b1966a2b7d443ddc9b68bbbde",
+      "gate_policy_sha256": "fdcc7206901187cdd8b6075ea2b77e878ac425828feb5abf36faf01aec3774a2",
+      "seal_sha256": "8015fa86ae734a768cc45f8daf16be16a684fc0db5ac1267ba5175f0c26be664",
+      "lock_sha256": "fd81c45e6dfdc9bdcdd8d223804fe77807e645fb1a720a98427817d61db5a8ac"
+    },
+    "outputs": [
+      "receipt"
+    ]
+  },
+  "storage": {
+    "endpoint": "http://minio:9000",
+    "bucket": "acme-claims",
+    "credentials": "runner-bucket-rw"
+  },
+  "cost_cap_eur": 25.0,
+  "created_at": "2026-11-01T10:20:00Z",
+  "requested_by": "dana",
+  "receipt_path": "rebases/13/receipt.json"
+}

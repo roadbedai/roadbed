@@ -6,10 +6,14 @@
       "properties": {
         "type": {
           "description": "e.g. rebase, holdout, alias, subject.",
+          "pattern": "^[a-z][a-z_]{0,63}$",
           "title": "Type",
           "type": "string"
         },
         "id": {
+          "description": "An id, token or hash. No spaces.",
+          "maxLength": 256,
+          "pattern": "^[A-Za-z0-9:_./+=-]{1,256}$",
           "title": "Id",
           "type": "string"
         }
@@ -145,9 +149,13 @@
               "type": "string"
             },
             {
+              "maximum": 9007199254740991,
+              "minimum": -9007199254740991,
               "type": "integer"
             },
             {
+              "maximum": 9007199254740991,
+              "minimum": -9007199254740991,
               "type": "number"
             },
             {

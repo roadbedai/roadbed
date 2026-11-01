@@ -283,6 +283,104 @@
       "type": "object",
       "additionalProperties": false
     },
+    "ReceiptConfig": {
+      "description": "The evaluation configuration a receipt binds: sha256 of the file bytes the job ran against (W01c).\n\nEach field is optional for compatibility. The control plane fills all six for a rebase receipt.\n`roadbed verify` checks each one that is present (SPEC.md, Signatures and receipts).",
+      "properties": {
+        "roadbed_yaml_sha256": {
+          "anyOf": [
+            {
+              "description": "Lowercase hex SHA-256 digest.",
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "sha256 of roadbed.yaml bytes.",
+          "title": "Roadbed Yaml Sha256"
+        },
+        "slices_sha256": {
+          "anyOf": [
+            {
+              "description": "Lowercase hex SHA-256 digest.",
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "sha256 of the evals.slices file bytes.",
+          "title": "Slices Sha256"
+        },
+        "scorers_sha256": {
+          "anyOf": [
+            {
+              "description": "Lowercase hex SHA-256 digest.",
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "sha256 of the evals.scorers file bytes.",
+          "title": "Scorers Sha256"
+        },
+        "gate_policy_sha256": {
+          "anyOf": [
+            {
+              "description": "Lowercase hex SHA-256 digest.",
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "sha256 of the gate policy file bytes (policy/gate.yaml). Not gate.json policy_sha256.",
+          "title": "Gate Policy Sha256"
+        },
+        "seal_sha256": {
+          "anyOf": [
+            {
+              "description": "Lowercase hex SHA-256 digest.",
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "sha256 of the holdout SEAL.json bytes.",
+          "title": "Seal Sha256"
+        },
+        "lock_sha256": {
+          "anyOf": [
+            {
+              "description": "Lowercase hex SHA-256 digest.",
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "sha256 of the roadbed.lock bytes the job started from. It never lists this receipt.",
+          "title": "Lock Sha256"
+        }
+      },
+      "title": "ReceiptConfig",
+      "type": "object",
+      "additionalProperties": false
+    },
     "RecipeRef": {
       "properties": {
         "path": {
@@ -528,6 +626,18 @@
           ],
           "default": null,
           "title": "Synthetic"
+        },
+        "config": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ReceiptConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional (W01c). Digests of the evaluation configuration. Always set on rebase receipts."
         }
       },
       "required": [

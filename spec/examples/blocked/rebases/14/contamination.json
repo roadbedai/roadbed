@@ -25,7 +25,7 @@
   },
   "seal_order": {
     "seal_commit": "ea3583752891daf0df4d3d6ef2c0a4a37ad7970a",
-    "train_commit": "84ac5cf26722c962d0fde008e98dc776a78c6f37",
+    "train_commit": "a5c3c4a66a768bcae2f61114b9b81d3080c40407",
     "audit_seq": true,
     "timestamp": true,
     "git_ancestor": true,

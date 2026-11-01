@@ -1,0 +1,21 @@
+{
+  "seq": 1377,
+  "ts": "2026-11-01T10:20:00Z",
+  "actor": "dana",
+  "role": "developer",
+  "action": "rebase.approve",
+  "object": {
+    "type": "rebase",
+    "id": "13"
+  },
+  "outcome": "denied",
+  "rule": "SoD-02",
+  "payload": {
+    "rebase": 13,
+    "max": 9007199254740991,
+    "min": -9007199254740991,
+    "ratio": 0.25
+  },
+  "prev_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+}
