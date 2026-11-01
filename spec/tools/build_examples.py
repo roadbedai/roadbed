@@ -226,12 +226,13 @@ def verdict_row(prefix: str, i: int, line: str, day: int = 1) -> dict[str, Any]:
         "slices": {"line": line, "state": STATES[i % 3], "channel": CHANNELS[(i // 3) % 3]},
     }
     row["row_hash"] = row_hash(row)
+    row["synthetic"] = True  # part of the stored row; not in the row hash (SPEC.md, hashing)
     return row
 
 
 def holdout_rows(vrows: list[dict[str, Any]], id_prefix: str) -> list[dict[str, Any]]:
     return [{"id": f"{id_prefix}-{i + 1:06d}", "slices": r["slices"], "input_ref": r["input_ref"], "expected": r["verdict"],
-             "row_hash": r["row_hash"]} for i, r in enumerate(vrows)]
+             "row_hash": r["row_hash"], "synthetic": True} for i, r in enumerate(vrows)]
 
 
 MINHASH_SIZES: dict[str, int] = {}  # minhash oid -> bytes of the JCS signature object (lives in the bucket)
@@ -410,13 +411,14 @@ def build_asset(root: Path, n: int, blocked: bool) -> None:
     man = write_snapshot(root, SNAPSHOT_ID, "2026-11-01T09:30:00Z", snap, output_schema_sha, SNAPSHOT_PARENT, in_git=True)
     write_jsonl(root / "evals/golden.jsonl", [
         {"id": f"golden-{i + 1:04d}", "slices": r["slices"], "input_ref": r["input_ref"], "expected": r["verdict"],
-         "row_hash": r["row_hash"]} for i, r in enumerate(snap[:5])
+         "row_hash": r["row_hash"], "synthetic": True} for i, r in enumerate(snap[:5])
     ])
     fixes = [r for r in snap if r["reason_code"]][:2]
     write_jsonl(root / "evals/correction_tests.jsonl", [
         {"id": f"CT-{96 + i:04d}", "interaction_id": r["interaction_id"], "input_ref": r["input_ref"],
          "slices": r["slices"], "model_version": "v12", "model_output": r["output"], "expected": r["verdict"],
-         "reason_code": r["reason_code"], "created_by": "vik", "created_at": r["ts"], "row_hash": r["row_hash"]}
+         "reason_code": r["reason_code"], "created_by": "vik", "created_at": r["ts"], "row_hash": r["row_hash"],
+         "synthetic": True}
         for i, r in enumerate(fixes)
     ])
     d = root / "rebases" / str(n)
@@ -541,12 +543,15 @@ def build_asset(root: Path, n: int, blocked: bool) -> None:
     e = d / "evidence"
     vik = {"role": "validator", "decision": "validated_with_findings", "reason_code": "low_n_slices",
            "refs": [f"rebase:{n}", "audit:1402"], "at": "2026-11-01T11:05:00Z", "audit_seq": 1402, "pack_version": 1}
-    approvals = {} if blocked else {"vik": vik}
-    history = [] if blocked else [{"rebase": n, "actor": "vik", **vik}]
+    # sign-off chain: dana (developer) requested, vik validated pack 1, ana (approver) approved pack 2
+    ana = {"role": "approver", "decision": "approved", "reason_code": "findings_noted",
+           "refs": [f"rebase:{n}", "audit:1402"], "at": "2026-11-01T11:05:30Z", "audit_seq": 1405, "pack_version": 2}
+    approvals = {} if blocked else {"vik": vik, "ana": ana}
+    history = [] if blocked else [{"rebase": n, "actor": "vik", **vik}, {"rebase": n, "actor": "ana", **ana}]
     write_json(e / "approvals.json", {
-        "spec": SPEC, "rebase": n, "status": "blocked" if blocked else "awaiting_signoff",
-        "status_text": "blocked by the gate: no sign-off" if blocked else "awaiting MRM sign-off",
-        "required": ["validator", "approver"], "pack_version": 1 if blocked else 2, "approvals": approvals, "history": history,
+        "spec": SPEC, "rebase": n, "status": "blocked" if blocked else "approved",
+        "status_text": "blocked by the gate: no sign-off" if blocked else "approved: MRM sign-off complete",
+        "required": ["validator", "approver"], "pack_version": 1 if blocked else 3, "approvals": approvals, "history": history,
         "synthetic": True,
     })
     entries = sorted([f"{rel}/evidence/approvals.json", f"{rel}/MANIFEST.sha256"])

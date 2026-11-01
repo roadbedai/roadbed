@@ -313,6 +313,35 @@
               }
             }
           }
+        },
+        {
+          "if": {
+            "not": {
+              "properties": {
+                "job": {
+                  "properties": {
+                    "kind": {
+                      "const": "bench"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "snapshot": {
+                "type": "object"
+              },
+              "holdout": {
+                "type": "object"
+              }
+            },
+            "required": [
+              "snapshot",
+              "holdout"
+            ]
+          }
         }
       ],
       "properties": {
@@ -344,12 +373,28 @@
           "description": "Recipe path and file hash."
         },
         "snapshot": {
-          "$ref": "#/$defs/DatasetRef",
-          "description": "Training snapshot id and Merkle root."
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DatasetRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Training snapshot id and Merkle root. Required unless job.kind is bench."
         },
         "holdout": {
-          "$ref": "#/$defs/HoldoutSealRef",
-          "description": "Sealed holdout: id, Merkle root, seal seq, sealed_at and seal commit."
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HoldoutSealRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Sealed holdout: id, Merkle root, seal seq, sealed_at and seal commit. Required unless job.kind is bench."
         },
         "image_digest": {
           "description": "OCI image digest, sha256:<hex>.",
@@ -427,8 +472,6 @@
         "model",
         "base",
         "recipe",
-        "snapshot",
-        "holdout",
         "image_digest",
         "uv_lock_sha256",
         "gpu",

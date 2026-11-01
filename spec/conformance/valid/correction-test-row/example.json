@@ -19,5 +19,6 @@
   "reason_code": "route_wrong",
   "created_by": "vik",
   "created_at": "2026-10-02T08:00:00Z",
-  "row_hash": "a240a6a548ee033db2f880804e45791a6f304dcd97a6a504cc9b8283fa3ba8a0"
+  "row_hash": "a240a6a548ee033db2f880804e45791a6f304dcd97a6a504cc9b8283fa3ba8a0",
+  "synthetic": true
 }

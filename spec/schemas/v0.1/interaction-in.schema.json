@@ -36,6 +36,7 @@
       "type": "string"
     },
     "input_ref": {
+      "description": "sha256:<hex> of JCS(pseudonymised input); also its bucket oid.",
       "pattern": "^sha256:[0-9a-f]{64}$",
       "title": "Input Ref",
       "type": "string"

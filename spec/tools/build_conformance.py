@@ -64,8 +64,41 @@ def _job(receipt: dict[str, Any]) -> dict[str, Any]:
             "outputs": ["adapter", "receipt"],
         },
         "storage": {"endpoint": "http://minio:9000", "bucket": "acme-claims", "credentials": "runner-bucket-rw"},
-        "cost_cap_eur": 25.0, "created_at": TS, "requested_by": "dana",
+        "cost_cap_eur": 25.0, "created_at": TS, "requested_by": "dana", "receipt_path": "rebases/13/receipt.json",
     }
+
+
+def _eval_job(receipt: dict[str, Any]) -> dict[str, Any]:
+    """The eval job of rebase 13: holdout rows by oid (runner exemption), plus the snapshot the receipt copies."""
+    job = _job(receipt)
+    p, train = receipt["predicate"], job["spec"]
+    rows = (PASS / "data/holdout/H-2026-11-01/holdout.jsonl").read_bytes()
+    out_schema = (PASS / "evals/output.schema.json").read_bytes()
+    job["id"], job["spec"] = "job-rebase-13-eval-candidate", {
+        "kind": "eval", "base": p["base"], "recipe": p["recipe"], "adapter": {"oid": p_adapter(receipt), "size": 66060288},
+        "role": "candidate",
+        "holdout": {**train["holdout"], "file": {"oid": hashlib.sha256(rows).hexdigest(), "size": len(rows)}},
+        "snapshot": p["snapshot"],
+        "output_schema": {"oid": hashlib.sha256(out_schema).hexdigest(), "size": len(out_schema)},
+        "max_tokens": 64, "temperature": 0.0, "outputs": ["predictions", "receipt"],
+    }
+    return job
+
+
+def _bench_job(receipt: dict[str, Any]) -> dict[str, Any]:
+    """The bench job of rebase 13: no holdout rows; snapshot and sealed holdout refs only, for the receipt."""
+    job = _job(receipt)
+    p = receipt["predicate"]
+    job["id"], job["spec"] = "job-rebase-13-bench", {
+        "kind": "bench", "base": p["base"], "recipe": p["recipe"], "adapter": {"oid": p_adapter(receipt), "size": 66060288},
+        "prompts": {"oid": H, "size": 512000}, "count": 500, "concurrency": 32, "max_tokens": 64,
+        "price_per_hour_eur": 2.5, "snapshot": p["snapshot"], "holdout": p["holdout"], "outputs": ["bench", "receipt"],
+    }
+    return job
+
+
+def p_adapter(receipt: dict[str, Any]) -> str:
+    return str(receipt["subject"][0]["digest"]["sha256"])
 
 
 def valid_cases() -> dict[str, Any]:
@@ -112,7 +145,8 @@ def valid_cases() -> dict[str, Any]:
         "job-status": {"job_id": "job-rebase-13-train", "state": "running", "progress": 0.4,
                        "message": "epoch 2 of 3", "updated_at": TS, "lease_id": "lease-7f3a", "attempt": 1},
         "job-lease": {"job": _job(receipt), "lease_id": "lease-7f3a", "attempt": 1, "max_attempts": 3,
-                      "lease_until": "2026-11-01T10:25:00Z"},
+                      "lease_until": "2026-11-01T10:25:00Z", "audit_seq": receipt["predicate"]["audit_seq"],
+                      "prev_receipt": receipt["predicate"]["prev_receipt"]},
         "lease-state": {"lease_until": "2026-11-01T10:30:00Z", "cancel_requested": False},
         "heartbeat": {"lease_id": "lease-7f3a", "attempt": 1},
         "job-result": {
@@ -138,13 +172,31 @@ def valid_cases() -> dict[str, Any]:
             "synthetic": True,
         },
         "verdict-in": {"verdict_id": "vd-7f3a-0001", "interaction_id": "int-7f3a-0001", "action": "fix", "verdict": {"route": "standard", "severity": 3},
-                       "reason_code": "severity_low", "ts": TS},
+                       "reason_code": "severity_low", "ts": TS, "synthetic": True},
         "outcome-in": {"outcome_id": "oc-7f3a-0001", "interaction_id": "int-7f3a-0001", "outcome": {"paid": True, "litigated": False},
-                       "source": "system_of_record", "observed_at": "2026-12-01T00:00:00Z"},
+                       "source": "system_of_record", "observed_at": "2026-12-01T00:00:00Z", "synthetic": True},
     }
 
 
 Mut = Callable[[dict[str, Any]], None]
+
+
+def extra_valid_cases() -> dict[str, list[tuple[str, Any, str]]]:
+    """More valid cases per schema: (case, instance, what it shows). W01b additions."""
+    receipt = _json("rebases/13/receipt.json")
+    bench = copy.deepcopy(receipt)
+    bench["predicate"]["job"] = {"id": "job-rebase-13-bench", "kind": "bench"}
+    del bench["predicate"]["snapshot"], bench["predicate"]["holdout"]
+    first = _json("versions/v12/receipt.json")
+    return {
+        "executor-job": [("eval-with-snapshot", _eval_job(receipt), "an eval job carries the snapshot ref its receipt copies"),
+                         ("bench-with-refs", _bench_job(receipt), "a bench job may carry snapshot and sealed holdout refs")],
+        "receipt": [("bench-without-data", bench, "a bench receipt may leave out snapshot and holdout")],
+        "job-lease": [("first-receipt", {"job": {**_job(first), "receipt_path": "versions/v12/receipt.json"},
+                                         "lease_id": "lease-0001", "attempt": 1, "max_attempts": 3,
+                                         "lease_until": "2026-10-20T08:05:00Z", "audit_seq": 900, "prev_receipt": None},
+                       "the first receipt of an asset has prev_receipt null")],
+    }
 
 
 def _del(*path: str) -> Mut:
@@ -170,11 +222,14 @@ def _set(value: Any, *path: str | int) -> Mut:
     return f
 
 
+SYN_STR = ("synthetic-not-bool", _set("maybe", "synthetic"), "synthetic is a boolean (W01b)")
+
+
 # schema -> [(case, mutation, expected failure)]
 INVALID: dict[str, list[tuple[str, Mut, str]]] = {
     "roadbed": [("revision-branch-name", _set({"repo": "Qwen/Qwen3.8-4B", "revision": "main"}, "base"),
                  "base.revision must be 40 hex characters or 'unpinned'")],
-    "holdout-row": [("input-ref-no-prefix", _set(H, "input_ref"), "input_ref must be sha256:<64 hex>")],
+    "holdout-row": [("input-ref-no-prefix", _set(H, "input_ref"), "input_ref must be sha256:<64 hex>"), SYN_STR],
     "prediction-row": [("missing-output", _del("output"), "output is required")],
     "scorers": [("zero-weight", _set([{"field": "route", "weight": 0}], "fields"), "weight must be > 0")],
     "slices": [("missing-keys", _del("keys"), "keys is required")],
@@ -192,7 +247,7 @@ INVALID: dict[str, list[tuple[str, Mut, str]]] = {
     "snapshot-row": [("ts-milliseconds", _set("2026-10-02T09:01:00.120Z", "ts"),
                       "timestamps are YYYY-MM-DDTHH:MM:SSZ: no fraction (hashed fields keep stored bytes)"),
                      ("ts-offset", _set("2026-10-02T09:01:00+00:00", "ts"), "timestamps end in Z, not an offset"),
-                     ("missing-row-hash", _del("row_hash"), "row_hash is required on snapshot rows")],
+                     ("missing-row-hash", _del("row_hash"), "row_hash is required on snapshot rows"), SYN_STR],
     "seal": [("bad-id", _set("holdout-2026", "id"), "holdout ids are H-..."),
              ("probe-w01-fields-partial", _all(_del("merkle_root"), _del("minhash_oid")),
               "merkle_root, minhash_oid, snapshot and stratification come together (verifier probe)"),
@@ -202,8 +257,8 @@ INVALID: dict[str, list[tuple[str, Mut, str]]] = {
              ("short-commit", _set("5e41c0a", "seal_commit"), "seal_commit must be a 40-hex commit")],
     "tombstone-row": [("raw-email-subject", _set("jane@example.com", "subject_token"),
                        "subject_token must be an HMAC token tok_<hex>, never a raw identifier")],
-    "golden-row": [("extra-field", _set("free text", "narrative"), "unknown fields are rejected")],
-    "correction-test-row": [("bad-id", _set("CT-97", "id"), "id must match CT-NNNN")],
+    "golden-row": [("extra-field", _set("free text", "narrative"), "unknown fields are rejected"), SYN_STR],
+    "correction-test-row": [("bad-id", _set("CT-97", "id"), "id must match CT-NNNN"), SYN_STR],
     "recipe": [("full-finetune", _set("full", "method"), "method must be lora or qlora")],
     "model-version": [("version-name", _set("latest", "version"), "version must match vN")],
     "receipt": [("probe-mock-with-gpu-and-cost", _all(
@@ -217,7 +272,12 @@ INVALID: dict[str, list[tuple[str, Mut, str]]] = {
                 ("wrong-predicate-type", _set("https://slsa.dev/provenance/v1", "predicateType"),
                  "predicateType must be https://roadbed.dev/run/v1"),
                 ("unknown-executor", _set({"name": "laptop", "version": "1"}, "predicate", "executor"),
-                 "executor.name must be runner, mock, replay, hf-jobs or together")],
+                 "executor.name must be runner, mock, replay, hf-jobs or together"),
+                ("rebase-without-snapshot", _del("predicate", "snapshot"),
+                 "only a bench receipt may leave out snapshot (W01b)"),
+                ("eval-without-holdout", _all(_set({"id": "job-rebase-13-eval", "kind": "eval"}, "predicate", "job"),
+                                              _del("predicate", "holdout")),
+                 "an eval receipt names its sealed holdout (W01b)")],
     "signature": [("rsa", _set("rsa", "alg"), "alg must be ed25519")],
     "rebase": [("unknown-state", _set("merged", "state"), "state must be a rebase state of the orchestrator")],
     "contamination": [
@@ -275,8 +335,15 @@ INVALID: dict[str, list[tuple[str, Mut, str]]] = {
                      ("no-parts", _set([], "spec", "snapshot", "parts"), "the runner needs the snapshot part oids"),
                      ("no-storage", _del("storage"), "the job names its bucket"),
                      ("secret-in-credentials", _set("AKIA/secret+key=", "storage", "credentials"),
-                      "credentials is the name of a credential, never the secret")],
-    "job-lease": [("no-attempt", _del("attempt"), "a lease names its attempt")],
+                      "credentials is the name of a credential, never the secret"),
+                     ("receipt-path-outside", _set("rebases/13/../../policy/receipt.json", "receipt_path"),
+                      "receipt_path is versions/vN/receipt.json or rebases/N/receipt.json (W01b)"),
+                     ("receipt-path-sig", _set("rebases/13/receipt.sig", "receipt_path"),
+                      "receipt_path names the receipt, not its signature (W01b)")],
+    "job-lease": [("no-attempt", _del("attempt"), "a lease names its attempt"),
+                  ("audit-seq-zero", _set(0, "audit_seq"), "audit_seq starts at 1 (W01b)"),
+                  ("prev-receipt-prefixed", _set("sha256:" + H, "prev_receipt"),
+                   "prev_receipt is bare lowercase hex (W01b)")],
     "lease-state": [("no-cancel-flag", _del("cancel_requested"), "the runner learns about cancels here")],
     "heartbeat": [("extra-field", _set("x", "note"), "request bodies reject unknown fields")],
     "job-status": [("progress-over-one", _set(1.5, "progress"), "progress must be in [0, 1]")],
@@ -289,8 +356,8 @@ INVALID: dict[str, list[tuple[str, Mut, str]]] = {
                       "canary.weight must be in [0, 1]")],
     "interaction-in": [("no-profile", _del("profile_id"), "profile_id is required: ingest without it is a 422")],
     "verdict-in": [("fix-without-verdict", _del("verdict"), "a fix must carry verdict and reason_code"),
-                   ("unknown-action", _set("delete", "action"), "action must be approve, fix, reject or escalate")],
-    "outcome-in": [("bad-source", _set("email", "source"), "source must be system_of_record or csv")],
+                   ("unknown-action", _set("delete", "action"), "action must be approve, fix, reject or escalate"), SYN_STR],
+    "outcome-in": [("bad-source", _set("email", "source"), "source must be system_of_record or csv"), SYN_STR],
 }
 
 
@@ -312,6 +379,11 @@ def main() -> int:
             mut(bad)
             write_json(OUT / "invalid" / name / f"{case}.json", bad)
             rows.append(f"| `invalid/{name}/{case}.json` | `{name}.schema.json` | {why} |")
+    extra_rows = []
+    for name, cases in extra_valid_cases().items():
+        for case, inst, why in cases:
+            write_json(OUT / "valid" / name / f"{case}.json", inst)
+            extra_rows.append(f"| `valid/{name}/{case}.json` | `{name}.schema.json` | {why} |")
     readme = [
         "# Conformance cases",
         "",
@@ -327,6 +399,12 @@ def main() -> int:
         "| File | Schema | Expected failure |",
         "|---|---|---|",
         *rows,
+        "",
+        "More valid cases (besides `valid/<schema>/example.json`):",
+        "",
+        "| File | Schema | What it shows |",
+        "|---|---|---|",
+        *extra_rows,
         "",
     ]
     (OUT / "README.md").write_text("\n".join(readme), encoding="utf-8")

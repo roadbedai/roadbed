@@ -5,7 +5,7 @@
   "audit_seq": 640,
   "seed": 20261101,
   "rows": 60,
-  "sha256": "a20d6b1a5d5ca66a5a1ea85b337db9a62da9dd6d230484f02ca59520b5da778b",
+  "sha256": "ea8c16fc1addf901068c67027fbac57ef8b0c030df9dcb44d4d8fa070cabbb56",
   "synthetic": true,
   "stratification": {
     "keys": [

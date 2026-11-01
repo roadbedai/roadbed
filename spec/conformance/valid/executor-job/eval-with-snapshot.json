@@ -1,0 +1,65 @@
+{
+  "id": "job-rebase-13-eval-candidate",
+  "model": "claims-triage",
+  "rebase": 13,
+  "spec": {
+    "kind": "eval",
+    "base": {
+      "repo": "Qwen/Qwen3.8-4B",
+      "revision": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0"
+    },
+    "recipe": {
+      "path": "recipes/qwen3/lora-r16-sft@v4.yaml",
+      "sha256": "d6dd266cbd01cf3f7352611f36415ed9785c24e3ace9d1cb39ab994942ec9cc8"
+    },
+    "adapter": {
+      "oid": "b38f5b1fb1abc567f20938bca10fcd23484b976c7ed13d301ad7d53782a0900e",
+      "size": 66060288
+    },
+    "role": "candidate",
+    "holdout": {
+      "id": "H-2026-11-01",
+      "merkle_root": "72ec9582a0d6116e6dd8f99e2fb63a7b46ce43acc1fa7d634def2a594d21f350",
+      "rows": 60,
+      "seal_seq": 1204,
+      "sealed_at": "2026-11-01T09:02:00Z",
+      "seal_commit": "cabbfc1b70a1844d6bd6d10d20443d4df31b601d",
+      "row_hashes": {
+        "oid": "e7bf8f817eb32a594e94550479a21e0a3c5d55cbfaa3ff7c38699dfdfda11b7d",
+        "size": 3900
+      },
+      "minhash": {
+        "oid": "cc6d151b0927d136e2554dbae256893a92e9b1dad123fe50f240e8706fa06e44",
+        "size": 1
+      },
+      "file": {
+        "oid": "f5a68469607562cb6f0e153c21e76055720f5d5698e1654f2fc40472d3149bff",
+        "size": 18603
+      }
+    },
+    "snapshot": {
+      "id": "S-2026-11-01",
+      "merkle_root": "2990864b9166593013ee5f4d3a26f36b6c8e5ee2e69a3a45328d0cd8603713c2",
+      "rows": 80
+    },
+    "output_schema": {
+      "oid": "0b3225784fec422beacf4da7fa2ca2462ad56245025b98f5862e85416c19be24",
+      "size": 665
+    },
+    "max_tokens": 64,
+    "temperature": 0.0,
+    "outputs": [
+      "predictions",
+      "receipt"
+    ]
+  },
+  "storage": {
+    "endpoint": "http://minio:9000",
+    "bucket": "acme-claims",
+    "credentials": "runner-bucket-rw"
+  },
+  "cost_cap_eur": 25.0,
+  "created_at": "2026-11-01T10:20:00Z",
+  "requested_by": "dana",
+  "receipt_path": "rebases/13/receipt.json"
+}

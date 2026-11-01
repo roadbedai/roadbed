@@ -7,9 +7,9 @@
   "merkle_root": "2990864b9166593013ee5f4d3a26f36b6c8e5ee2e69a3a45328d0cd8603713c2",
   "parts": [
     {
-      "oid": "cfcba667407b0d414590a3a566bbd5f8d77c1316ac34abb20556ff38d5328bc3",
+      "oid": "0abfb0cfad6a07d06d041a615553d22cc978b06760e68896498d5732c8fc400c",
       "rows": 80,
-      "size": 32724,
+      "size": 34084,
       "path": "data/snapshots/2026-11-01/part-0000.jsonl"
     }
   ],

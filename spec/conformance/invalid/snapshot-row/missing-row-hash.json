@@ -16,5 +16,6 @@
     "line": "bodily_injury",
     "state": "CA",
     "channel": "broker"
-  }
+  },
+  "synthetic": true
 }

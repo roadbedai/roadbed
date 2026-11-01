@@ -20,7 +20,7 @@
       "type": "string"
     },
     "signed": {
-      "description": "Path of the signed file from asset root.",
+      "description": "Path of the signed file from asset root. For a run receipt, the job's receipt_path.",
       "title": "Signed",
       "type": "string"
     },

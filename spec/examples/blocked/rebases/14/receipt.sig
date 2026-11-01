@@ -4,5 +4,5 @@
   "key": "policy/keys/receipt.pub",
   "signed": "rebases/14/receipt.json",
   "payload": "jcs",
-  "sig": "BiJVC/nzARMqbRps73SwY1sA/pT1LZcE5vPW1eO6GIUERs/r4LA4csi2zORGRGGNRNHgbqI8UQEgCi9yI/urAQ=="
+  "sig": "0iNMe1wzyPzNy4fsEP3qiU5R/8T7uI18ck0N+ypnUebWjMOogS6r7Jw3Ja1yWzOtvSJfKownYKhtCtdbXimCDQ=="
 }
