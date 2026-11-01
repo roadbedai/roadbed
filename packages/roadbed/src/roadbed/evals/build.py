@@ -38,7 +38,7 @@ from pathlib import Path
 from typing import Any
 
 from roadbed.asset import AssetValidationError, ObjectStore, merkle_root, seal_holdout, shingles, validate
-from roadbed.asset.hashing import jcs_sha256, sha256_bytes
+from roadbed.asset.hashing import jcs_sha256, row_hash, sha256_bytes
 from roadbed.contracts import GatePolicy, Slices
 from roadbed.evals.split import draw, max_share_gap
 from roadbed.labels.rules import LABEL_RULES_V1, LabelRules, check_pinned
@@ -288,12 +288,20 @@ def build(
     if len({r["interaction_id"] for r in live}) != len(live):
         raise ValueError("resolved rows repeat an interaction_id")
     for r in live:
+        extra = set(r["slices"]) - set(declared)
+        if extra:  # an undeclared key could carry anything (an email, a name) into every output file
+            raise ValueError(f"{r['interaction_id']}: {len(extra)} slice key(s) not declared in slices.yaml")
         for k, vals in declared.items():
             if r["slices"].get(k) not in vals:
-                raise ValueError(f"{r['interaction_id']}: slice {k}={r['slices'].get(k)!r} is not declared in slices.yaml")
+                raise ValueError(f"{r['interaction_id']}: slice {k} has a value not declared in slices.yaml")
     if not live:
         raise ValueError("no resolved rows to build from")
     synthetic = bool(_one((r["synthetic"] for r in live), "synthetic flag (do not mix synthetic and real rows)"))
+    if not synthetic:  # a stream that lost its flag must not be labelled real
+        syn = [r["interaction_id"] for r in live
+               if any(str(r.get(k) or "").startswith("syn-") for k in ("interaction_id", "verdict_id", "outcome_id"))]
+        if syn:
+            raise ValueError(f"{len(syn)} rows have syn- ids but synthetic is not true (first {syn[0]}): refusing to label them real")
     profile = _one(((r["profile_id"], r["hmac_key_id"]) for r in live), "pseudonymisation profile and HMAC key")
 
     texts = _Texts(policy.shingle)
@@ -309,10 +317,15 @@ def build(
     s_hashes = {r["row_hash"] for r in sealed if r.get("row_hash")}
     by_iid = {r["interaction_id"]: r for r in live}
     sealed_side = [{"interaction_id": r["id"], "input_ref": r["input_ref"], "row_hash": r.get("row_hash") or ""} for r in sealed]
+    ref_text = {r["input_ref"]: r["input_text"] for r in live}
     for r in sealed_side:
+        # The sealed row's text is the text of any live row with its input_ref (same id or not). A live row with the
+        # sealed id but another input does not give the sealed row its text.
         src = by_iid.get(r["interaction_id"])
-        if src is not None and src["input_ref"] == r["input_ref"]:
-            texts.add(r["interaction_id"], src["input_text"])
+        if src is not None and src["input_ref"] != r["input_ref"]:
+            texts.sets.pop(r["interaction_id"], None)
+        if r["input_ref"] in ref_text:
+            texts.add(r["interaction_id"], ref_text[r["input_ref"]])
     out_by_seal = {r["interaction_id"] for r in live
                    if r["interaction_id"] in s_ids or r["input_ref"] in s_refs or r["row_hash"] in s_hashes}
     live = [r for r in live if r["interaction_id"] not in out_by_seal]
@@ -473,11 +486,25 @@ def _parts(rows: Sequence[Mapping[str, Any]], limit: int, snap_id: str) -> list[
 # ---------------------------------------------------------------- files
 
 
+def _check_one_flag(root: Path, snapshots_dir: str, synthetic: bool) -> None:
+    """One asset, one synthetic flag: refuse a real build into a synthetic asset and the other way round."""
+    base = root / snapshots_dir
+    flags = {bool(json.loads(m.read_text(encoding="utf-8")).get("synthetic"))
+             for m in (sorted(base.glob("*/MANIFEST.json")) if base.is_dir() else [])}
+    if (root / "evals" / "SYNTHETIC.md").exists():
+        flags.add(True)
+    if flags - {synthetic}:
+        have = "synthetic" if True in flags else "real"
+        raise ValueError(f"the asset already holds {have} snapshots or evals; a {'synthetic' if synthetic else 'real'} "
+                         "build cannot go into it (one asset, one synthetic flag)")
+
+
 def _write(b: EvalBuild, root: Path, snapshots_dir: str, store: ObjectStore | None) -> list[str]:
     snap_rel = f"{snapshots_dir.strip('/')}/{b.snapshot.id[2:]}"
     d = root / snap_rel
     if d.exists():
         raise FileExistsError(f"{snap_rel} exists: a snapshot is frozen, build a new one (suffix) instead")
+    _check_one_flag(root, snapshots_dir, bool(b.report["synthetic"]))
     d.mkdir(parents=True)
     written = []
     manifest = dict(b.snapshot.manifest)
@@ -505,12 +532,15 @@ def _write(b: EvalBuild, root: Path, snapshots_dir: str, store: ObjectStore | No
 
 
 def read_snapshots(root: str | Path, snapshots_dir: str = "data/snapshots", store: ObjectStore | None = None) -> list[dict[str, Any]]:
-    """Rows of every snapshot under root (each part re-hashed against its oid). A part that is neither in git nor
-    in the store raises ValueError: the build must know every row a model may have trained on."""
+    """Rows of every snapshot under root. Each part is re-hashed against its oid, each row against its row_hash, and
+    the Merkle root and row count against the manifest, so an edited part cannot hide rows a model trained on.
+    A part that is neither in git nor in the store raises ValueError: the build must know every row a model may have
+    trained on."""
     rows: list[dict[str, Any]] = []
     base = Path(root) / snapshots_dir
     for m in sorted(base.glob("*/MANIFEST.json")) if base.is_dir() else []:
         man = json.loads(m.read_text(encoding="utf-8"))
+        snap: list[dict[str, Any]] = []
         for part in man["parts"]:
             p = Path(root) / part["path"] if part.get("path") else None
             if p is not None and p.is_file():
@@ -521,7 +551,12 @@ def read_snapshots(root: str | Path, snapshots_dir: str = "data/snapshots", stor
                 raise ValueError(f"{man['id']}: part {part['oid'][:12]} is neither in the asset nor in the bucket (--objects)")
             if sha256_bytes(data) != part["oid"]:
                 raise ValueError(f"{man['id']}: part {part['oid'][:12]} does not match its oid")
-            rows += [json.loads(x) for x in data.decode("utf-8").splitlines() if x.strip()]
+            snap += [json.loads(x) for x in data.decode("utf-8").splitlines() if x.strip()]
+        if any(row_hash(r) != r.get("row_hash") for r in snap):
+            raise ValueError(f"{man['id']}: a row does not match its row_hash")
+        if len(snap) != man.get("rows") or merkle_root(r["row_hash"] for r in snap) != man.get("merkle_root"):
+            raise ValueError(f"{man['id']}: rows do not match the manifest Merkle root or row count")
+        rows += snap
     return rows
 
 
