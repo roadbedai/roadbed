@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import click
 import pytest
+import typer
 from typer.testing import CliRunner
 
 from roadbed.cli import output, remote
@@ -16,9 +18,13 @@ COMMANDS = [["init"], ["seal"], ["watch"], ["rebase"], ["status"], ["verify"], [
 
 @pytest.mark.parametrize("cmd", COMMANDS, ids=" ".join)
 def test_every_command_has_json(cmd: list[str]):
-    r = cli.invoke(app, [*cmd, "--help"])
-    assert r.exit_code == 0, r.output
-    assert "--json" in r.output
+    """Read the click command tree, not the help text (rich colours the help in CI)."""
+    node: click.Command = typer.main.get_command(app)
+    for name in cmd:
+        assert isinstance(node, click.Group)
+        node = node.commands[name]
+    assert any("--json" in p.opts for p in node.params), cmd
+    assert cli.invoke(app, [*cmd, "--help"]).exit_code == 0
 
 
 def test_exit_codes():
