@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import json
+import logging
 import time
 from pathlib import Path
 
 import httpx
 import openai
+import pytest
 import respx
 
 import roadbed_sdk
@@ -52,6 +55,54 @@ def test_outage_then_replay_loses_nothing(mock: respx.MockRouter, ingest: FakeIn
     assert set(ingest.verdicts) == set(vids)
     assert set(ingest.outcomes) == set(oids)
     assert all(v == 0 for v in counts.values())
+    roadbed_sdk.shutdown()
+
+
+def test_a_non_finite_row_loses_only_itself(mock: respx.MockRouter, ingest: FakeIngest, oai: openai.OpenAI, spool_path: Path,
+                                           caplog: pytest.LogCaptureFixture) -> None:
+    # A row with NaN (from an older SDK, or any path that skipped the checks) must not stall the rows behind it.
+    rec = _init(spool_path)
+    poison = {"interaction_id": "ix_poison", "model": "m", "version": "v", "ts": "2026-11-01T10:00:00Z", "input_ref": "sha256:" + "0" * 64,
+              "input": {}, "output": {"score": float("nan")}, "profile_id": "p@v1", "hmac_key_id": "hk_0123456789abcdef"}
+    assert rec.spool.put("interaction", "ix_poison", json.dumps(poison))
+    ingest.down = True
+    ids = _calls(mock, oai, 3)
+    assert roadbed_sdk.verdict(ids[0], "approve", {"score": float("nan")}) is not None  # mapped to null, recorded
+    counts = roadbed_sdk.flush()  # the bad row is refused at encoding, before the network: even during the outage
+    assert (counts["interaction"], counts["interaction_rejected"]) == (3, 1)
+    ingest.down = False
+    counts = roadbed_sdk.flush()
+    assert set(ingest.interactions) == set(ids)
+    assert len(ingest.verdicts) == 1
+    assert (counts["interaction"], counts["interaction_rejected"]) == (0, 1)
+    assert "ix_poison" in caplog.text and "not_json" in caplog.text
+    roadbed_sdk.shutdown()
+
+
+def test_spooling_refuses_non_finite_numbers(spool_path: Path) -> None:
+    rec = _init(spool_path)
+    from roadbed.contracts import OutcomeIn
+    with pytest.raises(ValueError):
+        rec._spool("outcome", OutcomeIn, {"outcome_id": "oc_1", "interaction_id": "ix_1", "outcome": {"x": float("inf")},
+                                          "source": "csv", "observed_at": "2026-11-01T10:00:00Z"})
+    assert rec.spool.counts()["outcome"] == 0
+    roadbed_sdk.shutdown()
+
+
+def test_a_first_attempt_duplicate_is_logged(mock: respx.MockRouter, ingest: FakeIngest, oai: openai.OpenAI, spool_path: Path,
+                                             caplog: pytest.LogCaptureFixture) -> None:
+    # The id was acked and deleted from the spool earlier; the host reuses it. The server keeps the first body.
+    _init(spool_path)
+    mock.post(f"{GATEWAY}/chat/completions").mock(return_value=httpx.Response(200, json=chat_completion(TRIAGE)))
+    client = roadbed_sdk.wrap_openai(oai)
+    with roadbed_sdk.capture(interaction_id="ix_reused_1"):
+        client.chat.completions.create(model="m", messages=MSG)
+    roadbed_sdk.flush()
+    caplog.set_level(logging.WARNING, logger="roadbed_sdk")
+    with roadbed_sdk.capture(interaction_id="ix_reused_1"):
+        client.chat.completions.create(model="m", messages=MSG)
+    assert roadbed_sdk.flush()["interaction"] == 0
+    assert "interaction ix_reused_1 was already on the server" in caplog.text
     roadbed_sdk.shutdown()
 
 

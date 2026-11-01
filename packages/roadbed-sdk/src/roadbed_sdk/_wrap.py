@@ -70,8 +70,9 @@ def _anthropic_extract(kwargs: dict[str, Any], resp: Any) -> tuple[dict[str, Any
 
 
 def _with_header(kwargs: dict[str, Any], interaction_id: str) -> dict[str, Any]:
-    headers = dict(kwargs.get("extra_headers") or {})
-    headers.setdefault(HDR_INTERACTION, interaction_id)
+    # The checked id replaces a host-set header in any case: an unchecked id must not reach the gateway (it logs it).
+    headers = {k: v for k, v in dict(kwargs.get("extra_headers") or {}).items() if str(k).lower() != HDR_INTERACTION}
+    headers[HDR_INTERACTION] = interaction_id
     return {**kwargs, "extra_headers": headers}
 
 

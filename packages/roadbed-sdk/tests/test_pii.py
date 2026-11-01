@@ -13,7 +13,7 @@ import respx
 
 import roadbed_sdk
 from conftest import API, GATEWAY, TEST_KEY, FakeIngest, chat_completion, spool_bytes
-from roadbed_sdk._pseudo import Pseudonymiser, Session
+from roadbed_sdk._pseudo import Pseudonymiser, Session, normalise_pii
 
 NAME, EMAIL, PHONE, IBAN = "Jane Doe", "jane.doe@example.com", "+358 40 123 4567", "FI21 1234 5600 0007 85"
 UNLISTED = "Mikko Virtanen"  # a name the host did not list: free text must still not carry it
@@ -123,21 +123,79 @@ def test_ids_with_personal_data_are_not_used(mock: respx.MockRouter, ingest: Fak
                                             caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level(logging.DEBUG, logger="roadbed_sdk")
     roadbed_sdk.init(API, "test-token", TEST_KEY, "p@v1", spool_path=spool_path, background=False)
-    mock.post(f"{GATEWAY}/chat/completions").mock(return_value=httpx.Response(200, json=chat_completion("{}")))
+    gw = mock.post(f"{GATEWAY}/chat/completions").mock(return_value=httpx.Response(200, json=chat_completion("{}")))
     client = roadbed_sdk.wrap_openai(oai)
     with roadbed_sdk.capture(interaction_id=f"ix_{EMAIL}") as cap:
         client.chat.completions.create(model="m", messages=[{"role": "user", "content": "hi"}])
     assert cap.interaction_id and cap.interaction_id.startswith("ix_") and EMAIL not in cap.interaction_id
+    # The id is checked before it leaves: the gateway (which logs it) gets the generated id, not the host's.
+    assert gw.calls.last.request.headers["x-roadbed-interaction-id"] == cap.interaction_id
+    # A host-set header (any case) is replaced by the checked id.
+    with roadbed_sdk.capture() as cap2:
+        client.chat.completions.create(model="m", messages=[{"role": "user", "content": "hi"}],
+                                       extra_headers={"X-Roadbed-Interaction-Id": f"ix_{EMAIL}"})
+    assert gw.calls.last.request.headers.get_list("x-roadbed-interaction-id") == [cap2.interaction_id]
+    gateway_headers = b"".join(str(c.request.headers).encode() for c in gw.calls)
     assert roadbed_sdk.verdict("ix_1", "approve", verdict_id=f"vd {NAME}") is None
     assert roadbed_sdk.outcome(f"ix_{SSN}", {"a": 1}) is None
     roadbed_sdk.flush()
+    assert _leaks(spool_bytes(spool_path) + b"".join(ingest.raw_bodies) + caplog.text.encode() + gateway_headers) == []
+    roadbed_sdk.shutdown()
+
+
+def test_model_strings_with_personal_data_become_unknown(mock: respx.MockRouter, ingest: FakeIngest, oai: openai.OpenAI,
+                                                         spool_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level(logging.DEBUG, logger="roadbed_sdk")
+    roadbed_sdk.init(API, "test-token", TEST_KEY, "p@v1", spool_path=spool_path, background=False)
+    mock.post(f"{GATEWAY}/chat/completions").mock(return_value=httpx.Response(
+        200, json=chat_completion("{}", model=f"m-{EMAIL}"), headers={"x-roadbed-model-version": f"v-{PHONE}"}))
+    client = roadbed_sdk.wrap_openai(oai)
+    with roadbed_sdk.capture(model=f"triage-{EMAIL}"):
+        client.chat.completions.create(model=f"alias-{EMAIL}", messages=[{"role": "user", "content": "hi"}])
+    roadbed_sdk.flush()
+    [body] = ingest.interactions.values()
+    assert (body["model"], body["alias"], body["version"]) == ("unknown", "unknown", "unknown")
+    assert "model string refused" in caplog.text
     assert _leaks(spool_bytes(spool_path) + b"".join(ingest.raw_bodies) + caplog.text.encode()) == []
     roadbed_sdk.shutdown()
+
+
+@pytest.mark.parametrize("name", ["claims-triage-v12", "gpt-4o-2024-08-06", "claude-sonnet-4-20250514", "m", "v12"])
+def test_real_model_names_are_kept(name: str) -> None:
+    assert Pseudonymiser(TEST_KEY).safe_model(name, [])
 
 
 def test_capitalised_keys_are_tokenised() -> None:
     out = Pseudonymiser(TEST_KEY).value({"Virtanen": 1, "claimNumber": 2, "final_severity": 3}, Session(), [])
     assert set(out) - {"claimNumber", "final_severity"} and "Virtanen" not in out
+
+
+def test_known_values_match_number_spellings_and_key_spellings() -> None:
+    p = Pseudonymiser(TEST_KEY)
+    out = p.value({"claim": 123456, "ref": 7.5}, Session(), normalise_pii({"123456.0": "CLAIM_NUMBER", "7.50": "CLAIM_NUMBER"}))
+    assert out == {"claim": "<CLAIM_NUMBER_1>", "ref": "<CLAIM_NUMBER_2>"}
+    out = p.value({"jane_doe": 1, "Jane-Doe": 2, "janeDoe": 3, "claim_status": 4}, Session(), normalise_pii(["Jane Doe"]))
+    assert set(out) - {"claim_status"} and not any("jane" in k.lower() for k in out)
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
+def test_non_finite_numbers_become_null(bad: float) -> None:
+    assert Pseudonymiser(TEST_KEY).value({"x": bad, "y": [bad]}, Session(), []) == {"x": None, "y": [None]}
+
+
+def test_capture_synthetic_without_init_synthetic_warns_once(mock: respx.MockRouter, ingest: FakeIngest, oai: openai.OpenAI,
+                                                             spool_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    roadbed_sdk.init(API, "test-token", TEST_KEY, "p@v1", spool_path=spool_path, background=False)
+    mock.post(f"{GATEWAY}/chat/completions").mock(return_value=httpx.Response(200, json=chat_completion("{}")))
+    client = roadbed_sdk.wrap_openai(oai)
+    for _ in range(2):
+        with roadbed_sdk.capture(synthetic=True):
+            client.chat.completions.create(model="m", messages=[{"role": "user", "content": "hi"}])
+    client.chat.completions.create(model="m", messages=[{"role": "user", "content": "hi"}])
+    roadbed_sdk.flush()
+    assert sorted(str(b.get("synthetic")) for b in ingest.interactions.values()) == ["None", "True", "True"]
+    assert caplog.text.count("synthetic=True in a capture") == 1
+    roadbed_sdk.shutdown()
 
 
 def test_synthetic_flag_is_sticky(mock: respx.MockRouter, ingest: FakeIngest, oai: openai.OpenAI, spool_path: Path) -> None:

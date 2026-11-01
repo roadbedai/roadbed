@@ -28,9 +28,11 @@ _LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
 @dataclass
 class WriteResult:
     """Per-id outcome of one write. accepted: stored or duplicate (leave the spool). retry: keep and resend later.
-    rejected: refused for good (kept in the spool, out of the send loop), with a reason code."""
+    rejected: refused for good (kept in the spool, out of the send loop), with a reason code.
+    duplicates: the accepted ids the server already had."""
 
     accepted: list[str] = field(default_factory=list)
+    duplicates: list[str] = field(default_factory=list)
     retry: list[str] = field(default_factory=list)
     rejected: dict[str, str] = field(default_factory=dict)
 
@@ -103,6 +105,7 @@ class HttpSink:
         return res
 
     def _post(self, path: str, body: dict[str, Any]) -> httpx.Response | None:
+        """None on a network error. A body JSON cannot encode (NaN, inf) raises ValueError before anything is sent."""
         try:
             return self._client.post(path, json=body)
         except httpx.HTTPError as e:
@@ -111,13 +114,22 @@ class HttpSink:
 
     def _batch(self, items: list[dict[str, Any]], res: WriteResult) -> None:
         ids = [str(it["interaction_id"]) for it in items]
-        r = self._post("/v1/interactions:batch", {"items": items})
+        try:
+            r = self._post("/v1/interactions:batch", {"items": items})
+        except ValueError:
+            # One body cannot be encoded: send one by one, so only that item is refused and the rest flow.
+            for it in items:
+                self._one("interaction", it, res)
+            return
         if r is not None and r.status_code == 202:
             try:
-                acked = {str(a["interaction_id"]) for a in r.json()["items"]}
-            except (ValueError, KeyError, TypeError):
-                acked = set()
+                acks = r.json()["items"]
+                acked = {str(a["interaction_id"]) for a in acks}
+                dups = {str(a["interaction_id"]) for a in acks if a.get("duplicate") is True}
+            except (ValueError, KeyError, TypeError, AttributeError):
+                acked, dups = set(), set()
             res.accepted += [i for i in ids if i in acked]
+            res.duplicates += [i for i in ids if i in dups]
             res.retry += [i for i in ids if i not in acked]
             return
         if r is not None and r.status_code == 422:
@@ -130,9 +142,19 @@ class HttpSink:
 
     def _one(self, kind: Kind, item: dict[str, Any], res: WriteResult) -> None:
         item_id = str(item[ID_FIELD[kind]])
-        r = self._post(_PATH[kind], item)
+        try:
+            r = self._post(_PATH[kind], item)
+        except ValueError:
+            res.rejected[item_id] = "not_json"
+            log.error("roadbed_sdk: refused %s %s: not_json (a NaN or infinite number)", kind, item_id)
+            return
         if r is not None and r.status_code == 202:
             res.accepted.append(item_id)
+            try:
+                if r.json().get("duplicate") is True:
+                    res.duplicates.append(item_id)
+            except (ValueError, AttributeError):
+                pass
         elif r is not None and r.status_code == 422:
             res.rejected[item_id] = "http_422"
             log.error("roadbed_sdk: server refused %s %s (422)", kind, item_id)

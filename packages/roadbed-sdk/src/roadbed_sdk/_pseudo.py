@@ -9,10 +9,13 @@ Rules (applied to every string leaf of an input, output, verdict or outcome):
    - "redact": a named-entity redactor (Presidio, the `[redact]` extra) replaces the entities it finds.
 4. A string under a key in `keep` (labels such as `route`) and a slice label keep their value after rules 1 and 2 only
    if it looks like a lowercase label (a-z, 0-9, _ . : / + = -, at most 64 characters). Anything else is tokenised.
-5. A number equal to a host-named value (rule 1) becomes its placeholder. Otherwise a number with 7 or more integer
-   digits (phone or account numbers) is tokenised unless its key is in `keep`.
-6. A dict key that is not a field name (snake_case or camelCase, starting lowercase) is tokenised.
+5. A number equal to a host-named value (rule 1) becomes its placeholder; "123456", "123456.0" and 123456 all match.
+   Otherwise a number with 7 or more integer digits (phone or account numbers) is tokenised unless its key is in `keep`.
+   NaN and infinity become null (JSON has no spelling for them).
+6. A dict key that is not a field name (snake_case or camelCase, starting lowercase) is tokenised. So is a key that
+   holds a host-named value once case and the separators " ._-" are ignored ("jane_doe" for "Jane Doe").
 7. Ids from the host or the gateway must be plain ids without pattern entities, or they are not used.
+8. Model, alias and version strings follow rule 7, but a date in them is allowed ("gpt-4o-2024-08-06").
 
 Tokens are HMAC-SHA256 with the tenant key. Only the key id is recorded; the key never leaves the process.
 """
@@ -21,6 +24,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import math
 import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
@@ -37,6 +41,11 @@ _FIELD = re.compile(r"^[a-z_][A-Za-z0-9_.-]{0,63}$")
 _ID = re.compile(r"^[A-Za-z0-9_.:-]{1,128}$")
 _PLACEHOLDER = re.compile(r"^<[A-Z_]+_\d+>$")
 _BIG_NUMBER = 1_000_000
+_INT = re.compile(r"^[+-]?\d+$")
+_DECIMAL = re.compile(r"^[+-]?\d+\.\d+$")
+_KEY_SEP = re.compile(r"[ ._-]")
+# A release date inside a model name: 2024-08-06 or 20250514.
+_MODEL_DATE = re.compile(r"(?<!\d)(?:19|20)\d{2}(-?)(?:0[1-9]|1[0-2])\1(?:0[1-9]|[12]\d|3[01])(?!\d)")
 
 # Order matters: longer, more specific patterns first. Kinds use Presidio entity names.
 _L, _R = r"(?<![A-Za-z0-9])", r"(?![A-Za-z0-9])"  # like \b, but an underscore does not hide an entity ("ix_123-45-6789")
@@ -108,9 +117,22 @@ def normalise_pii(pii: Mapping[str, str] | Iterable[str] | None) -> list[tuple[s
     out = []
     for value, kind in pairs:
         value = str(value).strip()
-        if len(value) >= 2:
-            out.append((value, re.sub(r"[^A-Z_]", "_", str(kind).upper()) or "PERSON"))
+        kind = re.sub(r"[^A-Z_]", "_", str(kind).upper()) or "PERSON"
+        # Numbers have more than one spelling: "123456.0" must also match 123456, and "7.50" must match 7.5.
+        spellings = {value}
+        if _INT.match(value):
+            spellings.add(str(int(value)))
+        elif _DECIMAL.match(value):
+            f = float(value)
+            spellings.add(repr(f))
+            if f.is_integer():
+                spellings.add(str(int(f)))
+        out += [(v, kind) for v in spellings if len(v) >= 2]
     return sorted(out, key=lambda p: -len(p[0]))
+
+
+def _squash(s: str) -> str:
+    return _KEY_SEP.sub("", s.casefold())
 
 
 class Pseudonymiser:
@@ -180,6 +202,8 @@ class Pseudonymiser:
             return self.string(v, session, known, kept=kept)
         if isinstance(v, bool) or v is None:
             return v
+        if isinstance(v, float) and not math.isfinite(v):
+            return None
         if isinstance(v, int | float):
             texts = {str(v), repr(v)} | ({str(int(v))} if isinstance(v, float) and v.is_integer() else set())
             for text in texts:
@@ -193,13 +217,26 @@ class Pseudonymiser:
             out: dict[str, Any] = {}
             for k, item in v.items():
                 ks = str(k)
-                pk = ks if _FIELD.match(ks) and ks == self._patterns(self._known(ks, known, session), session) else self.token(ks)
+                plain = _FIELD.match(ks) and ks == self._patterns(self._known(ks, known, session), session) and not self._known_in_key(ks, known)
+                pk = ks if plain else self.token(ks)
                 out[pk] = self.value(item, session, known, kept=ks in self.keep)
             return out
         if isinstance(v, list | tuple):
             return [self.value(item, session, known, kept=kept) for item in v]
         # Unknown objects are never stored as they are.
         return self.token(repr(v))
+
+    @staticmethod
+    def _known_in_key(key: str, known: list[tuple[str, str]]) -> bool:
+        sk = _squash(key)
+        return any(len(sv) >= 2 and sv in sk for sv in (_squash(v) for v, _ in known))
+
+    def safe_model(self, value: str, known: list[tuple[str, str]]) -> bool:
+        """Rule 8: a plain id with no host-named value and no pattern entity other than a release date."""
+        if not _ID.match(value) or self._known(value, known, Session()) != value:
+            return False
+        rest = _MODEL_DATE.sub("_", value)
+        return self._patterns(rest, Session()) == rest
 
     def safe_id(self, value: str | None) -> bool:
         """True for a plain id (letters, digits, _ . : -, at most 128) that holds no pattern entity."""

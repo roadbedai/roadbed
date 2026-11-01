@@ -72,6 +72,16 @@ class Spool:
             with self._lock:
                 self._db.executemany("DELETE FROM outbox WHERE kind = ? AND id = ?", [(kind, i) for i in ids])
 
+    def first_attempts(self, kind: Kind, ids: list[str]) -> list[str]:
+        """The ids among these that were never sent before (no retry recorded)."""
+        if not ids:
+            return []
+        with self._lock:
+            rows = self._db.execute(
+                f"SELECT id FROM outbox WHERE kind = ? AND attempts = 0 AND id IN ({','.join('?' * len(ids))})", (kind, *ids),
+            ).fetchall()
+        return [r[0] for r in rows]
+
     def retry(self, kind: Kind, ids: list[str], *, now: float | None = None) -> None:
         """Keep the rows and back off: 0.5 s doubling per attempt, at most 60 s."""
         if ids:

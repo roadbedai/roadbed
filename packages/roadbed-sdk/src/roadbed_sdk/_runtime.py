@@ -105,6 +105,7 @@ class Recorder:
         self.hmac_key_id = hmac_key_id
         self.model = model
         self.synthetic = synthetic
+        self._warned_synthetic = False
         self.flush_interval = flush_interval
         self._stop = threading.Event()
         self._wake = threading.Event()
@@ -119,6 +120,10 @@ class Recorder:
     def prepare(self) -> Prepared:
         cap = _current.get()
         ix = cap.next_id() if cap else new_id("ix")
+        if not self.pseudo.safe_id(ix):
+            # Checked before it leaves: the id goes to the gateway as a request header, and the gateway logs it.
+            log.warning("roadbed_sdk: interaction id refused (not a plain id); using a generated id")
+            ix = new_id("ix")
         return Prepared(interaction_id=ix, cap=cap, t0=time.perf_counter())
 
     def record_interaction(self, prep: Prepared, *, request_model: str | None, input: dict[str, Any], output: dict[str, Any],
@@ -141,9 +146,9 @@ class Recorder:
                 raise TypeError("input and output must be objects")
             body: dict[str, Any] = {
                 "interaction_id": ix,
-                "model": (cap.model if cap and cap.model else None) or self.model or request_model or "unknown",
-                "alias": request_model if version else None,
-                "version": version or response_model or request_model or "unknown",
+                "model": self._model_str("model", (cap.model if cap and cap.model else None) or self.model or request_model, known),
+                "alias": self._model_str("alias", request_model, known) if version and request_model else None,
+                "version": self._model_str("version", version or response_model or request_model, known),
                 "ts": utc_now(),
                 # Content address of the pseudonymised input (SPEC: the stored input is the pseudonymised one).
                 "input_ref": "sha256:" + hashlib.sha256(rfc8785.dumps(p_input)).hexdigest(),
@@ -205,9 +210,24 @@ class Recorder:
             log.warning("roadbed_sdk: outcome %s not recorded: %s", oid if self.pseudo.safe_id(oid) else "<refused id>", type(e).__name__)
             return None
 
+    def _model_str(self, field: str, value: str | None, known: list[tuple[str, str]]) -> str:
+        """Model, alias and version from host kwargs or gateway headers: kept only if they hold no personal data."""
+        if not value:
+            return "unknown"
+        if not self.pseudo.safe_model(value, known):
+            log.warning("roadbed_sdk: %s string refused (not a plain name); using 'unknown'", field)
+            return "unknown"
+        return value
+
     def _synthetic(self, cap: Capture | None) -> bool | None:
         """Sticky: when init says synthetic, no capture can clear it."""
-        if self.synthetic or (cap is not None and cap.synthetic):
+        if self.synthetic:
+            return True
+        if cap is not None and cap.synthetic:
+            if not self._warned_synthetic:
+                self._warned_synthetic = True
+                log.warning("roadbed_sdk: synthetic=True in a capture, but not in init(); wrapped calls outside a capture "
+                            "carry no synthetic flag. A synthetic tenant should pass synthetic=True to init().")
             return True
         return cap.synthetic if cap is not None and cap.synthetic is not None else self.synthetic
 
@@ -227,7 +247,9 @@ class Recorder:
             # The pydantic message holds the values: log the field names only.
             fields = ",".join(".".join(str(p) for p in err["loc"]) for err in e.errors())
             raise ValueError(f"invalid {kind}: {fields}") from None
-        stored = self.spool.put(kind, body[ID_FIELD[kind]], json.dumps(body, separators=(",", ":"), sort_keys=True))
+        # allow_nan=False: NaN or inf raises ValueError here (the caller reports "not recorded") instead of
+        # spooling a row that the HTTP client cannot encode later.
+        stored = self.spool.put(kind, body[ID_FIELD[kind]], json.dumps(body, separators=(",", ":"), sort_keys=True, allow_nan=False))
         if not stored:
             log.info("roadbed_sdk: %s %s already spooled; kept the first", kind, body[ID_FIELD[kind]])
         self._wake.set()
@@ -261,6 +283,9 @@ class Recorder:
                 log.warning("roadbed_sdk: sink failed: %s", type(e).__name__)
                 self.spool.retry(kind, [i for i, _ in rows])
                 return
+            for i in self.spool.first_attempts(kind, res.duplicates):
+                # Nothing was sent before under this id, so the server holds an earlier body: an id was reused.
+                log.warning("roadbed_sdk: %s %s was already on the server (id reused); the server kept the earlier one", kind, i)
             self.spool.ack(kind, res.accepted)
             self.spool.retry(kind, res.retry)
             for reason in set(res.rejected.values()):
