@@ -6,6 +6,12 @@ one of them, when the asset has a roadbed.lock, policy keys, a version receipt o
 history ever held its receipt or a lock. Stripping files does not turn a full rebase into a Day 0 one. A Day 0 rebase
 gets the four Day 0 checks and prints the same bytes as on Day 0.
 
+A full rebase is **engine-scored** when the engine scored it offline from runner jobs (`roadbed rebase
+--from-predictions`): signed runner receipts under rebases/N/receipts/ and no control-plane receipt, receipt
+signature or evidence/ (see is_engine_scored). It gets the checks its files allow: hashes, the lock files, receipt
+signatures, the receipts' binding to the predictions and the holdout, scores and gate recomputed, seal order. What
+such a run does not produce (contamination.json, license.json, bom.cdx.json, evidence/) is a named skip.
+
 Data verify cannot see (bucket objects, git history outside a clone) is a skipped check, never a pass. With
 `strict=True` every skip fails and every file must meet the closed (producer) schema.
 """
@@ -24,7 +30,7 @@ import jsonschema
 from pydantic import ValidationError as PydanticError
 
 from roadbed.asset import gitlog
-from roadbed.asset.day0 import Check, VerifyFailed, _hashes, _schemas, _scores, _seal
+from roadbed.asset.day0 import Check, VerifyFailed, _diff, _hashes, _recompute, _schemas, _scores, _seal
 from roadbed.asset.files import (
     LOCK,
     MANIFEST,
@@ -56,12 +62,17 @@ from roadbed.asset.overlap import (
 from roadbed.asset.seal import holdout_row_hash
 from roadbed.asset.signing import SignatureError, verify_signature
 from roadbed.cli.asset import PRED_FILES, Asset, open_asset
-from roadbed.contracts import SCHEMA_MODELS
+from roadbed.cli.rebase import FINDING_RE
+from roadbed.contracts import SCHEMA_MODELS, Scores
+from roadbed.gate import decide_license, evaluate
 
-__all__ = ["Check", "VerifyFailed", "VerifyResult", "is_full", "receipt_executors", "run", "verify"]
+__all__ = ["Check", "VerifyFailed", "VerifyResult", "is_engine_scored", "is_full", "receipt_executors", "run", "verify"]
 
 RECEIPT, RECEIPT_SIG, EVIDENCE = "receipt.json", "receipt.sig", "evidence"
 RECEIPT_KEY, EVIDENCE_KEY = "policy/keys/receipt.pub", "policy/keys/evidence.pub"
+# Engine-scored rebase (`roadbed rebase --from-predictions` over runner jobs): signed runner receipts in rebases/N/receipts/.
+RECEIPTS, RUNNER_KEY = "receipts", "policy/keys/runner.pub"
+RECEIPT_KEYS = (RECEIPT_KEY, RUNNER_KEY)
 # Files every full rebase has (SPEC.md, The asset tree). The rest of rebases/N/ must be listed when present.
 FULL_REBASE_FILES = (RECEIPT, RECEIPT_SIG, "rebase.yaml", "scores.json", "gate.json", "contamination.json", *PRED_FILES.values())
 EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}")
@@ -133,6 +144,8 @@ class _Ctx:
     holdout_rows: list[dict[str, Any]] | None = None
     legs: dict[str, Any] = field(default_factory=dict)
     overlap: Overlap | None = None
+    runner: dict[str, dict[str, Any]] = field(default_factory=dict)  # engine-scored: verified receipts by path
+    _scores: Scores | None = None
 
     def __post_init__(self) -> None:
         self.root = self.asset.root
@@ -153,6 +166,12 @@ class _Ctx:
         # Paths named by files are untrusted: anything that leaves the asset is reported by the manifest check.
         self.seal = _try_doc(self.root / self.seal_rel) if safe_rel(self.seal_rel) else None
         self.snapshot = _try_doc(self.root / self.snapshot_rel) if safe_rel(self.snapshot_rel) else None
+
+    def scores(self) -> Scores:
+        """scores.json recomputed once (the bootstrap is the slow part)."""
+        if self._scores is None:
+            self._scores = _recompute(self.asset, self.d)
+        return self._scores
 
     def skip_or_fail(self, code: str, label: str, why: str) -> Check:
         if self.strict:
@@ -506,10 +525,11 @@ def _policy(c: _Ctx) -> Check:
     return Check("V-POLICY-MISMATCH", label, True, f"{live[:12]} ({c.asset.cfg['gate']})")
 
 
-def _datasets(c: _Ctx) -> Check:
-    label = "datasets re-hashed"
-    seal, snap = c.seal, c.snapshot
-    assert seal is not None and snap is not None  # _binding ran first
+def _holdout(c: _Ctx, label: str) -> Check | None:
+    """Re-hash the holdout against its full seal (sha256, rows, Merkle root) and keep its rows in c.holdout_rows.
+    Returns the failed check, or None."""
+    seal = c.seal
+    assert seal is not None
     if not seal.get("merkle_root"):
         return Check("V-SEAL-INCOMPLETE", label, False, f"{c.seal_rel} is a Day 0 seal: no Merkle root, no MinHash, no disjointness check")
     hf = c.root / c.holdout_rel
@@ -523,6 +543,18 @@ def _datasets(c: _Ctx) -> Check:
     if merkle_root(holdout_row_hash(r) for r in hold) != seal["merkle_root"]:
         return Check("V-HASH-MISMATCH", label, False, f"{c.holdout_rel} Merkle root does not match {c.seal_rel}")
     c.holdout_rows = hold
+    return None
+
+
+def _datasets(c: _Ctx) -> Check:
+    label = "datasets re-hashed"
+    seal, snap = c.seal, c.snapshot
+    assert seal is not None and snap is not None  # _binding ran first
+    bad = _holdout(c, label)
+    if bad is not None:
+        return bad
+    hold = c.holdout_rows
+    assert hold is not None
 
     rows: list[dict[str, Any]] = []
     for i, part in enumerate(snap["parts"]):
@@ -762,6 +794,214 @@ def _objects(c: _Ctx) -> Check:
     return Check("V-OBJECT-MISSING", label, True, f"{len(named)} objects")
 
 
+# ---------------------------------------------------------------- engine-scored rebase
+
+
+def is_engine_scored(root: Path, d: Path) -> bool:
+    """True for a rebase scored offline by the engine (`roadbed rebase --from-predictions`) from runner jobs: signed
+    runner receipts under rebases/N/receipts/ and no control-plane receipt, receipt signature or evidence/, on disk,
+    in the rebase manifest or in git history. Stripping those files from a full rebase does not make it one."""
+    if not any((d / RECEIPTS).glob("*.json")):
+        return False
+    if any((d / f).exists() for f in (RECEIPT, RECEIPT_SIG, EVIDENCE)):
+        return False
+    rrel = d.resolve().relative_to(root.resolve()).as_posix()
+    m = d / MANIFEST
+    if m.is_file():
+        text = m.read_text(encoding="utf-8", errors="replace")
+        if f"{rrel}/{RECEIPT}" in text or f"{rrel}/{EVIDENCE}/" in text:
+            return False
+    return not (gitlog.is_repo_root(root) and gitlog.ever_tracked(root, f"{rrel}/{RECEIPT}", f"{rrel}/{EVIDENCE}"))
+
+
+def _engine_required(c: _Ctx) -> list[str]:
+    """Every path the rebase MANIFEST of an engine-scored rebase must list: what the engine wrote and read."""
+    own = {f"{c.rrel}/{f}" for f in ("rebase.yaml", "scores.json", "gate.json", *PRED_FILES.values())}
+    return sorted(own | {c.seal_rel, c.holdout_rel})
+
+
+def _lock_listed(c: _Ctx) -> Check:
+    """Every file roadbed.lock lists exists and re-hashes to the lock. The engine-scored run does not relock."""
+    label = "lock files re-hashed"
+    lf = c.root / LOCK
+    if not lf.is_file():
+        return Check("V-LOCK-MISSING", label, False, f"{LOCK} not found")
+    try:
+        lock = json.loads(lf.read_text(encoding="utf-8"))
+        validate(lock, "lock")
+    except (ValueError, AssetValidationError) as e:
+        return Check("V-SCHEMA-INVALID", label, False, f"{LOCK}: {e}")
+    for f in lock["files"]:
+        rel = f["path"]
+        if not safe_rel(rel):
+            return Check("V-PATH-UNSAFE", label, False, f"{LOCK} lists a path outside the asset: {rel!r}")
+        p = c.root / rel
+        if p.is_symlink():
+            return Check("V-PATH-UNSAFE", label, False, f"{rel} is a symlink; an asset holds plain files only")
+        if not p.is_file():
+            return Check("V-HASH-MISSING", label, False, f"{rel} listed in {LOCK} but not found")
+        if sha256_file(p) != f["sha256"] or p.stat().st_size != f["size"]:
+            return Check("V-HASH-MISMATCH", label, False, f"{rel} does not match {LOCK}")
+    return Check("V-HASH-MISMATCH", label, True, f"{len(lock['files'])} files")
+
+
+def _lock_complete(c: _Ctx) -> Check:
+    label = "lock lists every file"
+    listed = {f.get("path") for f in json.loads((c.root / LOCK).read_text(encoding="utf-8"))["files"]}
+    unlisted = [f for f in c.files if f != LOCK and f not in listed]
+    if not unlisted:
+        return Check("V-LOCK-INCOMPLETE", label, True, f"{len(listed)} files")
+    return c.skip_or_fail("V-LOCK-INCOMPLETE", label, f"{len(unlisted)} files are not in {LOCK}, which predates the run "
+                          f"(first: {', '.join(unlisted[:3])}); the rebase manifest and the signatures cover the ones verify reads")
+
+
+def _incumbent(c: _Ctx) -> str:
+    """The incumbent version: rebase.yaml from.version, else roadbed.yaml alias.version."""
+    return str(((c.meta or {}).get("from") or {}).get("version") or c.asset.cfg["alias"]["version"])
+
+
+def _runner_receipts(c: _Ctx) -> Check:
+    """Each receipt under rebases/N/receipts/ and versions/<incumbent>/receipt.json matches the receipt schema and
+    has a valid ed25519 signature (<name>.sig) by a receipt key in policy/keys/."""
+    label = "receipts signed"
+    rels = [f for f in c.files if f.startswith(f"{c.rrel}/{RECEIPTS}/") and f.endswith(".json")]
+    rels.append(f"versions/{_incumbent(c)}/{RECEIPT}")
+    keys: set[str] = set()
+    for rel in rels:
+        if not (c.root / rel).is_file():
+            return Check("V-HASH-MISSING", label, False, f"{rel} not found")
+        try:
+            doc = read_doc(c.root / rel)
+            validate(doc, "receipt", strict=c.strict)
+        except (ValueError, AssetValidationError) as e:
+            return Check("V-SCHEMA-INVALID", label, False, f"{rel}: {e}")
+        sig = rel.removesuffix(".json") + ".sig"
+        key = (_try_doc(c.root / sig) or {}).get("key")
+        if key is not None and key not in RECEIPT_KEYS:
+            return Check("V-SIG-INVALID", label, False, f"{sig}: key {key!r} is not a receipt key ({', '.join(RECEIPT_KEYS)})")
+        try:
+            keys.add(verify_signature(c.root, sig, signed=rel, key_path=key or RUNNER_KEY, payload="jcs",
+                                      trusted_keyids=c.trusted))
+        except SignatureError as e:
+            return Check(e.code, label, False, str(e))
+        except (OSError, ValueError) as e:
+            return Check("V-SIG-INVALID", label, False, f"{sig}: {e}")
+        c.runner[rel] = doc
+    pinned = "pinned" if c.trusted is not None else "not pinned (pass --trust-key)"
+    return Check("V-SIG-INVALID", label, True, f"{len(rels)} receipts, keys {', '.join(sorted(k[:12] for k in keys))}; {pinned}")
+
+
+def _engine_binding(c: _Ctx) -> Check:
+    """The rebase receipts are for this rebase, model and sealed holdout, and the eval receipts name the two
+    prediction files by digest."""
+    label = "receipts bind the predictions and the holdout"
+    seal = c.seal
+    if seal is None:
+        return Check("V-HASH-MISSING", label, False, f"{c.seal_rel} not found or unreadable")
+    own = {rel: doc for rel, doc in c.runner.items() if rel.startswith(f"{c.rrel}/")}
+    for rel, doc in own.items():
+        p = doc["predicate"]
+        if p.get("rebase") != c.n or p["model"] != c.asset.cfg["model"]:
+            return Check("V-RECEIPT-MISMATCH", label, False,
+                         f"{rel}: rebase {p.get('rebase')} model {p['model']}, not {c.n} {c.asset.cfg['model']}")
+        h = p.get("holdout")
+        if h is None:
+            continue
+        if h["id"] != seal["id"] or h["merkle_root"] != seal.get("merkle_root") or (h.get("rows") is not None and h["rows"] != seal["rows"]):
+            return Check("V-RECEIPT-MISMATCH", label, False, f"{rel}: holdout {h['id']} differs from {c.seal_rel}")
+        if h["seal_seq"] != seal["audit_seq"] or h["sealed_at"] != seal["sealed_at"]:
+            return Check("V-SEAL-ORDER", label, False, f"{rel}: holdout seal_seq/sealed_at differ from {c.seal_rel}")
+    for who, f in PRED_FILES.items():
+        rel = f"{c.rrel}/{RECEIPTS}/eval-{who}.json"
+        if rel not in own:
+            return Check("V-RECEIPT-MISMATCH", label, False, f"no eval receipt {rel} for {c.rrel}/{f}")
+        digest = sha256_file(c.d / f)
+        if digest not in {s["digest"]["sha256"] for s in own[rel]["subject"]}:
+            return Check("V-RECEIPT-MISMATCH", label, False, f"{rel} does not name {c.rrel}/{f} (sha256 {digest[:12]})")
+    return Check("V-RECEIPT-MISMATCH", label, True, f"{len(own)} rebase receipts, both prediction files, {seal['id']}")
+
+
+def _engine_holdout(c: _Ctx) -> Check:
+    """The holdout re-hashes to its seal, and each prediction file has exactly one row per sealed holdout row."""
+    label = "predictions cover the sealed holdout"
+    if c.seal is None:
+        return Check("V-HASH-MISSING", label, False, f"{c.seal_rel} not found or unreadable")
+    bad = _holdout(c, label)
+    if bad is not None:
+        return bad
+    assert c.holdout_rows is not None
+    want = {r["id"] for r in c.holdout_rows}
+    for f in PRED_FILES.values():
+        ids = [r["id"] for r in read_doc(c.d / f)]
+        if len(ids) != len(set(ids)) or set(ids) != want:
+            return Check("V-SEAL-INCOMPLETE", label, False, f"{c.rrel}/{f}: prediction ids are not the sealed holdout rows "
+                         f"({len(want - set(ids))} missing, {len(set(ids) - want)} extra, {len(ids) - len(set(ids))} repeated)")
+    return Check("V-SEAL-INCOMPLETE", label, True, f"{c.seal['id']} {len(want)} rows, Merkle root matches; both prediction files")
+
+
+def _engine_gate(c: _Ctx) -> Check:
+    """gate.json is the gate the engine computes from the recomputed scores, policy/gate.yaml, the base license in
+    rebase.yaml and no contamination input (`roadbed rebase --from-predictions`)."""
+    label = "gate recomputed: match"
+    lic_id = ((c.meta or {}).get("base") or {}).get("license")
+    lic = decide_license(lic_id, c.asset.license_policy) if lic_id and c.asset.license_policy is not None else None
+    offset = 0
+    for f in sorted((c.root / "findings").glob("F-*.yaml")):
+        m = FINDING_RE.match(f.name)
+        if m and (_try_doc(f) or {}).get("rebase") != c.n:
+            offset = max(offset, int(m.group(1)))
+    gate = evaluate(c.scores(), None, lic, c.asset.policy, finding_offset=offset)
+    where = _diff(read_doc(c.d / "gate.json"), json.loads(gate.model_dump_json(exclude_none=True)))
+    if where:
+        return Check("V-SCORES-MISMATCH", label, False, f"{c.rrel}/gate.json differs from the recomputed gate at {where}")
+    return Check("V-SCORES-MISMATCH", label, True, f"status {gate.status}, {len(gate.checks)} checks, {len(gate.findings)} findings")
+
+
+def _engine_seal_order(c: _Ctx) -> Check:
+    """The seal precedes every training receipt for this holdout: the rebase train receipts and the incumbent's."""
+    label = "seal precedes training: audit seq, timestamp"
+    seal = c.seal
+    assert seal is not None
+    train = [(rel, doc["predicate"]) for rel, doc in c.runner.items()
+             if doc["predicate"]["job"]["kind"] in ("train", "rebase")
+             and (doc["predicate"].get("holdout") or {}).get("id") == seal["id"]]
+    if not train:
+        return c.skip_or_fail("V-SEAL-ORDER", label, f"no training receipt names {seal['id']}")
+    for rel, p in train:
+        if p.get("audit_seq") is not None and not seal["audit_seq"] < p["audit_seq"]:
+            return Check("V-SEAL-ORDER", label, False, f"seal audit seq {seal['audit_seq']} is not before {rel} seq {p['audit_seq']}")
+        if not _ts(seal["sealed_at"]) < _ts(p["started_at"]):
+            return Check("V-SEAL-ORDER", label, False, f"sealed {seal['sealed_at']} is not before {rel} started {p['started_at']}")
+    return Check("V-SEAL-ORDER", label, True, f"{len(train)} training receipts after seq {seal['audit_seq']}, {seal['sealed_at']}")
+
+
+def _engine_steps(asset: Asset, d: Path, n: int, ctx: Callable[[], _Ctx]) -> list[Callable[[], Check]]:
+    """The checks of an engine-scored rebase. What the run did not produce is a named skip, never a pass."""
+    def skip(code: str, label: str, why: str) -> Callable[[], Check]:
+        return lambda: ctx().skip_or_fail(code, label, why)
+
+    return [
+        lambda: _hashes(asset, d, _engine_required(ctx())),
+        lambda: _lock_listed(ctx()),
+        lambda: _lock_complete(ctx()),
+        lambda: _runner_receipts(ctx()),
+        skip("V-RECEIPT-CHAIN", "receipt chain OK", "engine-scored rebase: the control plane did not chain these receipts"),
+        lambda: _engine_binding(ctx()),
+        lambda: _policy(ctx()),
+        lambda: _schemas(d),
+        lambda: _engine_holdout(ctx()),
+        lambda: _scores(asset, d, n, ctx().scores()),
+        lambda: _engine_gate(ctx()),
+        lambda: _seal(asset, d),
+        lambda: _engine_seal_order(ctx()),
+        skip("V-SEAL-ORDER", "seal precedes training: git ancestry", "not checked for an engine-scored rebase"),
+        skip("V-CONTAMINATION-MISMATCH", "contamination.json matches", "not produced: no train manifest in an engine-scored rebase"),
+        skip("V-HASH-MISSING", "license.json", "not produced by an engine-scored rebase; the gate license check is recomputed"),
+        skip("V-HASH-MISSING", "bom.cdx.json", "not produced by an engine-scored rebase"),
+        skip("V-MANIFEST-MISSING", "evidence manifest OK", "not produced: no evidence/ in an engine-scored rebase"),
+    ]
+
+
 # ---------------------------------------------------------------- driver
 
 
@@ -779,16 +1019,18 @@ def run(
     store = ObjectStore(objects) if objects is not None else None
     trusted = frozenset(trusted_keyids) if trusted_keyids is not None else None
     steps: list[Callable[[], Check]]
+    holder: list[_Ctx] = []
+
+    def ctx() -> _Ctx:
+        if not holder:
+            holder.append(_Ctx(asset, d, n, store, strict, trusted))
+        return holder[0]
+
     if not is_full(asset.root, d):
         steps = [lambda: _hashes(asset, d), lambda: _schemas(d), lambda: _scores(asset, d, n), lambda: _seal(asset, d)]
+    elif is_engine_scored(asset.root, d):
+        steps = _engine_steps(asset, d, n, ctx)
     else:
-        holder: list[_Ctx] = []
-
-        def ctx() -> _Ctx:
-            if not holder:
-                holder.append(_Ctx(asset, d, n, store, strict, trusted))
-            return holder[0]
-
         steps = [
             lambda: _hashes(asset, d, _required(ctx())),
             lambda: _lock(ctx()),
