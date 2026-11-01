@@ -16,7 +16,7 @@ from rich.text import Text
 
 from roadbed.asset import AssetValidationError, ObjectStore, sha256_file, validate
 from roadbed.cli.asset import AssetError, find_root, open_asset
-from roadbed.cli.output import EXIT_ERROR, EXIT_OK, console, error, print_json
+from roadbed.cli.output import EXIT_OK, EXIT_USAGE, console, error, print_json
 from roadbed.evals import EvalPolicy, LeakageError, build, read_snapshots, write_candidate
 from roadbed.evals.build import check_candidate_dir
 from roadbed.labels import LABEL_RULES_V1, ResolveError, RulesNotPinned, resolve
@@ -109,10 +109,10 @@ def build_cmd(
         cand = write_candidate(out.holdout_candidate, holdout_out, asset_root=a.root) if holdout_out else []
     except (AssetError, FileNotFoundError, FileExistsError, ValueError, ResolveError, RulesNotPinned, LeakageError) as e:
         if as_json:
-            print_json({"ok": False, "error": str(e), "exit_code": EXIT_ERROR})
+            print_json({"ok": False, "error": str(e), "exit_code": EXIT_USAGE})
         else:
             error(str(e))
-        raise typer.Exit(EXIT_ERROR)
+        raise typer.Exit(EXIT_USAGE)
 
     c = out.report["counts"]
     exact_only = out.proof["pairs"]["train-sealed"]["exact_only"]

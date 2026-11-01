@@ -251,4 +251,4 @@ def test_cli_refuses_a_holdout_that_does_not_match_its_seal(tmp_path):
     p = root / "data" / "holdout" / "H-2026-10-01" / "holdout.jsonl"
     p.write_text(p.read_text().splitlines()[0] + "\n")
     r = CliRunner().invoke(app, [*ARGS, "--asset", str(root), "--events", str(ev)])
-    assert r.exit_code == 1 and "does not match the sha256 in SEAL.json" in r.output
+    assert r.exit_code == 2 and "does not match the sha256 in SEAL.json" in r.output

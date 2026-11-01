@@ -45,7 +45,7 @@ def test_evals_build_writes_the_snapshot_and_hands_the_candidate_to_the_validato
 def test_evals_build_refuses_a_candidate_dir_inside_the_asset_and_writes_nothing(tmp_path):
     root, ev = _asset(tmp_path)
     r = CliRunner().invoke(app, [*ARGS, "--asset", str(root), "--events", str(ev), "--holdout-out", str(root / "data" / "x")])
-    assert r.exit_code == 1 and "never into the asset" in r.output
+    assert r.exit_code == 2 and "never into the asset" in r.output
     assert not (root / "data" / "snapshots" / "2026-11-02").exists()
 
 
@@ -60,7 +60,7 @@ def test_evals_build_refuses_when_an_earlier_snapshot_cannot_be_read(tmp_path):
     root, ev = _asset(tmp_path)
     shutil.copytree(PASS / "data" / "snapshots", root / "data" / "snapshots")  # bucket-only parts, no --objects
     r = CliRunner().invoke(app, [*ARGS, "--asset", str(root), "--events", str(ev)])
-    assert r.exit_code == 1 and "neither in the asset nor in the bucket" in r.output
+    assert r.exit_code == 2 and "neither in the asset nor in the bucket" in r.output
 
 
 def test_second_build_never_holds_out_what_the_first_snapshot_trained_on(tmp_path):
