@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/heartbeat.schema.json",
+  "additionalProperties": false,
+  "description": "POST /v1/jobs/{job}/heartbeat body.",
+  "properties": {
+    "lease_id": {
+      "minLength": 1,
+      "title": "Lease Id",
+      "type": "string"
+    },
+    "attempt": {
+      "minimum": 1,
+      "title": "Attempt",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "lease_id",
+    "attempt"
+  ],
+  "title": "Heartbeat",
+  "type": "object"
+}

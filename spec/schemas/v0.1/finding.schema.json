@@ -1,7 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/finding.schema.json",
-  "additionalProperties": false,
   "description": "findings/F-NNNN.yaml. Day 0 shape plus optional status and kind.",
   "properties": {
     "id": {
@@ -19,7 +18,7 @@
           "enum": [
             "slice_below_margin",
             "contamination",
-            "license",
+            "license_denied",
             "seal_order",
             "other"
           ],
@@ -30,6 +29,7 @@
         }
       ],
       "default": null,
+      "description": "The failure reason of the check that raised it.",
       "title": "Kind"
     },
     "status": {
@@ -158,6 +158,7 @@
         }
       ],
       "default": null,
+      "description": "Ids and plain facts only; never personal data.",
       "title": "Note"
     },
     "synthetic": {
@@ -178,5 +179,6 @@
     "rebase"
   ],
   "title": "Finding (findings/F-NNNN.yaml)",
-  "type": "object"
+  "type": "object",
+  "additionalProperties": false
 }

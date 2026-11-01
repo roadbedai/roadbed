@@ -1,0 +1,21 @@
+{
+  "interaction_id": "int-t-0000",
+  "input_ref": "sha256:fe5750fddcc6a21bb7f51604fab4e7be1e6e9ae38f511c82b0ec2f433220675b",
+  "output": {
+    "route": "standard",
+    "severity": 1
+  },
+  "verdict": {
+    "route": "fast_track",
+    "severity": 1
+  },
+  "reason_code": "route_wrong",
+  "outcome": null,
+  "ts": "2026-10-02T09:01:00+00:00",
+  "slices": {
+    "line": "bodily_injury",
+    "state": "CA",
+    "channel": "broker"
+  },
+  "row_hash": "a240a6a548ee033db2f880804e45791a6f304dcd97a6a504cc9b8283fa3ba8a0"
+}

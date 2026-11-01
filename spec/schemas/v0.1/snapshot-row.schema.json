@@ -1,7 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/snapshot-row.schema.json",
-  "additionalProperties": false,
   "description": "One line of a snapshot part: a resolved verdict row. Training reads these.",
   "properties": {
     "interaction_id": {
@@ -54,7 +53,7 @@
     },
     "ts": {
       "description": "Verdict time.",
-      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$",
       "title": "Ts",
       "type": "string"
     },
@@ -82,5 +81,6 @@
     "row_hash"
   ],
   "title": "Snapshot row",
-  "type": "object"
+  "type": "object",
+  "additionalProperties": false
 }

@@ -3,7 +3,6 @@
   "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/gate-policy.schema.json",
   "$defs": {
     "ContaminationPolicy": {
-      "additionalProperties": false,
       "properties": {
         "minhash_threshold": {
           "description": "Near-duplicate when MinHash Jaccard >= this. Plan value 0.8.",
@@ -31,10 +30,10 @@
         "shingle"
       ],
       "title": "ContaminationPolicy",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     },
     "CostCap": {
-      "additionalProperties": false,
       "properties": {
         "eur": {
           "description": "Abort the rebase when its cost reaches this many euros.",
@@ -61,10 +60,10 @@
         "eur"
       ],
       "title": "CostCap",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     },
     "Stage": {
-      "additionalProperties": false,
       "properties": {
         "stub": {
           "description": "True when the stage is a placeholder and does not run.",
@@ -76,10 +75,10 @@
         "stub"
       ],
       "title": "Stage",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     },
     "Stages": {
-      "additionalProperties": false,
       "properties": {
         "shadow": {
           "$ref": "#/$defs/Stage"
@@ -97,10 +96,10 @@
         "bias_tests"
       ],
       "title": "Stages",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     }
   },
-  "additionalProperties": false,
   "description": "policy/gate.yaml.",
   "properties": {
     "margin": {
@@ -197,5 +196,6 @@
     "stages"
   ],
   "title": "gate.yaml (policy)",
-  "type": "object"
+  "type": "object",
+  "additionalProperties": false
 }

@@ -1,7 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/object-pointer.schema.json",
-  "additionalProperties": false,
   "description": "<path>.ptr: stands in git for a file over 1 MB that lives in the bucket.",
   "properties": {
     "spec": {
@@ -41,5 +40,6 @@
     "size"
   ],
   "title": "Object pointer",
-  "type": "object"
+  "type": "object",
+  "additionalProperties": false
 }

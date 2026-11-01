@@ -5,9 +5,8 @@ import pytest
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from roadbed.stats import bootstrap_ci, compare
-
 from conftest import SCORERS, holdout_row, make_policy, pred, wrong_route
+from roadbed.stats import bootstrap_ci, compare
 
 KW = dict(scorers=SCORERS, synthetic=True, model="claims-triage", rebase=13)
 

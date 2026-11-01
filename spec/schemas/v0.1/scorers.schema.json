@@ -3,7 +3,6 @@
   "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/scorers.schema.json",
   "$defs": {
     "FieldWeight": {
-      "additionalProperties": false,
       "properties": {
         "field": {
           "description": "Top-level output field compared by exact match.",
@@ -22,10 +21,10 @@
         "weight"
       ],
       "title": "FieldWeight",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     }
   },
-  "additionalProperties": false,
   "description": "evals/scorers.yaml. Row score = 100 * sum(weight * match) / sum(weight).",
   "properties": {
     "type": {
@@ -62,5 +61,6 @@
     "fields"
   ],
   "title": "scorers.yaml",
-  "type": "object"
+  "type": "object",
+  "additionalProperties": false
 }

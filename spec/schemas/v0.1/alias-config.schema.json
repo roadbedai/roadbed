@@ -3,7 +3,6 @@
   "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/alias-config.schema.json",
   "$defs": {
     "AliasRoute": {
-      "additionalProperties": false,
       "properties": {
         "upstream": {
           "description": "OpenAI-compatible base URL, e.g. http://vllm:8000/v1.",
@@ -49,10 +48,10 @@
         "version"
       ],
       "title": "AliasRoute",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     },
     "Canary": {
-      "additionalProperties": false,
       "properties": {
         "weight": {
           "description": "Share of traffic, sticky by xxhash(salt + interaction id).",
@@ -81,10 +80,10 @@
         "version"
       ],
       "title": "Canary",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     },
     "Shadow": {
-      "additionalProperties": false,
       "properties": {
         "target": {
           "description": "Upstream URL or alias that gets a fire-and-forget copy.",
@@ -96,10 +95,10 @@
         "target"
       ],
       "title": "Shadow",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     }
   },
-  "additionalProperties": false,
   "description": "GET /v1/aliases body (with ETag). The gateway polls it every 2 s.",
   "properties": {
     "spec": {
@@ -128,5 +127,6 @@
     "aliases"
   ],
   "title": "Alias config",
-  "type": "object"
+  "type": "object",
+  "additionalProperties": false
 }

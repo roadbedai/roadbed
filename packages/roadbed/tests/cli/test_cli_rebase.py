@@ -6,9 +6,8 @@ from pathlib import Path
 import jsonschema
 from typer.testing import CliRunner
 
-from roadbed.cli.main import app
-
 from cli_asset import _cache_dir, asset  # noqa: F401  (pytest fixtures)
+from roadbed.cli.main import app
 from roadbed.contracts import json_schema
 from roadbed.io import read_yaml
 

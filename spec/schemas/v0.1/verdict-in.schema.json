@@ -32,6 +32,13 @@
   ],
   "description": "POST /v1/verdicts body. A 'fix' carries the corrected output in verdict.",
   "properties": {
+    "verdict_id": {
+      "description": "Client-made id. Retries with the same id are no-ops.",
+      "maxLength": 128,
+      "minLength": 1,
+      "title": "Verdict Id",
+      "type": "string"
+    },
     "interaction_id": {
       "minLength": 1,
       "title": "Interaction Id",
@@ -64,6 +71,7 @@
     "reason_code": {
       "anyOf": [
         {
+          "pattern": "^[a-z_]{1,64}$",
           "type": "string"
         },
         {
@@ -75,12 +83,14 @@
       "title": "Reason Code"
     },
     "ts": {
-      "format": "date-time",
+      "description": "UTC timestamp, RFC 3339, seconds precision, Z suffix: YYYY-MM-DDTHH:MM:SSZ. Kept as the stored string.",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$",
       "title": "Ts",
       "type": "string"
     }
   },
   "required": [
+    "verdict_id",
     "interaction_id",
     "action",
     "ts"

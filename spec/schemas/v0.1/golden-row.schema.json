@@ -1,7 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/golden-row.schema.json",
-  "additionalProperties": false,
   "description": "One line of evals/golden.jsonl.",
   "properties": {
     "id": {
@@ -48,5 +47,6 @@
     "expected"
   ],
   "title": "Golden row",
-  "type": "object"
+  "type": "object",
+  "additionalProperties": false
 }

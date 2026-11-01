@@ -4,5 +4,5 @@
   "key": "policy/keys/evidence.pub",
   "signed": "rebases/13/evidence/MANIFEST.sha256",
   "payload": "raw",
-  "sig": "TWedcQRDc//o73taLcg9y0Ka6ME1qLoHd1xo9Rh60kNQ5gROCm8Z0tpg1TU0is6IVMdvDNc/goHZNkjoTnF1AA=="
+  "sig": "Y2oFVwtMsQj+xDY0Pnf4mm1O7VgeQprFQyJO41JVvan0sqI0yU1538toww1+3ok/EOQhJwDNHnJxy45e0ClCBA=="
 }

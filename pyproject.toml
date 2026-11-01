@@ -15,9 +15,31 @@ roadbed = { workspace = true }
 members = ["packages/roadbed"]
 
 [dependency-groups]
-dev = ["pytest>=8", "hypothesis>=6", "pytest-cov>=5", "cryptography>=43"]
+dev = ["pytest>=8", "hypothesis>=6", "pytest-cov>=5", "cryptography>=43", "ruff>=0.8", "mypy>=1.13"]
 
 [tool.pytest.ini_options]
 testpaths = ["packages/roadbed/tests"]
 addopts = "-m 'not slow'"
 markers = ["slow: long-running statistical checks (run with -m slow)"]
+
+[tool.ruff]
+line-length = 160
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+# B904: typer exits re-raise on purpose; B905: zips are over equal-length rows; E731: one test lambda.
+ignore = ["B904", "B905", "E731"]
+
+[tool.ruff.lint.per-file-ignores]
+# pytest fixtures are imported into test modules by name
+"packages/roadbed/tests/**" = ["F811"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["roadbed", "conftest", "cli_asset"]
+
+[tool.mypy]
+python_version = "3.12"
+plugins = ["pydantic.mypy"]
+files = ["packages/roadbed/src"]
+ignore_missing_imports = true

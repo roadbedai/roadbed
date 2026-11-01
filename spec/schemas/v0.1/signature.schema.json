@@ -1,7 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/signature.schema.json",
-  "additionalProperties": false,
   "description": "receipt.sig and MANIFEST.sig: one ed25519 signature.",
   "properties": {
     "alg": {
@@ -50,5 +49,6 @@
     "sig"
   ],
   "title": "Signature (.sig)",
-  "type": "object"
+  "type": "object",
+  "additionalProperties": false
 }

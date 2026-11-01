@@ -66,7 +66,7 @@ def _schemas(d: Path) -> Check:
         f = d / name
         try:
             data = json.loads(f.read_text(encoding="utf-8"))
-            jsonschema.Draft202012Validator(json_schema(schema)).validate(data)
+            jsonschema.Draft202012Validator(json_schema(schema, reader=True)).validate(data)  # readers ignore unknown fields
         except FileNotFoundError:
             return Check("V-SCHEMA-INVALID", "schemas OK", False, f"{name} not found")
         except (json.JSONDecodeError, jsonschema.ValidationError) as e:

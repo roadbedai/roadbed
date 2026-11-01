@@ -3,10 +3,10 @@
   "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/receipt.schema.json",
   "$defs": {
     "DatasetRef": {
-      "additionalProperties": false,
       "properties": {
         "id": {
           "description": "Snapshot id (S-...) or holdout id (H-...).",
+          "pattern": "^[SH]-[A-Za-z0-9-]{1,64}$",
           "title": "Id",
           "type": "string"
         },
@@ -36,22 +36,26 @@
         "merkle_root"
       ],
       "title": "DatasetRef",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
+    },
+    "ExecutorName": {
+      "description": "Who ran a job. mock and replay never produce demo numbers.",
+      "enum": [
+        "runner",
+        "mock",
+        "replay",
+        "hf-jobs",
+        "together"
+      ],
+      "title": "ExecutorName",
+      "type": "string"
     },
     "ExecutorRef": {
-      "additionalProperties": false,
       "properties": {
         "name": {
-          "description": "Who ran the job. 'mock' and 'replay' never produce demo numbers.",
-          "enum": [
-            "runner",
-            "mock",
-            "replay",
-            "hf-jobs",
-            "together"
-          ],
-          "title": "Name",
-          "type": "string"
+          "$ref": "#/$defs/ExecutorName",
+          "description": "Who ran the job. 'mock' and 'replay' never produce demo numbers."
         },
         "version": {
           "title": "Version",
@@ -75,10 +79,10 @@
         "version"
       ],
       "title": "ExecutorRef",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     },
     "Gpu": {
-      "additionalProperties": false,
       "properties": {
         "name": {
           "description": "e.g. NVIDIA H100 80GB HBM3; 'none' for the mock executor.",
@@ -108,13 +112,14 @@
         "count"
       ],
       "title": "Gpu",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     },
     "HoldoutSealRef": {
-      "additionalProperties": false,
       "properties": {
         "id": {
           "description": "Snapshot id (S-...) or holdout id (H-...).",
+          "pattern": "^[SH]-[A-Za-z0-9-]{1,64}$",
           "title": "Id",
           "type": "string"
         },
@@ -146,7 +151,7 @@
         },
         "sealed_at": {
           "description": "SEAL.json sealed_at.",
-          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$",
           "title": "Sealed At",
           "type": "string"
         },
@@ -165,10 +170,10 @@
         "seal_commit"
       ],
       "title": "HoldoutSealRef",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     },
     "JobRef": {
-      "additionalProperties": false,
       "properties": {
         "id": {
           "title": "Id",
@@ -190,10 +195,10 @@
         "kind"
       ],
       "title": "JobRef",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     },
     "PinnedBase": {
-      "additionalProperties": false,
       "properties": {
         "repo": {
           "description": "Hugging Face repo id of the base model.",
@@ -212,10 +217,10 @@
         "revision"
       ],
       "title": "PinnedBase",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     },
     "RecipeRef": {
-      "additionalProperties": false,
       "properties": {
         "path": {
           "description": "Recipe path from asset root, e.g. recipes/qwen3/lora-r16-sft@v4.yaml.",
@@ -234,10 +239,10 @@
         "sha256"
       ],
       "title": "RecipeRef",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     },
     "RunCost": {
-      "additionalProperties": false,
       "properties": {
         "gpu_hours": {
           "minimum": 0,
@@ -261,10 +266,10 @@
         "eur"
       ],
       "title": "RunCost",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     },
     "RunPredicate": {
-      "additionalProperties": false,
       "allOf": [
         {
           "if": {
@@ -366,12 +371,14 @@
           "type": "integer"
         },
         "started_at": {
-          "format": "date-time",
+          "description": "UTC timestamp, RFC 3339, seconds precision, Z suffix: YYYY-MM-DDTHH:MM:SSZ. Kept as the stored string.",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$",
           "title": "Started At",
           "type": "string"
         },
         "ended_at": {
-          "format": "date-time",
+          "description": "UTC timestamp, RFC 3339, seconds precision, Z suffix: YYYY-MM-DDTHH:MM:SSZ. Kept as the stored string.",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$",
           "title": "Ended At",
           "type": "string"
         },
@@ -433,10 +440,10 @@
         "executor"
       ],
       "title": "RunPredicate",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     },
     "Subject": {
-      "additionalProperties": false,
       "properties": {
         "name": {
           "description": "Repo path, or oid:<hex> for a bucket object.",
@@ -461,10 +468,10 @@
         "digest"
       ],
       "title": "Subject",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     }
   },
-  "additionalProperties": false,
   "description": "receipt.json: in-toto Statement v1 with predicate type https://roadbed.dev/run/v1.",
   "properties": {
     "_type": {
@@ -496,5 +503,6 @@
     "predicate"
   ],
   "title": "receipt.json",
-  "type": "object"
+  "type": "object",
+  "additionalProperties": false
 }

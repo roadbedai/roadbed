@@ -1,7 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/license-policy.schema.json",
-  "additionalProperties": false,
   "description": "policy/license.yaml. Lowercase SPDX ids of allowed base-model licenses.",
   "properties": {
     "allow": {
@@ -63,5 +62,6 @@
     "allow"
   ],
   "title": "license.yaml (policy)",
-  "type": "object"
+  "type": "object",
+  "additionalProperties": false
 }

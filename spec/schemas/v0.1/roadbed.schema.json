@@ -3,7 +3,6 @@
   "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/roadbed.schema.json",
   "$defs": {
     "Alias": {
-      "additionalProperties": false,
       "properties": {
         "name": {
           "description": "Serving alias the gate protects.",
@@ -21,10 +20,10 @@
         "version"
       ],
       "title": "Alias",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     },
     "Base": {
-      "additionalProperties": false,
       "properties": {
         "repo": {
           "description": "Hugging Face repo id of the open-weight base model, e.g. Qwen/Qwen3.6-27B.",
@@ -43,10 +42,10 @@
         "revision"
       ],
       "title": "Base",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     },
     "Data": {
-      "additionalProperties": false,
       "properties": {
         "holdout": {
           "$ref": "#/$defs/HoldoutRef"
@@ -82,10 +81,10 @@
         "holdout"
       ],
       "title": "Data",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     },
     "Evals": {
-      "additionalProperties": false,
       "properties": {
         "scorers": {
           "description": "Path to scorers.yaml.",
@@ -142,13 +141,14 @@
         "min_n"
       ],
       "title": "Evals",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     },
     "HoldoutRef": {
-      "additionalProperties": false,
       "properties": {
         "id": {
           "description": "Holdout id, e.g. H-2026-11-01.",
+          "pattern": "^H-[A-Za-z0-9-]{1,64}$",
           "title": "Id",
           "type": "string"
         },
@@ -165,7 +165,7 @@
         },
         "sealed_at": {
           "description": "When the holdout was sealed (RFC 3339, with zone).",
-          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$",
           "title": "Sealed At",
           "type": "string"
         }
@@ -177,10 +177,10 @@
         "sealed_at"
       ],
       "title": "HoldoutRef",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     },
     "Task": {
-      "additionalProperties": false,
       "properties": {
         "type": {
           "const": "structured-classification",
@@ -199,10 +199,10 @@
         "output_schema"
       ],
       "title": "Task",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     }
   },
-  "additionalProperties": false,
   "description": "roadbed.yaml at the asset repo root.",
   "properties": {
     "spec": {
@@ -292,5 +292,6 @@
     "alias"
   ],
   "title": "roadbed.yaml",
-  "type": "object"
+  "type": "object",
+  "additionalProperties": false
 }

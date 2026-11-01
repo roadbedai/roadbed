@@ -36,9 +36,10 @@ from typing import Any
 import rfc8785
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
 from roadbed.cli import rebase as rebase_mod
 from roadbed.cli.asset import open_asset
-from roadbed.contracts import Contamination, LicensePolicy
+from roadbed.contracts import GateContaminationInput, LicensePolicy
 from roadbed.hashing import sha256_file
 from roadbed.io import read_yaml, write_jsonl, write_yaml
 
@@ -498,7 +499,7 @@ def build_asset(root: Path, n: int, blocked: bool) -> None:
     meta = read_yaml(d / "rebase.yaml")
     res = rebase_mod.run(
         asset, d, n, rebase_mod.BaseRef(NEW_BASE["repo"], NEW_BASE["revision"], "apache-2.0"), lambda _line: None,
-        contamination=Contamination(train_manifest=f"data/snapshots/{SNAPSHOT_ID.removeprefix('S-')}/MANIFEST.json",
+        contamination=GateContaminationInput(train_manifest=f"data/snapshots/{SNAPSHOT_ID.removeprefix('S-')}/MANIFEST.json",
                                     shared_ids=shared),
     )
     assert res.gate.status == ("blocked" if blocked else "pass"), res.gate.status
@@ -538,14 +539,14 @@ def build_asset(root: Path, n: int, blocked: bool) -> None:
     rebase_mod.write_manifest(asset, d)
 
     e = d / "evidence"
-    approvals = {} if blocked else {"vik": {
-        "role": "validator", "decision": "validated_with_findings", "reason_code": "low_n_slices",
-        "refs": [f"rebase:{n}", "audit:1402"], "at": "2026-11-01T11:05:00Z", "audit_seq": 1402, "pack_version": 1,
-    }}
+    vik = {"role": "validator", "decision": "validated_with_findings", "reason_code": "low_n_slices",
+           "refs": [f"rebase:{n}", "audit:1402"], "at": "2026-11-01T11:05:00Z", "audit_seq": 1402, "pack_version": 1}
+    approvals = {} if blocked else {"vik": vik}
+    history = [] if blocked else [{"rebase": n, "actor": "vik", **vik}]
     write_json(e / "approvals.json", {
         "spec": SPEC, "rebase": n, "status": "blocked" if blocked else "awaiting_signoff",
         "status_text": "blocked by the gate: no sign-off" if blocked else "awaiting MRM sign-off",
-        "required": ["validator", "approver"], "pack_version": 1 if blocked else 2, "approvals": approvals,
+        "required": ["validator", "approver"], "pack_version": 1 if blocked else 2, "approvals": approvals, "history": history,
         "synthetic": True,
     })
     entries = sorted([f"{rel}/evidence/approvals.json", f"{rel}/MANIFEST.sha256"])

@@ -3,7 +3,6 @@
   "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/evidence-manifest.schema.json",
   "$defs": {
     "ManifestEntry": {
-      "additionalProperties": false,
       "properties": {
         "sha256": {
           "description": "Lowercase hex SHA-256 digest.",
@@ -22,10 +21,10 @@
         "path"
       ],
       "title": "ManifestEntry",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     }
   },
-  "additionalProperties": false,
   "description": "Parsed form of a MANIFEST.sha256 text file (rebase or evidence): one entry per '<sha256>  <path>' line.",
   "properties": {
     "entries": {
@@ -41,5 +40,6 @@
     "entries"
   ],
   "title": "MANIFEST.sha256 (parsed)",
-  "type": "object"
+  "type": "object",
+  "additionalProperties": false
 }

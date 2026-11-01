@@ -1,7 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/recipe.schema.json",
-  "additionalProperties": false,
   "description": "recipes/<family>/<name>@<version>.yaml.",
   "properties": {
     "recipe": {
@@ -221,5 +220,6 @@
     "seed"
   ],
   "title": "Recipe",
-  "type": "object"
+  "type": "object",
+  "additionalProperties": false
 }

@@ -3,7 +3,6 @@
   "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/lock.schema.json",
   "$defs": {
     "LockFile": {
-      "additionalProperties": false,
       "properties": {
         "path": {
           "description": "Tracked path from asset root, '/' separated.",
@@ -29,10 +28,10 @@
         "size"
       ],
       "title": "LockFile",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     },
     "LockObject": {
-      "additionalProperties": false,
       "properties": {
         "oid": {
           "description": "Bucket object id: lowercase hex sha256 of the object bytes.",
@@ -57,10 +56,10 @@
         "ref"
       ],
       "title": "LockObject",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     }
   },
-  "additionalProperties": false,
   "description": "roadbed.lock: every tracked path and every bucket object, sorted by path.",
   "properties": {
     "spec": {
@@ -104,5 +103,6 @@
     "objects"
   ],
   "title": "roadbed.lock",
-  "type": "object"
+  "type": "object",
+  "additionalProperties": false
 }

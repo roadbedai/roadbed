@@ -14,6 +14,23 @@ Valid and invalid cases for every schema, and hashing test vectors, are in `conf
 
 A contract change is a pull request to this directory that the founder approves.
 
+## Glossary
+
+| Term | Meaning |
+|---|---|
+| Base | An open-weight model from the Hugging Face Hub, pinned by repo and revision sha. |
+| Version | One trained adapter on one base, `vN` (`versions/vN/`). The alias serves one version. |
+| Rebase | Retraining the model on a new base, then scoring and gating it. Numbered per tenant, so an asset repo can have gaps (`rebases/13`, `rebases/15`). |
+| Incumbent | The version that serves today. Candidate: the version the rebase trained. |
+| Verdict | A reviewer's label for one interaction (approve, fix, reject, escalate). |
+| Snapshot | A frozen set of resolved verdict rows that training reads (`S-<date>`). |
+| Holdout | Rows kept out of training and sealed by a validator (`H-...`). Scores come only from it. |
+| Seal | `SEAL.json`: who sealed the holdout, when (time and audit seq), and its hashes. |
+| Slice | One value of one slice key, e.g. `line=bodily_injury`. The gate checks every slice. |
+| Gate | The policy check that passes or blocks a rebase (`gate.json`). |
+| Receipt | A signed record of one run: inputs, environment, cost, executor. |
+| Evidence pack | The signed files a model-risk team reads before sign-off (`rebases/N/evidence/`). |
+
 ## The asset tree
 
 ```
@@ -79,8 +96,17 @@ A contract change is a pull request to this directory that the founder approves.
 | `lineage/edges.jsonl` | `lineage-edge` | Append-only lineage graph. |
 | `audit/anchors/<date>.json` | `audit-anchor` | Daily head of the audit hash chain. |
 
-Schemas for API bodies and runner messages (not asset files) are in the same directory: `audit-event` (also one line of the audit export), `approval`, `executor-job`, `job-status`, `job-result`, `alias-config`, `interaction-in`, `verdict-in`, `outcome-in`.
+Schemas for API bodies and runner messages (not asset files) are in the same directory: `audit-event` (also one line of the audit export), `approval`, `executor-job`, `job-lease`, `lease-state`, `heartbeat`, `job-status`, `job-result`, `alias-config`, `interaction-in`, `verdict-in`, `outcome-in`.
 `platform/contracts/openapi.yaml` copies them, pinned to this spec version.
+
+## Compatibility within v0.x
+
+- **Additive only.** Within v0.x, producers only add optional fields. They never remove, rename or retype a field, and never narrow an allowed value.
+- **Producers are strict.** Whoever writes a file, a response or a request validates it against the published schema in `schemas/v0.1/`. The published schemas are closed (`additionalProperties: false`). A field enters the contract only through a spec change.
+- **Readers are lenient.** Consumers of files and responses ignore unknown fields: the Pydantic models of files and responses use `extra="ignore"`, and `json_schema(name, reader=True)` is the schema without `additionalProperties: false`. `roadbed verify` and `load_asset` read this way. So an older CLI, runner or gateway reads a newer producer's output.
+- **Requests are strict.** Request bodies (`InteractionIn`, `VerdictIn`, `OutcomeIn`, `JobStatus`, `JobResult`, `Heartbeat`) use `extra="forbid"`. The server rejects an unknown field with 422.
+- **Markers.** A file that has a `spec` field keeps `spec: roadbed/v0.1` for every additive change. Row files (JSONL) and policy files carry no marker; the asset's `roadbed.yaml` speaks for them.
+- **v0.2.** A change that is not additive is v0.2. It is signalled by `spec: roadbed/v0.2` in `roadbed.yaml` and in each file that has a marker, and by a new schema directory `schemas/v0.2/`. A v0.2 reader accepts both markers (its models type `spec` as `roadbed/v0.1 | roadbed/v0.2`) and reads v0.1 assets as they are. A v0.1 reader refuses a v0.2 marker with a clear error. Breaking changes after v0.x need a migration command.
 
 ## Rules from the plan
 
@@ -90,6 +116,7 @@ These sentences are the frozen rules. The sections below make them exact.
 
 ## Hashing
 
+0. **Hash what is stored.** A file digest is over the stored bytes. A JSON digest is `sha256(JCS(obj))` of the stored JSON as parsed, never of a model re-dump. Models keep every stored value as it was (timestamps stay strings), and a test proves a model round trip changes no hash in the fixtures. Store what you hash; hash what you stored.
 1. **File digest.** Lowercase hex SHA-256 of the file bytes, without a prefix.
 2. **JSON object digest.** `sha256(JCS(obj))`, where JCS is RFC 8785 canonical JSON. Use it when a JSON value is identified independent of its formatting: receipts in a chain, policies (`policy_sha256`, null fields left out), output schemas (`schema_sha256`), audit events.
 3. **Content address.** `input_ref` is `sha256:<hex>` of the raw input. The raw input is not stored in the asset.
@@ -97,6 +124,13 @@ These sentences are the frozen rules. The sections below make them exact.
 5. **Dataset identity.** The Merkle root of the row hashes sorted ascending (hex order, duplicates kept), built as RFC 6962 section 2.1: leaf = `sha256(0x00 || 32 digest bytes)`, node = `sha256(0x01 || left || right)`, split at the largest power of two below n. The empty set hashes to `sha256("")`. Vectors: `conformance/vectors/hashing.json`.
 6. **Bucket objects.** An object id (oid) is the file digest of the object bytes. The key is `objects/sha256/<oid[0:2]>/<oid[2:4]>/<oid>`. A tracked file over 1 MB is replaced in git by `<path>.ptr` (schema `object-pointer`). `roadbed.lock` lists every oid the tree names.
 7. **Lock.** `roadbed.lock` lists every tracked file except itself. Paths are `/` separated, from the asset root, sorted by their UTF-8 bytes. Rewrite the lock last, after every other file.
+8. **Timestamps.** Every timestamp is UTC, RFC 3339, seconds precision, with a `Z` suffix: `YYYY-MM-DDTHH:MM:SSZ` (type `UtcTs`). No fraction, no offset. One form means one hash, and the strings sort in time order. `2026-11-01T09:02:00.120Z` and `2026-11-01T09:02:00+00:00` are invalid. Order events by audit seq, not by sub-second time.
+
+| Digest form | Where |
+|---|---|
+| bare lowercase hex (64) | file digests, oids, `row_hash`, Merkle roots, `*_sha256` fields, MANIFEST lines, `keyid` |
+| `sha256:<hex>` | `input_ref` (content address) and OCI image digests (`image_digest`) |
+| `{"sha256": "<hex>"}` | in-toto `subject[].digest` (the in-toto layout) |
 
 ## Manifests
 
@@ -150,6 +184,7 @@ Audit events, lineage, receipts and evidence hold ids, HMAC tokens (`tok_<hex>`)
 - **Subjects.** A lineage subject node is `subject:tok_<hex>`. Other nodes are `<type>:<id>`.
 - **Audit payload.** Keys match `^[a-z_]{1,64}$`. Values are numbers, booleans, null, or strings matching `^[A-Za-z0-9:_./+=-]{1,256}$` (no spaces). Free-text keys (`note`, `comment`, `text`, `message`, `description`, `detail`, `reason`, `name`, `email`, `phone`) are rejected.
 - **Approvals.** An approval has a `reason_code` (enum) and `refs` (finding, correction-test, audit or rebase ids). It has no free-text comment.
+- **Short text fields.** `note` (findings, rebase.yaml), `message` (job status) and `error` (job result) can reach evidence. They hold ids and plain facts only, never personal data.
 
 The SDK pseudonymises before ingest. Ingest without a pseudonymisation profile id is rejected (422).
 
@@ -166,34 +201,55 @@ A daily anchor (`audit/anchors/<date>.json`) records the head seq and hash. A co
 3. CI = percentile bootstrap of the mean paired difference, `n_boot` resamples, level `ci`. The RNG seed is `[seed, crc32("<key>=<value>")]`, or `[seed, crc32("overall")]`.
 4. A slice with `n < min_n` is `low_n`. A low-n slice never blocks.
 5. A slice is `below_margin` when `delta < margin` and it is not low-n.
-6. A failed check blocks when its reason is in `block_on`. Otherwise its status is `warn`. A gate with status `pass` has no failed check. Every check has a non-empty `detail`; a skipped check says why.
-7. `policy_sha256` is the SHA-256 of the RFC 8785 canonical JSON of the policy, null fields left out.
-8. Synthetic data: `synthetic: true` in `roadbed.yaml`, `scores.json`, `gate.json` and every other file that has the field, and a `SYNTHETIC.md` in any directory of synthetic JSONL.
+6. **Gate names.** Each check has a fixed name, and each name has one failure reason. A finding's `kind` is that reason. `block_on` lists reasons.
+
+| Check `name` | Failure reason (`block_on`, finding `kind`) |
+|---|---|
+| `slice_margin` | `slice_below_margin` |
+| `license` | `license_denied` |
+| `contamination` | `contamination` |
+| `seal_order` | `seal_order` |
+| `stage:shadow`, `stage:canary`, `stage:bias_tests` | (stubs: always `skipped`) |
+
+7. A failed check blocks when its reason is in `block_on`. Otherwise its status is `warn`. A gate with status `pass` has no failed check. Every check has a non-empty `detail`; a skipped check says why.
+8. `policy_sha256` is the SHA-256 of the RFC 8785 canonical JSON of the policy, null fields left out.
+9. Synthetic data: `synthetic: true` in `roadbed.yaml`, `scores.json`, `gate.json` and every other file that has the field, and a `SYNTHETIC.md` in any directory of synthetic JSONL.
 
 ## Verify
 
 `roadbed verify rebases/N` checks integrity, not the gate outcome. A blocked rebase still verifies. Exit 0 means every check passed. Exit 4 names the first failed check (`V-...`).
 
-Day 0 checks: the rebase `MANIFEST.sha256` hashes, the `scores.json` and `gate.json` schemas, `scores.json` recomputed from the two prediction files with the stored seed, and the seal time before the rebase time.
-W01 adds `V-MANIFEST-INCOMPLETE` for a rebase with a receipt whose manifest misses a bound file (see Manifests).
-W02 adds: the lock, schemas of every file, signatures, the receipt chain, seal order (all three ways, ancestry from git), and disjointness. The planned codes are `V-HASH-MISMATCH`, `V-SEAL-ORDER` and `V-HOLDOUT-OVERLAP`.
+Checks, in order: the rebase `MANIFEST.sha256` hashes (and, when a receipt exists, the bound files: `V-MANIFEST-INCOMPLETE`), the `scores.json` and `gate.json` schemas (reader form), `scores.json` recomputed from the two prediction files with the stored seed, and the seal time before the rebase time. The Status section says which checks exist today.
 
 ## Sign-off
 
-`evidence/approvals.json` keys `approvals` by actor id. One actor holds one role, so the validator and the approver differ (SoD-03) by construction. SoD-02 (the requester does not approve) needs `rebase.yaml` too, so the control plane (W11) and verify check it.
+- **One role per actor.** `evidence/approvals.json` keys `approvals` by actor id and holds each actor's latest decision. One actor holds one role, so the validator and the approver differ (SoD-03) by construction.
+- **History.** `history` is append-only and keeps every decision (a reject, then an approve). `approvals[actor]` is the actor's latest entry in `history`.
+- **Role and decision.** A validator records `validated`, `validated_with_findings` or `rejected`. An approver records `approved` or `rejected`. Schema and model enforce this.
+- **SoD-02.** The requester does not approve. This needs `rebase.yaml` too, so the control plane (W11) and verify check it.
 
-## Executor protocol
+## Runner jobs and bucket I/O
 
-`roadbed.contracts.Executor` is a typing Protocol with `submit(job) -> job id`, `status(job_id) -> JobStatus`, `result(job_id) -> JobResult` and `cancel(job_id)`.
-Jobs are `ExecutorJob` with a `TrainSpec`, `EvalSpec` or `BenchSpec`. A succeeded `JobResult` carries a `Receipt`.
-Implementations: `runner` on the GPU box, `mock`, `replay`. `hf-jobs` and `together` are stubs.
+- **Self-contained jobs.** An `ExecutorJob` holds everything the runner needs: the base, the recipe (path and sha256), every input as an object (oid and size), the bucket (`storage`), and the outputs the result must name. The runner asks the control plane for nothing else.
+- **Inputs.** The runner reads inputs from `storage` by oid, at `objects/sha256/<oid[0:2]>/<oid[2:4]>/<oid>`. The recipe bytes have oid `recipe.sha256`. A raw (pseudonymised) input has oid `input_ref` without the `sha256:` prefix. Train jobs get the snapshot manifest and parts, plus the holdout row hashes and MinHash object, never holdout rows. Eval jobs also get `holdout.file`, the holdout rows.
+- **Before training.** The runner checks the seal order (seal seq and time against the job start) and disjointness (snapshot row hashes against the holdout row hashes, MinHash). If either fails, it refuses the job.
+- **Outputs.** The runner writes each output content-addressed to the same bucket, then posts a `JobResult` that names each one (`artifacts`: name, oid, size) plus the signed receipt. The control plane records the oids and writes the asset files (predictions, `model.json`, receipt) from them. The runner never writes to git.
+- **Credentials.** `storage.credentials` names a credential the runner already holds. A job never carries a secret.
+- **SoD-05 and the runner.** The runner service identity is the only non-validator that reads holdout rows, and only for eval jobs. Each read is audited with role `runner`.
+- **Leases.** `GET /v1/jobs/next` returns a `JobLease` (job, `lease_id`, `attempt`, `max_attempts`, `lease_until`). Heartbeat and status extend the lease and return `LeaseState`, which carries `cancel_requested`. An expired lease re-queues the job with `attempt + 1`; after `max_attempts` the job fails. A status or result with a stale lease or another attempt gets 409. The control plane README has the state machine.
+- **Executor protocol.** `roadbed.contracts.Executor` is an async Protocol: `submit`, `status`, `result` (raises `JobNotFinished` while queued or running), `cancel` (a no-op on a finished job). The control plane implements it: `runner` is an adapter over the lease queue, and `mock` and `replay` run in process. `hf-jobs` and `together` are stubs. The GPU box only speaks HTTP.
 
-## Compatibility with Day 0
+## Status
 
-Every Day 0 file stays valid. W01 adds fields as optional only. It adds new schemas for files Day 0 did not validate.
-`policy_sha256` is computed with null fields left out, so the new optional policy fields do not change Day 0 hashes.
-The rebase `MANIFEST.sha256` now leaves out `evidence/` and adds the bound files. Day 0 rebases have no `evidence/` and no receipt, so their manifests stay valid under the Day 0 rule, and `roadbed verify` prints the same bytes for them as on Day 0.
-New constraints (actor id pattern, the seal field group, the gate pass rule) accept every Day 0 file.
+This section changes as the build goes on. The rules above do not.
+
+| Package | What it implements |
+|---|---|
+| Day 0 | Engine and CLI: scoring, paired bootstrap, gate, `roadbed verify` (manifest hashes, `scores.json` and `gate.json` schemas, scores recomputed, seal time before the rebase). |
+| W01 (this spec) | All schemas, fixtures, conformance cases and vectors; `V-MANIFEST-INCOMPLETE`; contamination input to the gate. |
+| W02 | verify: the lock, schemas of every file, signatures, the receipt chain, the seal order (ancestry from git) and disjointness. Planned codes `V-HASH-MISMATCH`, `V-SEAL-ORDER`, `V-HOLDOUT-OVERLAP`. |
+
+**Compatibility with Day 0.** Every Day 0 file stays valid: W01 adds fields as optional only, and new constraints (actor ids, timestamps, the seal field group, the gate rules, check names) accept every Day 0 file. `policy_sha256` leaves out null fields, so the new optional policy fields do not change Day 0 hashes. Day 0 rebases have no `evidence/` and no receipt, so their manifests stay valid under the Day 0 rule, and `roadbed verify` prints the same bytes for them as on Day 0.
 
 ## Tools
 

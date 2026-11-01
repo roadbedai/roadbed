@@ -1,8 +1,71 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/approval.schema.json",
-  "additionalProperties": false,
-  "description": "One sign-off. Also the response of POST /v1/rebases/{n}/approvals.",
+  "$defs": {
+    "ApprovalReason": {
+      "description": "Why a validator or approver decided as they did. No free text.",
+      "enum": [
+        "no_findings",
+        "findings_noted",
+        "low_n_slices",
+        "slice_regression",
+        "license_review",
+        "contamination_risk",
+        "cost_over_cap",
+        "other"
+      ],
+      "title": "ApprovalReason",
+      "type": "string"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "role": {
+            "const": "validator"
+          }
+        },
+        "required": [
+          "role"
+        ]
+      },
+      "then": {
+        "properties": {
+          "decision": {
+            "enum": [
+              "validated",
+              "validated_with_findings",
+              "rejected"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "role": {
+            "const": "approver"
+          }
+        },
+        "required": [
+          "role"
+        ]
+      },
+      "then": {
+        "properties": {
+          "decision": {
+            "enum": [
+              "approved",
+              "rejected"
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "description": "One sign-off. Also the response of POST /v1/rebases/{rebase}/approvals.",
   "properties": {
     "role": {
       "enum": [
@@ -23,18 +86,7 @@
       "type": "string"
     },
     "reason_code": {
-      "enum": [
-        "no_findings",
-        "findings_noted",
-        "low_n_slices",
-        "slice_regression",
-        "license_review",
-        "contamination_risk",
-        "cost_over_cap",
-        "other"
-      ],
-      "title": "Reason Code",
-      "type": "string"
+      "$ref": "#/$defs/ApprovalReason"
     },
     "refs": {
       "description": "Ids the decision rests on. No free text.",
@@ -47,7 +99,8 @@
       "type": "array"
     },
     "at": {
-      "format": "date-time",
+      "description": "UTC timestamp, RFC 3339, seconds precision, Z suffix: YYYY-MM-DDTHH:MM:SSZ. Kept as the stored string.",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$",
       "title": "At",
       "type": "string"
     },
@@ -84,5 +137,6 @@
     "actor"
   ],
   "title": "Approval",
-  "type": "object"
+  "type": "object",
+  "additionalProperties": false
 }

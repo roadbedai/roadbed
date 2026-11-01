@@ -3,7 +3,6 @@
   "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/model-version.schema.json",
   "$defs": {
     "Adapter": {
-      "additionalProperties": false,
       "properties": {
         "oid": {
           "description": "Bucket object id: lowercase hex sha256 of the object bytes.",
@@ -28,13 +27,14 @@
         "format"
       ],
       "title": "Adapter",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     },
     "DatasetRef": {
-      "additionalProperties": false,
       "properties": {
         "id": {
           "description": "Snapshot id (S-...) or holdout id (H-...).",
+          "pattern": "^[SH]-[A-Za-z0-9-]{1,64}$",
           "title": "Id",
           "type": "string"
         },
@@ -64,10 +64,10 @@
         "merkle_root"
       ],
       "title": "DatasetRef",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     },
     "PinnedBase": {
-      "additionalProperties": false,
       "properties": {
         "repo": {
           "description": "Hugging Face repo id of the base model.",
@@ -86,10 +86,10 @@
         "revision"
       ],
       "title": "PinnedBase",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     },
     "RecipeRef": {
-      "additionalProperties": false,
       "properties": {
         "path": {
           "description": "Recipe path from asset root, e.g. recipes/qwen3/lora-r16-sft@v4.yaml.",
@@ -108,10 +108,10 @@
         "sha256"
       ],
       "title": "RecipeRef",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     }
   },
-  "additionalProperties": false,
   "description": "versions/vN/model.json.",
   "properties": {
     "spec": {
@@ -150,7 +150,8 @@
       "$ref": "#/$defs/DatasetRef"
     },
     "created_at": {
-      "format": "date-time",
+      "description": "UTC timestamp, RFC 3339, seconds precision, Z suffix: YYYY-MM-DDTHH:MM:SSZ. Kept as the stored string.",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$",
       "title": "Created At",
       "type": "string"
     },
@@ -192,5 +193,6 @@
     "synthetic"
   ],
   "title": "model.json",
-  "type": "object"
+  "type": "object",
+  "additionalProperties": false
 }

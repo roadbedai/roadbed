@@ -7,10 +7,9 @@ import json
 import jsonschema
 import pytest
 
+from conftest import EXAMPLE, SPEC_DIR
 from roadbed import io
 from roadbed.contracts import SCHEMA_MODELS, json_schema
-
-from conftest import EXAMPLE, SPEC_DIR
 
 SCHEMA_DIR = SPEC_DIR / "schemas" / "v0.1"
 CONFORMANCE = SPEC_DIR / "conformance"

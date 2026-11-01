@@ -3,7 +3,6 @@
   "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/scores.schema.json",
   "$defs": {
     "FileDigest": {
-      "additionalProperties": false,
       "properties": {
         "path": {
           "title": "Path",
@@ -21,10 +20,10 @@
         "sha256"
       ],
       "title": "FileDigest",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     },
     "HoldoutDigest": {
-      "additionalProperties": false,
       "properties": {
         "id": {
           "title": "Id",
@@ -48,10 +47,10 @@
         "sha256"
       ],
       "title": "HoldoutDigest",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     },
     "Overall": {
-      "additionalProperties": false,
       "properties": {
         "n": {
           "minimum": 1,
@@ -91,10 +90,10 @@
         "ci_high"
       ],
       "title": "Overall",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     },
     "PredictionDigests": {
-      "additionalProperties": false,
       "properties": {
         "incumbent": {
           "$ref": "#/$defs/FileDigest"
@@ -108,10 +107,10 @@
         "candidate"
       ],
       "title": "PredictionDigests",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     },
     "SliceResult": {
-      "additionalProperties": false,
       "properties": {
         "n": {
           "minimum": 1,
@@ -173,10 +172,10 @@
         "below_margin"
       ],
       "title": "SliceResult",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     }
   },
-  "additionalProperties": false,
   "description": "scores.json written by `roadbed score`.",
   "properties": {
     "spec": {
@@ -255,5 +254,6 @@
     "slices"
   ],
   "title": "scores.json",
-  "type": "object"
+  "type": "object",
+  "additionalProperties": false
 }

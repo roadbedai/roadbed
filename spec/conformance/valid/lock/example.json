@@ -158,18 +158,18 @@
     },
     {
       "path": "rebases/13/evidence/MANIFEST.sha256",
-      "sha256": "74cf65d1ddef82cf91d9e75821dc3ade51ad9f4319bc805ff752dec38c8a31ee",
+      "sha256": "7075297f86107e0feca44b5010a12d47229530281eb9774de354d2f7a857f7cf",
       "size": 194
     },
     {
       "path": "rebases/13/evidence/MANIFEST.sig",
-      "sha256": "be5171975ba1e278be87451930fba2af93262be208823f0cd7d926f3a463a5b2",
+      "sha256": "46dcf448170247ffa6784769d6b97b053e743b00d64a603c81048bccde2fae6a",
       "size": 311
     },
     {
       "path": "rebases/13/evidence/approvals.json",
-      "sha256": "4bd4fd7dcf8ac47766ce7835e4647145880053390bf806c8b7d9862023b1dce8",
-      "size": 516
+      "sha256": "b40ca93cd026169026fff00ed254b335323701b484e11bb9842177e94ffea736",
+      "size": 851
     },
     {
       "path": "rebases/13/gate.json",

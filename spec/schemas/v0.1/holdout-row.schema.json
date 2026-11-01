@@ -1,7 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/holdout-row.schema.json",
-  "additionalProperties": false,
   "description": "One line of data/holdout/<id>/holdout.jsonl.",
   "properties": {
     "id": {
@@ -53,5 +52,6 @@
     "expected"
   ],
   "title": "Holdout row",
-  "type": "object"
+  "type": "object",
+  "additionalProperties": false
 }

@@ -3,5 +3,7 @@
   "state": "running",
   "progress": 1.5,
   "message": "epoch 2 of 3",
-  "updated_at": "2026-11-01T10:20:00Z"
+  "updated_at": "2026-11-01T10:20:00Z",
+  "lease_id": "lease-7f3a",
+  "attempt": 1
 }

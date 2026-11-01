@@ -208,7 +208,7 @@ def verify(
         if c.ok is False:
             line = Text("FAIL ", style="bold red") + Text(c.code, style="bold") + Text(f"  {c.detail}")
         else:
-            line = Text(c.label, style="dim" if c.ok is None else None)
+            line = Text(c.label, style="dim" if c.ok is None else "")
             if c.detail:
                 line.append(f"  ({c.detail})", style="dim")
         con.print(line)

@@ -71,7 +71,7 @@ def fetch(glob: str, api: Any | None = None) -> dict[str, Any]:
     """Query the Hub. Raises NoMatch when no repo id matches the glob."""
     api = api or HfApi()
     author, search = _split(glob)
-    models = list(api.list_models(author=author, search=search or None, sort="lastModified", limit=LIST_LIMIT))
+    models = list(api.list_models(author=author, search=search or None, sort="lastModified", limit=LIST_LIMIT))  # type: ignore[arg-type]  # the Hub accepts this key
     matches = [m for m in models if fnmatch.fnmatchcase(m.id, glob)]
     if not matches:
         raise NoMatch(glob)

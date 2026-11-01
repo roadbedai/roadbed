@@ -3,7 +3,7 @@
   "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/executor-job.schema.json",
   "$defs": {
     "BenchSpec": {
-      "additionalProperties": false,
+      "description": "Latency and cost benchmark on the GPU box.",
       "properties": {
         "kind": {
           "const": "bench",
@@ -13,24 +13,28 @@
         "base": {
           "$ref": "#/$defs/PinnedBase"
         },
+        "recipe": {
+          "$ref": "#/$defs/RecipeRef"
+        },
         "adapter": {
           "anyOf": [
             {
-              "description": "Bucket object id: lowercase hex sha256 of the object bytes.",
-              "pattern": "^[0-9a-f]{64}$",
-              "type": "string"
+              "$ref": "#/$defs/ObjectRef"
             },
             {
               "type": "null"
             }
           ],
-          "default": null,
-          "title": "Adapter"
+          "default": null
         },
         "prompts": {
-          "description": "Plan value 500.",
+          "$ref": "#/$defs/ObjectRef",
+          "description": "Prompt set, JSONL of pseudonymised inputs."
+        },
+        "count": {
+          "description": "Prompts to send. Plan value 500.",
           "minimum": 1,
-          "title": "Prompts",
+          "title": "Count",
           "type": "integer"
         },
         "concurrency": {
@@ -48,57 +52,77 @@
           "minimum": 0,
           "title": "Price Per Hour Eur",
           "type": "number"
+        },
+        "outputs": {
+          "description": "Artifacts the result must name: bench (cost.json input) and receipt.",
+          "items": {
+            "enum": [
+              "bench",
+              "receipt"
+            ],
+            "type": "string"
+          },
+          "title": "Outputs",
+          "type": "array"
         }
       },
       "required": [
         "kind",
         "base",
+        "recipe",
         "prompts",
+        "count",
         "concurrency",
         "max_tokens",
-        "price_per_hour_eur"
+        "price_per_hour_eur",
+        "outputs"
       ],
       "title": "BenchSpec",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     },
-    "DatasetRef": {
-      "additionalProperties": false,
+    "BucketRef": {
+      "description": "Where the runner reads inputs and writes outputs. Objects live at objects/sha256/<oid[0:2]>/<oid[2:4]>/<oid>.",
       "properties": {
-        "id": {
-          "description": "Snapshot id (S-...) or holdout id (H-...).",
-          "title": "Id",
+        "endpoint": {
+          "description": "S3-compatible endpoint URL reachable from the runner (WireGuard), e.g. http://minio:9000.",
+          "title": "Endpoint",
           "type": "string"
         },
-        "merkle_root": {
-          "description": "Merkle root of the sorted row hashes (SPEC.md, hashing).",
-          "pattern": "^[0-9a-f]{64}$",
-          "title": "Merkle Root",
+        "bucket": {
+          "title": "Bucket",
           "type": "string"
         },
-        "rows": {
+        "region": {
           "anyOf": [
             {
-              "minimum": 0,
-              "type": "integer"
+              "type": "string"
             },
             {
               "type": "null"
             }
           ],
           "default": null,
-          "description": "Optional. Row count.",
-          "title": "Rows"
+          "title": "Region"
+        },
+        "credentials": {
+          "description": "Name of a credential the runner already holds (e.g. runner-bucket-rw). Never the secret itself.",
+          "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+          "title": "Credentials",
+          "type": "string"
         }
       },
       "required": [
-        "id",
-        "merkle_root"
+        "endpoint",
+        "bucket",
+        "credentials"
       ],
-      "title": "DatasetRef",
-      "type": "object"
+      "title": "BucketRef",
+      "type": "object",
+      "additionalProperties": false
     },
     "EvalSpec": {
-      "additionalProperties": false,
+      "description": "Predict the sealed holdout with the base plus an adapter, guided by the output schema.",
       "properties": {
         "kind": {
           "const": "eval",
@@ -108,20 +132,21 @@
         "base": {
           "$ref": "#/$defs/PinnedBase"
         },
+        "recipe": {
+          "$ref": "#/$defs/RecipeRef",
+          "description": "Same recipe as training, so the chat template matches."
+        },
         "adapter": {
           "anyOf": [
             {
-              "description": "Bucket object id: lowercase hex sha256 of the object bytes.",
-              "pattern": "^[0-9a-f]{64}$",
-              "type": "string"
+              "$ref": "#/$defs/ObjectRef"
             },
             {
               "type": "null"
             }
           ],
           "default": null,
-          "description": "Adapter oid; absent or null runs the base model alone.",
-          "title": "Adapter"
+          "description": "Adapter object; absent runs the base model alone."
         },
         "role": {
           "enum": [
@@ -131,15 +156,13 @@
           "title": "Role",
           "type": "string"
         },
-        "dataset": {
-          "$ref": "#/$defs/DatasetRef",
-          "description": "The sealed holdout."
+        "holdout": {
+          "$ref": "#/$defs/HoldoutInput",
+          "description": "Includes file: the runner reads the rows (SoD-05 runner exemption)."
         },
-        "output_schema_sha256": {
-          "description": "sha256(JCS(output schema)); used for guided JSON.",
-          "pattern": "^[0-9a-f]{64}$",
-          "title": "Output Schema Sha256",
-          "type": "string"
+        "output_schema": {
+          "$ref": "#/$defs/ObjectRef",
+          "description": "evals/output.schema.json bytes; used for guided JSON."
         },
         "max_tokens": {
           "minimum": 1,
@@ -150,25 +173,40 @@
           "minimum": 0,
           "title": "Temperature",
           "type": "number"
+        },
+        "outputs": {
+          "description": "Artifacts the result must name: predictions and receipt.",
+          "items": {
+            "enum": [
+              "predictions",
+              "receipt"
+            ],
+            "type": "string"
+          },
+          "title": "Outputs",
+          "type": "array"
         }
       },
       "required": [
         "kind",
         "base",
+        "recipe",
         "role",
-        "dataset",
-        "output_schema_sha256",
+        "holdout",
+        "output_schema",
         "max_tokens",
-        "temperature"
+        "temperature",
+        "outputs"
       ],
       "title": "EvalSpec",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     },
-    "HoldoutSealRef": {
-      "additionalProperties": false,
+    "HoldoutInput": {
       "properties": {
         "id": {
           "description": "Snapshot id (S-...) or holdout id (H-...).",
+          "pattern": "^[SH]-[A-Za-z0-9-]{1,64}$",
           "title": "Id",
           "type": "string"
         },
@@ -200,7 +238,7 @@
         },
         "sealed_at": {
           "description": "SEAL.json sealed_at.",
-          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$",
           "title": "Sealed At",
           "type": "string"
         },
@@ -209,6 +247,34 @@
           "pattern": "^[0-9a-f]{40}$",
           "title": "Seal Commit",
           "type": "string"
+        },
+        "row_hashes": {
+          "$ref": "#/$defs/ObjectRef",
+          "description": "The holdout row hashes, sorted, one hex per line. Enough for the overlap check."
+        },
+        "minhash": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ObjectRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "MinHash signatures (SEAL.json minhash_oid) for the near check."
+        },
+        "file": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ObjectRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "holdout.jsonl bytes. Only eval jobs get it (the runner identity, SoD-05 exemption)."
         }
       },
       "required": [
@@ -216,13 +282,36 @@
         "merkle_root",
         "seal_seq",
         "sealed_at",
-        "seal_commit"
+        "seal_commit",
+        "row_hashes"
       ],
-      "title": "HoldoutSealRef",
-      "type": "object"
+      "title": "HoldoutInput",
+      "type": "object",
+      "additionalProperties": false
+    },
+    "ObjectRef": {
+      "properties": {
+        "oid": {
+          "description": "Bucket object id: lowercase hex sha256 of the object bytes.",
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Oid",
+          "type": "string"
+        },
+        "size": {
+          "minimum": 0,
+          "title": "Size",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "oid",
+        "size"
+      ],
+      "title": "ObjectRef",
+      "type": "object",
+      "additionalProperties": false
     },
     "PinnedBase": {
-      "additionalProperties": false,
       "properties": {
         "repo": {
           "description": "Hugging Face repo id of the base model.",
@@ -241,10 +330,10 @@
         "revision"
       ],
       "title": "PinnedBase",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     },
     "RecipeRef": {
-      "additionalProperties": false,
       "properties": {
         "path": {
           "description": "Recipe path from asset root, e.g. recipes/qwen3/lora-r16-sft@v4.yaml.",
@@ -263,10 +352,63 @@
         "sha256"
       ],
       "title": "RecipeRef",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
+    },
+    "SnapshotInput": {
+      "properties": {
+        "id": {
+          "description": "Snapshot id (S-...) or holdout id (H-...).",
+          "pattern": "^[SH]-[A-Za-z0-9-]{1,64}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "merkle_root": {
+          "description": "Merkle root of the sorted row hashes (SPEC.md, hashing).",
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Merkle Root",
+          "type": "string"
+        },
+        "rows": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional. Row count.",
+          "title": "Rows"
+        },
+        "manifest": {
+          "$ref": "#/$defs/ObjectRef",
+          "description": "The snapshot MANIFEST.json bytes."
+        },
+        "parts": {
+          "description": "Snapshot parts (JSONL of snapshot rows), in order.",
+          "items": {
+            "$ref": "#/$defs/ObjectRef"
+          },
+          "minItems": 1,
+          "title": "Parts",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "merkle_root",
+        "manifest",
+        "parts"
+      ],
+      "title": "SnapshotInput",
+      "type": "object",
+      "additionalProperties": false
     },
     "TrainSpec": {
-      "additionalProperties": false,
+      "description": "Train a LoRA adapter on the snapshot. The runner refuses when the seal order or disjointness fails.",
       "properties": {
         "kind": {
           "const": "train",
@@ -277,14 +419,15 @@
           "$ref": "#/$defs/PinnedBase"
         },
         "recipe": {
-          "$ref": "#/$defs/RecipeRef"
+          "$ref": "#/$defs/RecipeRef",
+          "description": "recipe.sha256 is also the bucket oid of the recipe bytes."
         },
         "snapshot": {
-          "$ref": "#/$defs/DatasetRef"
+          "$ref": "#/$defs/SnapshotInput"
         },
         "holdout": {
-          "$ref": "#/$defs/HoldoutSealRef",
-          "description": "The runner refuses to train when seal order or disjointness fails."
+          "$ref": "#/$defs/HoldoutInput",
+          "description": "Row hashes only; train jobs never get holdout rows."
         },
         "seed": {
           "title": "Seed",
@@ -299,6 +442,18 @@
         "adapter_name": {
           "title": "Adapter Name",
           "type": "string"
+        },
+        "outputs": {
+          "description": "Artifacts the result must name: adapter and receipt.",
+          "items": {
+            "enum": [
+              "adapter",
+              "receipt"
+            ],
+            "type": "string"
+          },
+          "title": "Outputs",
+          "type": "array"
         }
       },
       "required": [
@@ -309,14 +464,15 @@
         "holdout",
         "seed",
         "image_digest",
-        "adapter_name"
+        "adapter_name",
+        "outputs"
       ],
       "title": "TrainSpec",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     }
   },
-  "additionalProperties": false,
-  "description": "A unit of GPU work. GET /v1/jobs/next returns one.",
+  "description": "A unit of GPU work. Self-contained: the runner needs nothing else from the control plane.",
   "properties": {
     "id": {
       "minLength": 1,
@@ -361,6 +517,10 @@
       ],
       "title": "Spec"
     },
+    "storage": {
+      "$ref": "#/$defs/BucketRef",
+      "description": "Bucket for inputs (by oid) and outputs (content-addressed)."
+    },
     "cost_cap_eur": {
       "anyOf": [
         {
@@ -375,7 +535,8 @@
       "title": "Cost Cap Eur"
     },
     "created_at": {
-      "format": "date-time",
+      "description": "UTC timestamp, RFC 3339, seconds precision, Z suffix: YYYY-MM-DDTHH:MM:SSZ. Kept as the stored string.",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$",
       "title": "Created At",
       "type": "string"
     },
@@ -390,9 +551,11 @@
     "id",
     "model",
     "spec",
+    "storage",
     "created_at",
     "requested_by"
   ],
   "title": "Executor job",
-  "type": "object"
+  "type": "object",
+  "additionalProperties": false
 }

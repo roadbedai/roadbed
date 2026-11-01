@@ -9,6 +9,7 @@ Each invalid case is a valid case with one change, and the README says which rul
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 import shutil
 import sys
@@ -40,6 +41,31 @@ def _row(rel: str) -> Any:
 def _manifest(rel: str) -> dict[str, Any]:
     lines = (PASS / rel).read_text(encoding="utf-8").splitlines()
     return {"entries": [{"sha256": ln[:64], "path": ln[66:]} for ln in lines if ln.strip()]}
+
+
+def _job(receipt: dict[str, Any]) -> dict[str, Any]:
+    """A self-contained train job built from the pass fixture: every input by oid, outputs named."""
+    p = receipt["predicate"]
+    man_bytes = (PASS / "data/snapshots/2026-11-01/MANIFEST.json").read_bytes()
+    man = json.loads(man_bytes)
+    hold = read_jsonl(PASS / "data/holdout/H-2026-11-01/holdout.jsonl")
+    hashes = "".join(h + "\n" for h in sorted(r["row_hash"] for r in hold)).encode()
+    seal = _json("data/holdout/H-2026-11-01/SEAL.json")
+
+    return {
+        "id": "job-rebase-13-train", "model": "claims-triage", "rebase": 13,
+        "spec": {
+            "kind": "train", "base": p["base"], "recipe": p["recipe"],
+            "snapshot": {**p["snapshot"], "manifest": {"oid": hashlib.sha256(man_bytes).hexdigest(), "size": len(man_bytes)},
+                         "parts": [{"oid": x["oid"], "size": x["size"]} for x in man["parts"]]},
+            "holdout": {**p["holdout"], "row_hashes": {"oid": hashlib.sha256(hashes).hexdigest(), "size": len(hashes)},
+                        "minhash": {"oid": seal["minhash_oid"], "size": 1}},
+            "seed": 20261101, "image_digest": p["image_digest"], "adapter_name": "claims-triage-v13",
+            "outputs": ["adapter", "receipt"],
+        },
+        "storage": {"endpoint": "http://minio:9000", "bucket": "acme-claims", "credentials": "runner-bucket-rw"},
+        "cost_cap_eur": 25.0, "created_at": TS, "requested_by": "dana",
+    }
 
 
 def valid_cases() -> dict[str, Any]:
@@ -82,21 +108,18 @@ def valid_cases() -> dict[str, Any]:
             "payload": {"rebase": 13}, "prev_hash": H, "hash": "b" * 64,
         },
         "approval": {"rebase": 13, "actor": "vik", **_json("rebases/13/evidence/approvals.json")["approvals"]["vik"]},
-        "executor-job": {
-            "id": "job-rebase-13-train", "model": "claims-triage", "rebase": 13,
-            "spec": {"kind": "train", "base": receipt["predicate"]["base"], "recipe": receipt["predicate"]["recipe"],
-                     "snapshot": receipt["predicate"]["snapshot"], "holdout": receipt["predicate"]["holdout"],
-                     "seed": 20261101, "image_digest": receipt["predicate"]["image_digest"],
-                     "adapter_name": "claims-triage-v13"},
-            "cost_cap_eur": 25.0, "created_at": TS, "requested_by": "dana",
-        },
+        "executor-job": _job(receipt),
         "job-status": {"job_id": "job-rebase-13-train", "state": "running", "progress": 0.4,
-                       "message": "epoch 2 of 3", "updated_at": TS},
+                       "message": "epoch 2 of 3", "updated_at": TS, "lease_id": "lease-7f3a", "attempt": 1},
+        "job-lease": {"job": _job(receipt), "lease_id": "lease-7f3a", "attempt": 1, "max_attempts": 3,
+                      "lease_until": "2026-11-01T10:25:00Z"},
+        "lease-state": {"lease_until": "2026-11-01T10:30:00Z", "cancel_requested": False},
+        "heartbeat": {"lease_id": "lease-7f3a", "attempt": 1},
         "job-result": {
             "job_id": "job-rebase-13-train", "state": "succeeded",
             "artifacts": [{"name": "adapter", "oid": receipt["subject"][0]["digest"]["sha256"], "size": 66060288}],
             "receipt": receipt, "receipt_sig": sig, "metrics": {"train_loss": 0.41}, "error": None,
-            "finished_at": TS,
+            "finished_at": TS, "lease_id": "lease-7f3a", "attempt": 1,
         },
         "alias-config": {
             "spec": "roadbed/v0.1", "generation": 7,
@@ -114,9 +137,9 @@ def valid_cases() -> dict[str, Any]:
             "slices": {"line": "bodily_injury", "state": "CA", "channel": "direct"}, "latency_ms": 412.0,
             "synthetic": True,
         },
-        "verdict-in": {"interaction_id": "int-7f3a-0001", "action": "fix", "verdict": {"route": "standard", "severity": 3},
+        "verdict-in": {"verdict_id": "vd-7f3a-0001", "interaction_id": "int-7f3a-0001", "action": "fix", "verdict": {"route": "standard", "severity": 3},
                        "reason_code": "severity_low", "ts": TS},
-        "outcome-in": {"interaction_id": "int-7f3a-0001", "outcome": {"paid": True, "litigated": False},
+        "outcome-in": {"outcome_id": "oc-7f3a-0001", "interaction_id": "int-7f3a-0001", "outcome": {"paid": True, "litigated": False},
                        "source": "system_of_record", "observed_at": "2026-12-01T00:00:00Z"},
     }
 
@@ -158,15 +181,20 @@ INVALID: dict[str, list[tuple[str, Mut, str]]] = {
     "gate-policy": [("ci-above-one", _set(1.5, "ci"), "ci must be in (0, 1)")],
     "license-policy": [("bad-default", _set("allow", "default"), "default must be deny or review")],
     "scores": [("bad-holdout-digest", _set("XYZ", "holdout", "sha256"), "holdout.sha256 must be 64 lowercase hex")],
-    "gate": [("unknown-status", _set("warn", "status"), "status must be pass or blocked"),
+    "gate": [("unknown-check-name", _set("vibes", "checks", 0, "name"), "check names are one vocabulary (SPEC.md, Gate names)"),
+             ("unknown-status", _set("warn", "status"), "status must be pass or blocked"),
              ("pass-with-failed-check", _set("fail", "checks", 2, "status"), "a passing gate has no failed check"),
              ("skipped-without-reason", _set("", "checks", 2, "detail"), "every check, skipped or not, says why")],
     "lock": [("negative-size", _set(-1, "files", 0, "size"), "files[].size must be >= 0")],
     "object-pointer": [("small-file", _set(512, "size"), "pointers exist only for files over 1 MB")],
     "snapshot-manifest": [("missing-pseudonymisation", _del("pseudonymisation"),
                            "pseudonymisation (profile, hmac_key_id) is required")],
-    "snapshot-row": [("missing-row-hash", _del("row_hash"), "row_hash is required on snapshot rows")],
-    "seal": [("probe-w01-fields-partial", _all(_del("merkle_root"), _del("minhash_oid")),
+    "snapshot-row": [("ts-milliseconds", _set("2026-10-02T09:01:00.120Z", "ts"),
+                      "timestamps are YYYY-MM-DDTHH:MM:SSZ: no fraction (hashed fields keep stored bytes)"),
+                     ("ts-offset", _set("2026-10-02T09:01:00+00:00", "ts"), "timestamps end in Z, not an offset"),
+                     ("missing-row-hash", _del("row_hash"), "row_hash is required on snapshot rows")],
+    "seal": [("bad-id", _set("holdout-2026", "id"), "holdout ids are H-..."),
+             ("probe-w01-fields-partial", _all(_del("merkle_root"), _del("minhash_oid")),
               "merkle_root, minhash_oid, snapshot and stratification come together (verifier probe)"),
              ("probe-sealed-by-email", _set("jane.doe@acme.example", "sealed_by"),
               "sealed_by is a user id, never an email address (verifier probe)"),
@@ -214,9 +242,14 @@ INVALID: dict[str, list[tuple[str, Mut, str]]] = {
                    "approvals is keyed by actor id, so one actor cannot be validator and approver (SoD-03, verifier probe)"),
                   ("email-actor-key", lambda o: o["approvals"].update({"jane.doe@acme.example": o["approvals"].pop("vik")}),
                    "approval keys are user ids, never email addresses"),
+                  ("validator-approves", _set("approved", "approvals", "vik", "decision"),
+                   "a validator records validated, validated_with_findings or rejected (review probe)"),
+                  ("model-history-disagrees", _set(999, "history", 0, "audit_seq"),
+                   "approvals holds each actor's latest decision in history (model only: JSON Schema cannot compare two fields)"),
                   ("self-approve-role", _set("developer", "approvals", "vik", "role"),
                    "approvals[].role must be validator or approver")],
-    "finding": [("bad-id", _set("F-3", "id"), "id must match F-NNNN")],
+    "finding": [("old-kind-license", _set("license", "kind"), "kind is the failure reason: license_denied"),
+                ("bad-id", _set("F-3", "id"), "id must match F-NNNN")],
     "lineage-edge": [("untyped-node", _set("v12", "from"), "from must be <type>:<id>"),
                      ("probe-person-name-actor", _set("Jane Doe", "actor"), "actor is a user id (verifier probe)"),
                      ("probe-raw-email-subject", _set("subject:jane.doe@acme.example", "to"),
@@ -232,9 +265,20 @@ INVALID: dict[str, list[tuple[str, Mut, str]]] = {
                     "payload values must be scalars (ids, hashes, aggregates)"),
                     ("unknown-rule", _set("SoD-09", "rule"), "rule must be SoD-01 to SoD-05")],
     "approval": [("unknown-decision", _set("lgtm", "decision"), "decision is an enum"),
+                 ("validator-approves", _set("approved", "decision"),
+                  "a validator records validated, validated_with_findings or rejected (review probe)"),
+                 ("approver-validates", _all(_set("approver", "role"), _set("validated", "decision")),
+                  "an approver records approved or rejected (review probe)"),
                  ("free-text-comment", _set("looks fine to me", "comment"), "no free-text comment"),
                  ("bad-ref", _set(["call Jane"], "refs"), "refs are finding, correction-test, audit or rebase ids")],
-    "executor-job": [("unknown-kind", _set("finetune", "spec", "kind"), "spec.kind must be train, eval or bench")],
+    "executor-job": [("unknown-kind", _set("finetune", "spec", "kind"), "spec.kind must be train, eval or bench"),
+                     ("no-parts", _set([], "spec", "snapshot", "parts"), "the runner needs the snapshot part oids"),
+                     ("no-storage", _del("storage"), "the job names its bucket"),
+                     ("secret-in-credentials", _set("AKIA/secret+key=", "storage", "credentials"),
+                      "credentials is the name of a credential, never the secret")],
+    "job-lease": [("no-attempt", _del("attempt"), "a lease names its attempt")],
+    "lease-state": [("no-cancel-flag", _del("cancel_requested"), "the runner learns about cancels here")],
+    "heartbeat": [("extra-field", _set("x", "note"), "request bodies reject unknown fields")],
     "job-status": [("progress-over-one", _set(1.5, "progress"), "progress must be in [0, 1]")],
     "job-result": [("succeeded-without-receipt", _del("receipt"), "receipt is required when state is succeeded"),
                    ("probe-succeeded-sig-null", _set(None, "receipt_sig"),
@@ -276,6 +320,8 @@ def main() -> int:
         "Each file in `valid/<schema>/` must validate against `schemas/v0.1/<schema>.schema.json`.",
         "Each file in `invalid/<schema>/` must fail validation against that schema, for the reason in the table.",
         "Each invalid case is the valid case with one change.",
+        "A case named `model-*` breaks a rule that compares two fields. JSON Schema cannot express it, so only the model rejects it.",
+        "A case whose only fault is an unknown field fails the published (closed) schema; models of files and responses ignore it (SPEC.md, compatibility).",
         "`vectors/` holds hashing, Merkle, audit-chain and ed25519 test vectors made by `spec/tools/build_examples.py`.",
         "",
         "| File | Schema | Expected failure |",

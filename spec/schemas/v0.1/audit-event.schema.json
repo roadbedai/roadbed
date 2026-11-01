@@ -3,7 +3,6 @@
   "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/audit-event.schema.json",
   "$defs": {
     "AuditObject": {
-      "additionalProperties": false,
       "properties": {
         "type": {
           "description": "e.g. rebase, holdout, alias, subject.",
@@ -20,10 +19,22 @@
         "id"
       ],
       "title": "AuditObject",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
+    },
+    "Role": {
+      "description": "Human roles (compliance/rbac.yaml).",
+      "enum": [
+        "developer",
+        "validator",
+        "approver",
+        "admin",
+        "auditor"
+      ],
+      "title": "Role",
+      "type": "string"
     }
   },
-  "additionalProperties": false,
   "allOf": [
     {
       "if": {
@@ -56,7 +67,8 @@
       "type": "integer"
     },
     "ts": {
-      "format": "date-time",
+      "description": "UTC timestamp, RFC 3339, seconds precision, Z suffix: YYYY-MM-DDTHH:MM:SSZ. Kept as the stored string.",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$",
       "title": "Ts",
       "type": "string"
     },
@@ -69,23 +81,18 @@
     "role": {
       "anyOf": [
         {
-          "enum": [
-            "developer",
-            "validator",
-            "approver",
-            "admin",
-            "auditor"
-          ],
-          "type": "string"
+          "$ref": "#/$defs/Role"
         },
         {
           "enum": [
             "system",
-            "runner"
+            "runner",
+            "gateway"
           ],
           "type": "string"
         }
       ],
+      "description": "Human role, or a service identity.",
       "title": "Role"
     },
     "action": {
@@ -197,5 +204,6 @@
     "hash"
   ],
   "title": "Audit event",
-  "type": "object"
+  "type": "object",
+  "additionalProperties": false
 }

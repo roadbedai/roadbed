@@ -87,5 +87,7 @@
     "train_loss": 0.41
   },
   "error": null,
-  "finished_at": "2026-11-01T10:20:00Z"
+  "finished_at": "2026-11-01T10:20:00Z",
+  "lease_id": "lease-7f3a",
+  "attempt": 1
 }

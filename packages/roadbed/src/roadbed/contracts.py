@@ -1,38 +1,137 @@
-"""Pydantic v2 models for every file in the Roadbed v0.1 asset format.
+"""Pydantic v2 models for every file and message of the Roadbed v0.1 contracts.
 
 The JSON Schemas in spec/schemas/v0.1 are generated from these models by
 `export_schemas`. A test checks that the files on disk match the models.
+
+Compatibility within v0.x (SPEC.md):
+- The published schemas are closed (additionalProperties: false). They are the producer contract:
+  whoever writes a file, a response or a request validates it against them.
+- Models of files and responses (`_Model`) ignore unknown fields, so an older reader accepts a newer
+  producer's optional additions. Request bodies (`_Request`) forbid unknown fields; servers reject them.
 """
 
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
+from enum import StrEnum
 from pathlib import Path
 from typing import Annotated, Any, Literal, Protocol, runtime_checkable
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, model_validator
 
 SPEC = "roadbed/v0.1"
 SCHEMA_DIALECT = "https://json-schema.org/draft/2020-12/schema"
 SCHEMA_BASE_ID = "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/"
 
+# ---------------------------------------------------------------- shared types
+
 Sha256Hex = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$", description="Lowercase hex SHA-256 digest.")]
 SpecVersion = Annotated[Literal["roadbed/v0.1"], Field(description="Spec version of this file.")]
+Oid = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$", description="Bucket object id: lowercase hex sha256 of the object bytes.")]
+ImageDigest = Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$", description="OCI image digest, sha256:<hex>.")]
+Revision = Annotated[str, Field(pattern=r"^[0-9a-f]{40}$", description="40-hex commit sha.")]
+InputRef = Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$", description="sha256:<hex> of the raw input bytes; also its bucket oid.")]
+HoldoutId = Annotated[str, Field(pattern=r"^H-[A-Za-z0-9-]{1,64}$", description="Holdout id, e.g. H-2026-11-01.")]
+SnapshotId = Annotated[str, Field(pattern=r"^S-\d{4}-\d{2}-\d{2}(-[a-z0-9]+)?$", description="Snapshot id, S-<date>.")]
+DatasetId = Annotated[str, Field(pattern=r"^[SH]-[A-Za-z0-9-]{1,64}$", description="Snapshot id (S-...) or holdout id (H-...).")]
+ActorId = Annotated[str, Field(
+    pattern=r"^[a-z0-9][a-z0-9_-]{0,63}$",
+    description="User or service id (lowercase, digits, _ and -). Never an email address or a name.",
+)]
+SubjectToken = Annotated[str, Field(pattern=r"^tok_[0-9a-f]{8,64}$", description="HMAC subject token.")]
+SodRule = Literal["SoD-01", "SoD-02", "SoD-03", "SoD-04", "SoD-05"]
+
+UTC_TS_PATTERN = r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$"
 
 
-class _Strict(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+def _utc_ts(v: Any) -> Any:
+    """Accept a UTC datetime without sub-seconds (YAML parses unquoted timestamps) and store the canonical string."""
+    if isinstance(v, datetime) and v.utcoffset() is not None and not v.utcoffset() and not v.microsecond:
+        return v.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return v
+
+
+UtcTs = Annotated[str, BeforeValidator(_utc_ts), Field(
+    pattern=UTC_TS_PATTERN,
+    description="UTC timestamp, RFC 3339, seconds precision, Z suffix: YYYY-MM-DDTHH:MM:SSZ. Kept as the stored string.",
+)]
+
+
+class Role(StrEnum):
+    """Human roles (compliance/rbac.yaml)."""
+
+    developer = "developer"
+    validator = "validator"
+    approver = "approver"
+    admin = "admin"
+    auditor = "auditor"
+
+
+class ExecutorName(StrEnum):
+    """Who ran a job. mock and replay never produce demo numbers."""
+
+    runner = "runner"
+    mock = "mock"
+    replay = "replay"
+    hf_jobs = "hf-jobs"
+    together = "together"
+
+
+class RebaseState(StrEnum):
+    """Orchestrator states of a rebase (W17)."""
+
+    detected = "detected"
+    license = "license"
+    seal_check = "seal_check"
+    training = "training"
+    predicting = "predicting"
+    benchmarking = "benchmarking"
+    gating = "gating"
+    evidence = "evidence"
+    pr_opened = "pr_opened"
+    awaiting_signoff = "awaiting_signoff"
+    blocked = "blocked"
+    approved = "approved"
+    promoted = "promoted"
+    rolled_back = "rolled_back"
+    failed = "failed"
+
+
+class ApprovalReason(StrEnum):
+    """Why a validator or approver decided as they did. No free text."""
+
+    no_findings = "no_findings"
+    findings_noted = "findings_noted"
+    low_n_slices = "low_n_slices"
+    slice_regression = "slice_regression"
+    license_review = "license_review"
+    contamination_risk = "contamination_risk"
+    cost_over_cap = "cost_over_cap"
+    other = "other"
+
+
+class _Model(BaseModel):
+    """Files and responses: readers ignore unknown fields. The published schema is closed (see json_schema)."""
+
+    model_config = ConfigDict(extra="ignore")
+
+
+class _Request(BaseModel):
+    """Request bodies: the server rejects unknown fields."""
+
+    model_config = ConfigDict(extra="ignore")
 
 
 # ---------------------------------------------------------------- roadbed.yaml
 
 
-class Task(_Strict):
+class Task(_Model):
     type: Literal["structured-classification"] = Field(description="Kind of task the model does.")
     output_schema: str = Field(description="Path (from asset root) to the JSON Schema of one model output.")
 
 
-class Base(_Strict):
+class Base(_Model):
     repo: str = Field(description="Hugging Face repo id of the open-weight base model, e.g. Qwen/Qwen3.6-27B.")
     revision: str = Field(
         pattern=r"^([0-9a-f]{40}|unpinned)$",
@@ -40,20 +139,20 @@ class Base(_Strict):
     )
 
 
-class HoldoutRef(_Strict):
-    id: str = Field(description="Holdout id, e.g. H-2026-11-01.")
+class HoldoutRef(_Model):
+    id: HoldoutId
     path: str = Field(description="Directory (from asset root) that holds holdout.jsonl.")
     sealed_by: ActorId = Field(description="User id of the validator who sealed the holdout.")
-    sealed_at: AwareDatetime = Field(description="When the holdout was sealed (RFC 3339, with zone).")
+    sealed_at: UtcTs = Field(description="When the holdout was sealed (RFC 3339, with zone).")
 
 
-class Data(_Strict):
+class Data(_Model):
     holdout: HoldoutRef
     verdicts: str | None = Field(default=None, description="Optional. Prefix (from asset root) of the frozen verdict snapshots, e.g. data/snapshots.")
     snapshot: str | None = Field(default=None, description="Optional. Id of the snapshot the next training run uses, e.g. S-2026-11-01.")
 
 
-class Evals(_Strict):
+class Evals(_Model):
     scorers: str = Field(description="Path to scorers.yaml.")
     slices: str = Field(description="Path to slices.yaml.")
     margin: float = Field(description="Most negative allowed slice delta, in score points.")
@@ -62,15 +161,15 @@ class Evals(_Strict):
     correction_tests: str | None = Field(default=None, description="Optional. Path to evals/correction_tests.jsonl.")
 
 
-class Alias(_Strict):
+class Alias(_Model):
     name: str = Field(description="Serving alias the gate protects.")
     version: str = Field(description="Current version behind the alias.")
 
 
-class RoadbedConfig(_Strict):
+class RoadbedConfig(_Model):
     """roadbed.yaml at the asset repo root."""
 
-    model_config = ConfigDict(extra="forbid", title="roadbed.yaml")
+    model_config = ConfigDict(extra="ignore", title="roadbed.yaml")
 
     spec: SpecVersion
     model: str = Field(description="Name of the fine-tuned model this asset repo governs.")
@@ -90,10 +189,10 @@ class RoadbedConfig(_Strict):
 # ---------------------------------------------------------------- rows
 
 
-class HoldoutRow(_Strict):
+class HoldoutRow(_Model):
     """One line of data/holdout/<id>/holdout.jsonl."""
 
-    model_config = ConfigDict(extra="forbid", title="Holdout row")
+    model_config = ConfigDict(extra="ignore", title="Holdout row")
 
     id: str = Field(min_length=1, description="Stable row id, e.g. clm-000001.")
     slices: dict[str, str] = Field(description="Slice key to slice value, e.g. {line: bodily_injury}.")
@@ -108,10 +207,10 @@ class HoldoutRow(_Strict):
     )
 
 
-class PredictionRow(_Strict):
+class PredictionRow(_Model):
     """One line of rebases/<n>/predictions.{incumbent,candidate}.jsonl."""
 
-    model_config = ConfigDict(extra="forbid", title="Prediction row")
+    model_config = ConfigDict(extra="ignore", title="Prediction row")
 
     id: str = Field(min_length=1, description="Holdout row id this prediction answers.")
     output: dict[str, Any] = Field(description="Model output. Must validate against task.output_schema.")
@@ -120,15 +219,15 @@ class PredictionRow(_Strict):
 # ---------------------------------------------------------------- evals/scorers.yaml
 
 
-class FieldWeight(_Strict):
+class FieldWeight(_Model):
     field: str = Field(description="Top-level output field compared by exact match.")
     weight: float = Field(gt=0, description="Relative weight of this field.")
 
 
-class Scorers(_Strict):
+class Scorers(_Model):
     """evals/scorers.yaml. Row score = 100 * sum(weight * match) / sum(weight)."""
 
-    model_config = ConfigDict(extra="forbid", title="scorers.yaml")
+    model_config = ConfigDict(extra="ignore", title="scorers.yaml")
 
     type: Literal["weighted_field_exact_match"] = Field(description="Scorer kind.")
     fields: list[FieldWeight] = Field(min_length=1, description="Fields and weights.")
@@ -138,10 +237,10 @@ class Scorers(_Strict):
 # ---------------------------------------------------------------- evals/slices.yaml
 
 
-class Slices(_Strict):
+class Slices(_Model):
     """evals/slices.yaml. Each value of each key is one slice."""
 
-    model_config = ConfigDict(extra="forbid", title="slices.yaml")
+    model_config = ConfigDict(extra="ignore", title="slices.yaml")
 
     keys: dict[str, list[str]] = Field(description="Slice key to its allowed values, in display order.")
     synthetic: bool | None = Field(default=None, description="True when part of a synthetic asset repo.")
@@ -150,33 +249,42 @@ class Slices(_Strict):
 # ---------------------------------------------------------------- policy/gate.yaml
 
 BlockReason = Literal["slice_below_margin", "contamination", "license_denied"]
+CheckName = Literal["slice_margin", "license", "contamination", "seal_order", "stage:shadow", "stage:canary", "stage:bias_tests"]
+FindingKind = Literal["slice_below_margin", "contamination", "license_denied", "seal_order", "other"]
+# One vocabulary (SPEC.md, Gate names): check slice_margin fails with reason slice_below_margin;
+# license with license_denied; contamination with contamination; seal_order with seal_order.
+# A finding's kind is the reason of the check that raised it.
+CHECK_REASON: dict[str, str] = {
+    "slice_margin": "slice_below_margin", "license": "license_denied",
+    "contamination": "contamination", "seal_order": "seal_order",
+}
 
 
-class Stage(_Strict):
+class Stage(_Model):
     stub: bool = Field(description="True when the stage is a placeholder and does not run.")
 
 
-class Stages(_Strict):
+class Stages(_Model):
     shadow: Stage
     canary: Stage
     bias_tests: Stage
 
 
-class CostCap(_Strict):
+class CostCap(_Model):
     eur: float = Field(gt=0, description="Abort the rebase when its cost reaches this many euros.")
     gpu_hours: float | None = Field(default=None, gt=0, description="Optional. Abort at this many GPU-hours.")
 
 
-class ContaminationPolicy(_Strict):
+class ContaminationPolicy(_Model):
     minhash_threshold: float = Field(gt=0, le=1, description="Near-duplicate when MinHash Jaccard >= this. Plan value 0.8.")
     num_perm: int = Field(ge=16, description="MinHash permutations.")
     shingle: int = Field(ge=1, description="Word shingle size.")
 
 
-class GatePolicy(_Strict):
+class GatePolicy(_Model):
     """policy/gate.yaml."""
 
-    model_config = ConfigDict(extra="forbid", title="gate.yaml (policy)")
+    model_config = ConfigDict(extra="ignore", title="gate.yaml (policy)")
 
     margin: float = Field(description="Block when a slice delta is below this (score points).")
     min_n: int = Field(ge=1, description="Slices with fewer rows are flagged low_n and never block.")
@@ -193,10 +301,10 @@ class GatePolicy(_Strict):
 # ---------------------------------------------------------------- policy/license.yaml
 
 
-class LicensePolicy(_Strict):
+class LicensePolicy(_Model):
     """policy/license.yaml. Lowercase SPDX ids of allowed base-model licenses."""
 
-    model_config = ConfigDict(extra="forbid", title="license.yaml (policy)")
+    model_config = ConfigDict(extra="ignore", title="license.yaml (policy)")
 
     allow: list[str] = Field(description="Allowed licenses, lowercase SPDX ids such as apache-2.0.")
     review: list[str] | None = Field(
@@ -211,23 +319,23 @@ class LicensePolicy(_Strict):
 # ---------------------------------------------------------------- scores.json
 
 
-class HoldoutDigest(_Strict):
+class HoldoutDigest(_Model):
     id: str
     rows: int = Field(ge=0)
     sha256: Sha256Hex
 
 
-class FileDigest(_Strict):
+class FileDigest(_Model):
     path: str
     sha256: Sha256Hex
 
 
-class PredictionDigests(_Strict):
+class PredictionDigests(_Model):
     incumbent: FileDigest
     candidate: FileDigest
 
 
-class Overall(_Strict):
+class Overall(_Model):
     n: int = Field(ge=1)
     incumbent: float = Field(description="Mean row score of the incumbent, 0-100.")
     candidate: float = Field(description="Mean row score of the candidate, 0-100.")
@@ -243,10 +351,10 @@ class SliceResult(Overall):
     below_margin: bool = Field(description="delta < margin and not low_n.")
 
 
-class Scores(_Strict):
+class Scores(_Model):
     """scores.json written by `roadbed score`."""
 
-    model_config = ConfigDict(extra="forbid", title="scores.json")
+    model_config = ConfigDict(extra="ignore", title="scores.json")
 
     spec: SpecVersion
     synthetic: bool
@@ -265,15 +373,15 @@ class Scores(_Strict):
 # ---------------------------------------------------------------- gate.json
 
 
-class Check(_Strict):
-    name: str = Field(description="slice_margin, license, contamination, or stage:<name>.")
+class Check(_Model):
+    name: CheckName = Field(description="Check name. Its failure reason is CHECK_REASON[name] (SPEC.md, Gate names).")
     status: Literal["pass", "fail", "warn", "skipped"] = Field(
         description="fail blocks; warn is a failure whose reason is not in block_on; skipped did not run."
     )
     detail: str = Field(min_length=1, description="Why. A skipped check says why it was skipped.")
 
 
-class Finding(_Strict):
+class GateFinding(_Model):
     id: str = Field(pattern=r"^F-\d{4}$")
     rebase: int
     slice: str = Field(description="key=value")
@@ -284,10 +392,10 @@ class Finding(_Strict):
     margin: float
 
 
-class GateResult(_Strict):
+class GateResult(_Model):
     """gate.json written by `roadbed gate`."""
 
-    model_config = ConfigDict(extra="forbid", title="gate.json", json_schema_extra={"allOf": [{
+    model_config = ConfigDict(extra="ignore", title="gate.json", json_schema_extra={"allOf": [{
         "if": {"properties": {"status": {"const": "pass"}}, "required": ["status"]},
         "then": {"properties": {"checks": {"items": {"properties": {"status": {"not": {"const": "fail"}}}}}}},
     }]})
@@ -298,7 +406,7 @@ class GateResult(_Strict):
     status: Literal["pass", "blocked"]
     policy_sha256: Sha256Hex = Field(description="sha256 of the RFC 8785 canonical JSON of the policy.")
     checks: list[Check]
-    findings: list[Finding]
+    findings: list[GateFinding]
 
     @model_validator(mode="after")
     def _pass_has_no_failed_check(self) -> GateResult:
@@ -310,30 +418,20 @@ class GateResult(_Strict):
 # ---------------------------------------------------------------- gate inputs (not files)
 
 
-class LicenseDecision(_Strict):
+class GateLicenseInput(_Model):
     license: str = Field(description="Lowercase SPDX id of the base model license.")
     allowed: bool
     source: str = Field(default="policy/license.yaml")
 
 
-class Contamination(_Strict):
+class GateContaminationInput(_Model):
     train_manifest: str | None = Field(default=None, description="Path of the train manifest, if present.")
     shared_ids: list[str] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------- shared refs (W01)
 
-Oid = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$", description="Bucket object id: lowercase hex sha256 of the object bytes.")]
-ImageDigest = Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$", description="OCI image digest, sha256:<hex>.")]
-Revision = Annotated[str, Field(pattern=r"^[0-9a-f]{40}$", description="40-hex commit sha.")]
-Role = Literal["developer", "validator", "approver", "admin", "auditor"]
-SodRule = Literal["SoD-01", "SoD-02", "SoD-03", "SoD-04", "SoD-05"]
-ActorId = Annotated[str, Field(
-    pattern=r"^[a-z0-9][a-z0-9_-]{0,63}$",
-    description="User or service id (lowercase, digits, _ and -). Never an email address or a name.",
-)]
-SubjectToken = Annotated[str, Field(pattern=r"^tok_[0-9a-f]{8,64}$", description="HMAC subject token.")]
-_EXECUTOR_NO_GPU = {
+_EXECUTOR_NO_GPU: Any = {
     "if": {"properties": {"executor": {"properties": {"name": {"enum": ["mock", "replay"]}}}}},
     "then": {"properties": {
         "gpu": {"properties": {"name": {"const": "none"}, "count": {"const": 0}}},
@@ -342,53 +440,53 @@ _EXECUTOR_NO_GPU = {
 }
 
 
-class _Aliased(_Strict):
+class _Aliased(_Model):
     """Models with a JSON key that is not a Python name (`_type`, `from`)."""
 
-    model_config = ConfigDict(extra="forbid", serialize_by_alias=True, validate_by_name=True, validate_by_alias=True)
+    model_config = ConfigDict(extra="ignore", serialize_by_alias=True, validate_by_name=True, validate_by_alias=True)
 
 
-class PinnedBase(_Strict):
+class PinnedBase(_Model):
     repo: str = Field(description="Hugging Face repo id of the base model.")
     revision: Revision
 
 
-class RecipeRef(_Strict):
+class RecipeRef(_Model):
     path: str = Field(description="Recipe path from asset root, e.g. recipes/qwen3/lora-r16-sft@v4.yaml.")
     sha256: Sha256Hex = Field(description="sha256 of the recipe file bytes.")
 
 
-class DatasetRef(_Strict):
-    id: str = Field(description="Snapshot id (S-...) or holdout id (H-...).")
+class DatasetRef(_Model):
+    id: DatasetId
     merkle_root: Sha256Hex = Field(description="Merkle root of the sorted row hashes (SPEC.md, hashing).")
     rows: int | None = Field(default=None, ge=0, description="Optional. Row count.")
 
 
 class HoldoutSealRef(DatasetRef):
     seal_seq: int = Field(ge=1, description="Audit seq of the seal event (SEAL.json audit_seq).")
-    sealed_at: AwareDatetime = Field(description="SEAL.json sealed_at.")
+    sealed_at: UtcTs = Field(description="SEAL.json sealed_at.")
     seal_commit: Revision = Field(description="Asset repo commit that added SEAL.json (git log --diff-filter=A).")
 
 
 # ---------------------------------------------------------------- roadbed.lock
 
 
-class LockFile(_Strict):
+class LockFile(_Model):
     path: str = Field(description="Tracked path from asset root, '/' separated.")
     sha256: Sha256Hex
     size: int = Field(ge=0, description="Bytes.")
 
 
-class LockObject(_Strict):
+class LockObject(_Model):
     oid: Oid
     size: int = Field(ge=0)
     ref: str = Field(description="Tracked path that names this object (a pointer file or a manifest).")
 
 
-class Lock(_Strict):
+class Lock(_Model):
     """roadbed.lock: every tracked path and every bucket object, sorted by path."""
 
-    model_config = ConfigDict(extra="forbid", title="roadbed.lock")
+    model_config = ConfigDict(extra="ignore", title="roadbed.lock")
 
     spec: SpecVersion
     files: list[LockFile] = Field(description="Every tracked file except roadbed.lock, sorted by path (bytewise).")
@@ -396,10 +494,10 @@ class Lock(_Strict):
     synthetic: bool | None = None
 
 
-class ObjectPointer(_Strict):
+class ObjectPointer(_Model):
     """<path>.ptr: stands in git for a file over 1 MB that lives in the bucket."""
 
-    model_config = ConfigDict(extra="forbid", title="Object pointer")
+    model_config = ConfigDict(extra="ignore", title="Object pointer")
 
     spec: SpecVersion
     oid: Oid
@@ -410,26 +508,26 @@ class ObjectPointer(_Strict):
 # ---------------------------------------------------------------- data/snapshots/<date>/
 
 
-class SnapshotPart(_Strict):
+class SnapshotPart(_Model):
     oid: Oid = Field(description="sha256 of the part bytes; the object key is objects/sha256/ab/cd/<oid>.")
     rows: int = Field(ge=0)
     size: int = Field(ge=0)
     path: str | None = Field(default=None, description="Optional. Repo path when the part is small enough to live in git.")
 
 
-class Pseudonymisation(_Strict):
+class Pseudonymisation(_Model):
     profile: str = Field(description="Pseudonymisation profile id applied by the SDK, e.g. insurer-default@v1.")
     hmac_key_id: str = Field(description="Id of the tenant HMAC key. The key itself is never stored.")
 
 
-class SnapshotManifest(_Strict):
+class SnapshotManifest(_Model):
     """data/snapshots/<date>/MANIFEST.json: one frozen training snapshot."""
 
-    model_config = ConfigDict(extra="forbid", title="Snapshot MANIFEST.json")
+    model_config = ConfigDict(extra="ignore", title="Snapshot MANIFEST.json")
 
     spec: SpecVersion
-    id: str = Field(pattern=r"^S-\d{4}-\d{2}-\d{2}(-[a-z0-9]+)?$", description="Snapshot id, S-<date>.")
-    created_at: AwareDatetime
+    id: SnapshotId
+    created_at: UtcTs
     rows: int = Field(ge=0)
     schema_sha256: Sha256Hex = Field(description="sha256(JCS(output schema)) the verdicts validate against.")
     merkle_root: Sha256Hex = Field(description="Merkle root of the sorted row hashes of every row in the parts.")
@@ -440,10 +538,10 @@ class SnapshotManifest(_Strict):
     synthetic: bool
 
 
-class SnapshotRow(_Strict):
+class SnapshotRow(_Model):
     """One line of a snapshot part: a resolved verdict row. Training reads these."""
 
-    model_config = ConfigDict(extra="forbid", title="Snapshot row")
+    model_config = ConfigDict(extra="ignore", title="Snapshot row")
 
     interaction_id: str = Field(min_length=1)
     input_ref: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
@@ -451,7 +549,7 @@ class SnapshotRow(_Strict):
     verdict: dict[str, Any] = Field(description="Resolved label. Validates against task.output_schema.")
     reason_code: str | None = None
     outcome: dict[str, Any] | None = Field(default=None, description="Late system-of-record outcome, if any.")
-    ts: AwareDatetime = Field(description="Verdict time.")
+    ts: UtcTs = Field(description="Verdict time.")
     slices: dict[str, str]
     row_hash: Sha256Hex = Field(description="sha256(JCS({interaction_id, input_ref, output, verdict, reason_code, outcome, ts})).")
 
@@ -459,17 +557,17 @@ class SnapshotRow(_Strict):
 # ---------------------------------------------------------------- data/holdout/<id>/SEAL.json
 
 
-class Stratification(_Strict):
+class Stratification(_Model):
     keys: list[str] = Field(description="Slice keys the sample is stratified on.")
     method: Literal["proportional", "equal"]
     fraction: float | None = Field(default=None, gt=0, le=1)
 
 
-class Seal(_Strict):
+class Seal(_Model):
     """data/holdout/<id>/SEAL.json. Written once, by a validator."""
 
     model_config = ConfigDict(
-        extra="forbid",
+        extra="ignore",
         title="SEAL.json",
         json_schema_extra={"dependentRequired": {
             k: [x for x in ("merkle_root", "minhash_oid", "snapshot", "stratification") if x != k]
@@ -477,9 +575,9 @@ class Seal(_Strict):
         }},
     )
 
-    id: str = Field(description="Holdout id, e.g. H-2026-11-01.")
+    id: HoldoutId
     sealed_by: ActorId = Field(description="User id of the validator who sealed it (SoD-05).")
-    sealed_at: AwareDatetime
+    sealed_at: UtcTs
     audit_seq: int = Field(ge=1, description="Audit seq of the seal event. Training must have a larger seq.")
     seed: int = Field(ge=0, description="Sampling seed.")
     rows: int = Field(ge=0)
@@ -505,13 +603,13 @@ class Seal(_Strict):
 # ---------------------------------------------------------------- data/tombstones.jsonl
 
 
-class TombstoneRow(_Strict):
+class TombstoneRow(_Model):
     """One line of data/tombstones.jsonl: an erasure request."""
 
-    model_config = ConfigDict(extra="forbid", title="Tombstone row")
+    model_config = ConfigDict(extra="ignore", title="Tombstone row")
 
     subject_token: SubjectToken
-    requested_at: AwareDatetime
+    requested_at: UtcTs
     requested_by: ActorId
     reason: Literal["gdpr_art17", "retention", "other"]
     audit_seq: int = Field(ge=1)
@@ -522,10 +620,10 @@ class TombstoneRow(_Strict):
 # ---------------------------------------------------------------- evals/*.jsonl
 
 
-class GoldenRow(_Strict):
+class GoldenRow(_Model):
     """One line of evals/golden.jsonl."""
 
-    model_config = ConfigDict(extra="forbid", title="Golden row")
+    model_config = ConfigDict(extra="ignore", title="Golden row")
 
     id: str = Field(min_length=1)
     slices: dict[str, str]
@@ -534,10 +632,10 @@ class GoldenRow(_Strict):
     row_hash: Sha256Hex | None = None
 
 
-class CorrectionTestRow(_Strict):
+class CorrectionTestRow(_Model):
     """One line of evals/correction_tests.jsonl: one per reviewer fix."""
 
-    model_config = ConfigDict(extra="forbid", title="Correction test row")
+    model_config = ConfigDict(extra="ignore", title="Correction test row")
 
     id: str = Field(pattern=r"^CT-\d{4,}$")
     interaction_id: str
@@ -548,17 +646,17 @@ class CorrectionTestRow(_Strict):
     expected: dict[str, Any] = Field(description="Reviewer fix.")
     reason_code: str
     created_by: ActorId
-    created_at: AwareDatetime
+    created_at: UtcTs
     row_hash: Sha256Hex | None = None
 
 
 # ---------------------------------------------------------------- recipes/*.yaml
 
 
-class Recipe(_Strict):
+class Recipe(_Model):
     """recipes/<family>/<name>@<version>.yaml."""
 
-    model_config = ConfigDict(extra="forbid", title="Recipe")
+    model_config = ConfigDict(extra="ignore", title="Recipe")
 
     recipe: str = Field(description="Recipe name, <family>/<name>.")
     version: str
@@ -586,39 +684,36 @@ class Recipe(_Strict):
 # ---------------------------------------------------------------- receipts (in-toto Statement v1)
 
 
-class Subject(_Strict):
+class Subject(_Model):
     name: str = Field(description="Repo path, or oid:<hex> for a bucket object.")
     digest: dict[Literal["sha256"], Sha256Hex]
 
 
-class JobRef(_Strict):
+class JobRef(_Model):
     id: str
     kind: Literal["train", "eval", "bench", "rebase"]
 
 
-class Gpu(_Strict):
+class Gpu(_Model):
     name: str = Field(description="e.g. NVIDIA H100 80GB HBM3; 'none' for the mock executor.")
     count: int = Field(ge=0)
     driver: str | None = None
 
 
-class RunCost(_Strict):
+class RunCost(_Model):
     gpu_hours: float = Field(ge=0)
     price_per_hour_eur: float = Field(ge=0)
     eur: float = Field(ge=0)
 
 
-ExecutorName = Literal["runner", "mock", "replay", "hf-jobs", "together"]
-
-
-class ExecutorRef(_Strict):
+class ExecutorRef(_Model):
     name: ExecutorName = Field(description="Who ran the job. 'mock' and 'replay' never produce demo numbers.")
     version: str
     host: str | None = None
 
 
-class RunPredicate(_Strict):
-    model_config = ConfigDict(extra="forbid", json_schema_extra={"allOf": [_EXECUTOR_NO_GPU]})
+class RunPredicate(_Model):
+    model_config = ConfigDict(extra="ignore", json_schema_extra={"allOf": [_EXECUTOR_NO_GPU]})
 
     job: JobRef
     model: str
@@ -631,8 +726,8 @@ class RunPredicate(_Strict):
     uv_lock_sha256: Sha256Hex = Field(description="sha256 of the runner uv.lock bytes.")
     gpu: Gpu
     seed: int
-    started_at: AwareDatetime
-    ended_at: AwareDatetime
+    started_at: UtcTs
+    ended_at: UtcTs
     audit_seq: int = Field(ge=1, description="Audit seq of the job start event. Must exceed holdout.seal_seq.")
     prev_receipt: Sha256Hex | None = Field(default=None, description="sha256(JCS(previous receipt.json)) in this asset, null for the first.")
     cost: RunCost
@@ -652,7 +747,7 @@ class Receipt(_Aliased):
     """receipt.json: in-toto Statement v1 with predicate type https://roadbed.dev/run/v1."""
 
     model_config = ConfigDict(
-        extra="forbid", serialize_by_alias=True, validate_by_name=True, validate_by_alias=True, title="receipt.json"
+        extra="ignore", serialize_by_alias=True, validate_by_name=True, validate_by_alias=True, title="receipt.json"
     )
 
     type_: Literal["https://in-toto.io/Statement/v1"] = Field(alias="_type")
@@ -661,10 +756,10 @@ class Receipt(_Aliased):
     predicate: RunPredicate
 
 
-class Signature(_Strict):
+class Signature(_Model):
     """receipt.sig and MANIFEST.sig: one ed25519 signature."""
 
-    model_config = ConfigDict(extra="forbid", title="Signature (.sig)")
+    model_config = ConfigDict(extra="ignore", title="Signature (.sig)")
 
     alg: Literal["ed25519"]
     keyid: Sha256Hex = Field(description="sha256 of the raw 32-byte public key.")
@@ -677,16 +772,16 @@ class Signature(_Strict):
 # ---------------------------------------------------------------- versions/vN/model.json
 
 
-class Adapter(_Strict):
+class Adapter(_Model):
     oid: Oid
     size: int = Field(ge=0)
     format: Literal["peft-lora"]
 
 
-class ModelVersion(_Strict):
+class ModelVersion(_Model):
     """versions/vN/model.json."""
 
-    model_config = ConfigDict(extra="forbid", title="model.json")
+    model_config = ConfigDict(extra="ignore", title="model.json")
 
     spec: SpecVersion
     model: str
@@ -697,7 +792,7 @@ class ModelVersion(_Strict):
     recipe: RecipeRef
     snapshot: DatasetRef
     holdout: DatasetRef
-    created_at: AwareDatetime
+    created_at: UtcTs
     receipt: str = Field(description="Path of the training receipt.json.")
     rebase: int | None = Field(default=None, description="Rebase that produced this version, if any.")
     synthetic: bool
@@ -705,24 +800,18 @@ class ModelVersion(_Strict):
 
 # ---------------------------------------------------------------- rebases/<n>/rebase.yaml
 
-RebaseState = Literal[
-    "detected", "license", "seal_check", "training", "predicting", "benchmarking", "gating", "evidence",
-    "pr_opened", "awaiting_signoff", "blocked", "approved", "promoted", "rolled_back", "failed",
-]
-
-
-class VersionBase(_Strict):
+class VersionBase(_Model):
     version: str
     base: str
 
 
-class RebaseBase(_Strict):
+class RebaseBase(_Model):
     repo: str
     revision: str = Field(pattern=r"^([0-9a-f]{40}|unpinned)$")
     license: str | None = None
 
 
-class PullRequestRef(_Strict):
+class PullRequestRef(_Model):
     number: int = Field(ge=1)
     url: str
 
@@ -731,13 +820,13 @@ class RebaseMeta(_Aliased):
     """rebases/<n>/rebase.yaml. Day 0 fields plus optional orchestrator state."""
 
     model_config = ConfigDict(
-        extra="forbid", serialize_by_alias=True, validate_by_name=True, validate_by_alias=True, title="rebase.yaml"
+        extra="ignore", serialize_by_alias=True, validate_by_name=True, validate_by_alias=True, title="rebase.yaml"
     )
 
     rebase: int = Field(ge=0)
     model: str
     base: RebaseBase
-    created_at: AwareDatetime
+    created_at: UtcTs
     synthetic: bool | None = None
     from_: VersionBase | None = Field(default=None, alias="from")
     to: VersionBase | None = None
@@ -756,18 +845,18 @@ class RebaseMeta(_Aliased):
 # ---------------------------------------------------------------- rebases/<n>/contamination.json
 
 
-class ExactOverlap(_Strict):
+class ExactOverlap(_Model):
     shared: int = Field(ge=0)
     row_hashes: list[Sha256Hex]
 
 
-class NearPair(_Strict):
+class NearPair(_Model):
     holdout: Sha256Hex
     train: Sha256Hex
     jaccard: float = Field(ge=0, le=1)
 
 
-class NearOverlap(_Strict):
+class NearOverlap(_Model):
     method: Literal["minhash", "jaccard"] = Field(description="minhash estimate, or exact jaccard for small sets.")
     num_perm: int
     threshold: float
@@ -775,10 +864,10 @@ class NearOverlap(_Strict):
     pairs: list[NearPair] = Field(description="Pairs with jaccard >= threshold.")
 
 
-class SealOrder(_Strict):
+class SealOrder(_Model):
     """The three legs of 'seal precedes training'. The inputs live in SEAL.json, the receipt and git; verify recomputes."""
 
-    model_config = ConfigDict(extra="forbid", json_schema_extra={"allOf": [{
+    model_config = ConfigDict(extra="ignore", json_schema_extra={"allOf": [{
         "if": {"properties": {"ok": {"const": True}}, "required": ["ok"]},
         "then": {"properties": {"audit_seq": {"const": True}, "timestamp": {"const": True}, "git_ancestor": {"const": True}}},
     }]})
@@ -797,10 +886,10 @@ class SealOrder(_Strict):
         return self
 
 
-class ContaminationReport(_Strict):
+class ContaminationReport(_Model):
     """rebases/<n>/contamination.json."""
 
-    model_config = ConfigDict(extra="forbid", title="contamination.json", json_schema_extra={"allOf": [{
+    model_config = ConfigDict(extra="ignore", title="contamination.json", json_schema_extra={"allOf": [{
         "if": {"properties": {"status": {"const": "pass"}}, "required": ["status"]},
         "then": {"properties": {
             "exact": {"properties": {"shared": {"const": 0}, "row_hashes": {"maxItems": 0}}},
@@ -830,12 +919,12 @@ class ContaminationReport(_Strict):
 # ---------------------------------------------------------------- rebases/<n>/cost.json
 
 
-class PhaseCost(_Strict):
+class PhaseCost(_Model):
     gpu_hours: float = Field(ge=0)
     eur: float = Field(ge=0)
 
 
-class Bench(_Strict):
+class Bench(_Model):
     prompts: int = Field(ge=1)
     concurrency: int = Field(ge=1)
     p50_ms: float = Field(ge=0)
@@ -844,15 +933,15 @@ class Bench(_Strict):
     eur_per_1k_calls: float = Field(ge=0)
 
 
-class Vllm(_Strict):
+class Vllm(_Model):
     version: str
     flags: list[str]
 
 
-class CostReport(_Strict):
+class CostReport(_Model):
     """rebases/<n>/cost.json."""
 
-    model_config = ConfigDict(extra="forbid", title="cost.json", json_schema_extra={"allOf": [{
+    model_config = ConfigDict(extra="ignore", title="cost.json", json_schema_extra={"allOf": [{
         "if": {"properties": {"executor": {"enum": ["mock", "replay"]}}, "required": ["executor"]},
         "then": {"properties": {
             "gpu": {"properties": {"name": {"const": "none"}, "count": {"const": 0}}},
@@ -889,10 +978,10 @@ class CostReport(_Strict):
 # ---------------------------------------------------------------- rebases/<n>/license.json
 
 
-class LicenseDecisionRecord(_Strict):
+class LicenseDecisionRecord(_Model):
     """rebases/<n>/license.json."""
 
-    model_config = ConfigDict(extra="forbid", title="license.json")
+    model_config = ConfigDict(extra="ignore", title="license.json")
 
     spec: SpecVersion
     rebase: int
@@ -902,45 +991,62 @@ class LicenseDecisionRecord(_Strict):
     decision: Literal["allow", "review", "deny"]
     policy: str = Field(description="Policy path, e.g. policy/license.yaml.")
     policy_sha256: Sha256Hex = Field(description="sha256(JCS(policy)) with null fields left out.")
-    decided_at: AwareDatetime
+    decided_at: UtcTs
     synthetic: bool
 
 
 # ---------------------------------------------------------------- approvals
 
 
-ApprovalReason = Literal[
-    "no_findings", "findings_noted", "low_n_slices", "slice_regression", "license_review",
-    "contamination_risk", "cost_over_cap", "other",
-]
 ApprovalRef = Annotated[str, Field(
     pattern=r"^(F-\d{4}|CT-\d{4,}|audit:\d+|rebase:\d+)$", description="A finding, correction test, audit seq or rebase id."
 )]
 
 
-class ApprovalEntry(_Strict):
+VALIDATOR_DECISIONS = ("validated", "validated_with_findings", "rejected")
+APPROVER_DECISIONS = ("approved", "rejected")
+_ROLE_DECISION: Any = [
+    {"if": {"properties": {"role": {"const": "validator"}}, "required": ["role"]},
+     "then": {"properties": {"decision": {"enum": list(VALIDATOR_DECISIONS)}}}},
+    {"if": {"properties": {"role": {"const": "approver"}}, "required": ["role"]},
+     "then": {"properties": {"decision": {"enum": list(APPROVER_DECISIONS)}}}},
+]
+
+
+class ApprovalEntry(_Model):
+    """A validator records validated, validated_with_findings or rejected; an approver records approved or rejected."""
+
+    model_config = ConfigDict(extra="ignore", json_schema_extra={"allOf": _ROLE_DECISION})
+
     role: Literal["validator", "approver"]
     decision: Literal["validated", "validated_with_findings", "approved", "rejected"]
     reason_code: ApprovalReason
     refs: list[ApprovalRef] = Field(default_factory=list, description="Ids the decision rests on. No free text.")
-    at: AwareDatetime
+    at: UtcTs
     audit_seq: int = Field(ge=1)
     pack_version: int = Field(ge=1, description="Evidence pack version this approval signed.")
 
+    @model_validator(mode="after")
+    def _decision_fits_role(self) -> ApprovalEntry:
+        allowed = VALIDATOR_DECISIONS if self.role == "validator" else APPROVER_DECISIONS
+        if self.decision not in allowed:
+            raise ValueError(f"a {self.role} records one of {', '.join(allowed)}, not {self.decision}")
+        return self
+
 
 class Approval(ApprovalEntry):
-    """One sign-off. Also the response of POST /v1/rebases/{n}/approvals."""
+    """One sign-off. Also the response of POST /v1/rebases/{rebase}/approvals."""
 
-    model_config = ConfigDict(extra="forbid", title="Approval")
+    model_config = ConfigDict(extra="ignore", title="Approval", json_schema_extra={"allOf": _ROLE_DECISION})
 
     rebase: int
     actor: ActorId
 
 
-class Approvals(_Strict):
+class Approvals(_Model):
     """rebases/<n>/evidence/approvals.json."""
 
-    model_config = ConfigDict(extra="forbid", title="approvals.json")
+    model_config = ConfigDict(extra="ignore", title="approvals.json")
 
     spec: SpecVersion
     rebase: int
@@ -949,23 +1055,38 @@ class Approvals(_Strict):
     required: list[Literal["validator", "approver"]]
     pack_version: int = Field(ge=1, description="Each approval writes a new signed pack version.")
     approvals: dict[ActorId, ApprovalEntry] = Field(
-        description="Keyed by actor id, so one actor holds one role: validator and approver differ (SoD-03).",
+        description="Current decision per actor. Keyed by actor id, so one actor holds one role: validator and approver differ (SoD-03).",
         json_schema_extra={"additionalProperties": False},
     )
+    history: list[Approval] = Field(
+        default_factory=list,
+        description="Every decision in audit order, append-only. A later decision of an actor replaces only its entry in approvals.",
+    )
     synthetic: bool
+
+    @model_validator(mode="after")
+    def _current_is_latest(self) -> Approvals:
+        latest: dict[str, Approval] = {}
+        for a in sorted(self.history, key=lambda a: a.audit_seq):
+            latest[a.actor] = a
+        for actor, entry in self.approvals.items():
+            h = latest.get(actor)
+            if self.history and (h is None or h.audit_seq != entry.audit_seq):
+                raise ValueError(f"approvals[{actor}] is not the latest decision of {actor} in history")
+        return self
 
 
 # ---------------------------------------------------------------- findings/F-NNNN.yaml
 
 
-class FindingRecord(_Strict):
+class FindingRecord(_Model):
     """findings/F-NNNN.yaml. Day 0 shape plus optional status and kind."""
 
-    model_config = ConfigDict(extra="forbid", title="Finding (findings/F-NNNN.yaml)")
+    model_config = ConfigDict(extra="ignore", title="Finding (findings/F-NNNN.yaml)")
 
     id: str = Field(pattern=r"^F-\d{4}$")
     rebase: int
-    kind: Literal["slice_below_margin", "contamination", "license", "seal_order", "other"] | None = None
+    kind: FindingKind | None = Field(default=None, description="The failure reason of the check that raised it.")
     status: Literal["open", "accepted", "resolved"] | None = None
     slice: str | None = Field(default=None, description="key=value")
     n: int | None = None
@@ -975,7 +1096,7 @@ class FindingRecord(_Strict):
     margin: float | None = None
     gate: str | None = Field(default=None, description="Path of the gate.json that raised it.")
     placeholder: bool | None = Field(default=None, description="True for a reserved id with no numbers.")
-    note: str | None = None
+    note: str | None = Field(default=None, description="Ids and plain facts only; never personal data.")
     synthetic: bool | None = None
 
 
@@ -989,21 +1110,21 @@ class LineageEdge(_Aliased):
     """One line of lineage/edges.jsonl. Append-only."""
 
     model_config = ConfigDict(
-        extra="forbid", serialize_by_alias=True, validate_by_name=True, validate_by_alias=True, title="Lineage edge"
+        extra="ignore", serialize_by_alias=True, validate_by_name=True, validate_by_alias=True, title="Lineage edge"
     )
 
     from_: str = Field(alias="from", pattern=_NODE)
     to: str = Field(pattern=_NODE)
     kind: Literal["sealed_from", "trained_on", "evaluated_on", "rebased_from", "produced", "promoted_to", "erased_from"]
     hashes: dict[str, Sha256Hex] = Field(description="Digests of the nodes, keyed 'from' and 'to' where known.")
-    ts: AwareDatetime
+    ts: UtcTs
     actor: ActorId
 
 
 # ---------------------------------------------------------------- audit
 
 
-class AuditObject(_Strict):
+class AuditObject(_Model):
     type: str = Field(description="e.g. rebase, holdout, alias, subject.")
     id: str
 
@@ -1014,10 +1135,10 @@ PayloadText = Annotated[str, Field(pattern=r"^[A-Za-z0-9:_./+=-]{1,256}$", max_l
 FREE_TEXT_KEYS = ("note", "comment", "text", "message", "description", "detail", "reason", "name", "email", "phone")
 
 
-class AuditEvent(_Strict):
+class AuditEvent(_Model):
     """One audit event. Also one line of GET /v1/audit/export.jsonl."""
 
-    model_config = ConfigDict(extra="forbid", title="Audit event", json_schema_extra={
+    model_config = ConfigDict(extra="ignore", title="Audit event", json_schema_extra={
         "allOf": [{
             "if": {"properties": {"outcome": {"const": "denied"}}, "required": ["outcome"]},
             "then": {"required": ["rule"], "properties": {"rule": {"type": "string"}}},
@@ -1025,9 +1146,9 @@ class AuditEvent(_Strict):
     })
 
     seq: int = Field(ge=1)
-    ts: AwareDatetime
+    ts: UtcTs
     actor: ActorId
-    role: Role | Literal["system", "runner"]
+    role: Role | Literal["system", "runner", "gateway"] = Field(description="Human role, or a service identity.")
     action: str = Field(pattern=r"^[a-z_]+(\.[a-z_]+)+$", description="e.g. holdout.seal, rebase.approve.")
     object: AuditObject
     outcome: Literal["allowed", "denied"]
@@ -1051,16 +1172,16 @@ class AuditEvent(_Strict):
         return self
 
 
-class ObjectLock(_Strict):
+class ObjectLock(_Model):
     bucket: str
     key: str
     version_id: str | None = None
 
 
-class AuditAnchor(_Strict):
+class AuditAnchor(_Model):
     """audit/anchors/<date>.json: daily head of the audit chain."""
 
-    model_config = ConfigDict(extra="forbid", title="Audit anchor")
+    model_config = ConfigDict(extra="ignore", title="Audit anchor")
 
     spec: SpecVersion
     date: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
@@ -1068,7 +1189,7 @@ class AuditAnchor(_Strict):
     head_hash: Sha256Hex
     count: int = Field(ge=0, description="Events appended on this date.")
     prev_anchor: Sha256Hex | None = Field(default=None, description="sha256(JCS(previous anchor file)), null for the first.")
-    anchored_at: AwareDatetime
+    anchored_at: UtcTs
     object_lock: ObjectLock
     synthetic: bool | None = None
 
@@ -1076,15 +1197,15 @@ class AuditAnchor(_Strict):
 # ---------------------------------------------------------------- MANIFEST.sha256 (parsed)
 
 
-class ManifestEntry(_Strict):
+class ManifestEntry(_Model):
     sha256: Sha256Hex
     path: str = Field(description="Path from asset root.")
 
 
-class EvidenceManifest(_Strict):
+class EvidenceManifest(_Model):
     """Parsed form of a MANIFEST.sha256 text file (rebase or evidence): one entry per '<sha256>  <path>' line."""
 
-    model_config = ConfigDict(extra="forbid", title="MANIFEST.sha256 (parsed)")
+    model_config = ConfigDict(extra="ignore", title="MANIFEST.sha256 (parsed)")
 
     entries: list[ManifestEntry] = Field(min_length=1)
 
@@ -1092,72 +1213,152 @@ class EvidenceManifest(_Strict):
 # ---------------------------------------------------------------- runner jobs (control plane <-> runner)
 
 
-class TrainSpec(_Strict):
+class BucketRef(_Model):
+    """Where the runner reads inputs and writes outputs. Objects live at objects/sha256/<oid[0:2]>/<oid[2:4]>/<oid>."""
+
+    endpoint: str = Field(description="S3-compatible endpoint URL reachable from the runner (WireGuard), e.g. http://minio:9000.")
+    bucket: str
+    region: str | None = None
+    credentials: str = Field(
+        pattern=r"^[a-z0-9][a-z0-9-]{0,63}$",
+        description="Name of a credential the runner already holds (e.g. runner-bucket-rw). Never the secret itself.",
+    )
+
+
+class ObjectRef(_Model):
+    oid: Oid
+    size: int = Field(ge=0)
+
+
+class SnapshotInput(DatasetRef):
+    manifest: ObjectRef = Field(description="The snapshot MANIFEST.json bytes.")
+    parts: list[ObjectRef] = Field(min_length=1, description="Snapshot parts (JSONL of snapshot rows), in order.")
+
+
+class HoldoutInput(HoldoutSealRef):
+    row_hashes: ObjectRef = Field(description="The holdout row hashes, sorted, one hex per line. Enough for the overlap check.")
+    minhash: ObjectRef | None = Field(default=None, description="MinHash signatures (SEAL.json minhash_oid) for the near check.")
+    file: ObjectRef | None = Field(
+        default=None, description="holdout.jsonl bytes. Only eval jobs get it (the runner identity, SoD-05 exemption)."
+    )
+
+
+TrainOutput = Literal["adapter", "receipt"]
+EvalOutput = Literal["predictions", "receipt"]
+BenchOutput = Literal["bench", "receipt"]
+
+
+class TrainSpec(_Model):
+    """Train a LoRA adapter on the snapshot. The runner refuses when the seal order or disjointness fails."""
+
     kind: Literal["train"]
     base: PinnedBase
-    recipe: RecipeRef
-    snapshot: DatasetRef
-    holdout: HoldoutSealRef = Field(description="The runner refuses to train when seal order or disjointness fails.")
+    recipe: RecipeRef = Field(description="recipe.sha256 is also the bucket oid of the recipe bytes.")
+    snapshot: SnapshotInput
+    holdout: HoldoutInput = Field(description="Row hashes only; train jobs never get holdout rows.")
     seed: int
     image_digest: ImageDigest
     adapter_name: str
+    outputs: list[TrainOutput] = Field(description="Artifacts the result must name: adapter and receipt.")
 
 
-class EvalSpec(_Strict):
+class EvalSpec(_Model):
+    """Predict the sealed holdout with the base plus an adapter, guided by the output schema."""
+
     kind: Literal["eval"]
     base: PinnedBase
-    adapter: Oid | None = Field(default=None, description="Adapter oid; absent or null runs the base model alone.")
+    recipe: RecipeRef = Field(description="Same recipe as training, so the chat template matches.")
+    adapter: ObjectRef | None = Field(default=None, description="Adapter object; absent runs the base model alone.")
     role: Literal["incumbent", "candidate"]
-    dataset: DatasetRef = Field(description="The sealed holdout.")
-    output_schema_sha256: Sha256Hex = Field(description="sha256(JCS(output schema)); used for guided JSON.")
+    holdout: HoldoutInput = Field(description="Includes file: the runner reads the rows (SoD-05 runner exemption).")
+    output_schema: ObjectRef = Field(description="evals/output.schema.json bytes; used for guided JSON.")
     max_tokens: int = Field(ge=1)
     temperature: float = Field(ge=0)
+    outputs: list[EvalOutput] = Field(description="Artifacts the result must name: predictions and receipt.")
 
 
-class BenchSpec(_Strict):
+class BenchSpec(_Model):
+    """Latency and cost benchmark on the GPU box."""
+
     kind: Literal["bench"]
     base: PinnedBase
-    adapter: Oid | None = None
-    prompts: int = Field(ge=1, description="Plan value 500.")
+    recipe: RecipeRef
+    adapter: ObjectRef | None = None
+    prompts: ObjectRef = Field(description="Prompt set, JSONL of pseudonymised inputs.")
+    count: int = Field(ge=1, description="Prompts to send. Plan value 500.")
     concurrency: int = Field(ge=1, description="Plan value 32.")
     max_tokens: int = Field(ge=1)
     price_per_hour_eur: float = Field(ge=0)
+    outputs: list[BenchOutput] = Field(description="Artifacts the result must name: bench (cost.json input) and receipt.")
 
 
-class ExecutorJob(_Strict):
-    """A unit of GPU work. GET /v1/jobs/next returns one."""
+class ExecutorJob(_Model):
+    """A unit of GPU work. Self-contained: the runner needs nothing else from the control plane."""
 
-    model_config = ConfigDict(extra="forbid", title="Executor job")
+    model_config = ConfigDict(extra="ignore", title="Executor job")
 
     id: str = Field(min_length=1)
     model: str
     rebase: int | None = None
     spec: Annotated[TrainSpec | EvalSpec | BenchSpec, Field(discriminator="kind")]
+    storage: BucketRef = Field(description="Bucket for inputs (by oid) and outputs (content-addressed).")
     cost_cap_eur: float | None = Field(default=None, gt=0)
-    created_at: AwareDatetime
+    created_at: UtcTs
     requested_by: ActorId
 
 
-class JobStatus(_Strict):
-    """Body of POST /v1/jobs/{id}/status and the Executor.status return value."""
+class JobLease(_Model):
+    """GET /v1/jobs/next response: a job leased to one runner for one attempt."""
+
+    model_config = ConfigDict(extra="ignore", title="Job lease")
+
+    job: ExecutorJob
+    lease_id: str = Field(min_length=1)
+    attempt: int = Field(ge=1)
+    max_attempts: int = Field(ge=1)
+    lease_until: UtcTs = Field(description="The lease ends here unless a heartbeat or status extends it.")
+
+
+class LeaseState(_Model):
+    """Response of heartbeat and status: the new lease end, and whether the control plane asks to cancel."""
+
+    model_config = ConfigDict(extra="ignore", title="Lease state")
+
+    lease_until: UtcTs
+    cancel_requested: bool
+
+
+class Heartbeat(_Request):
+    """POST /v1/jobs/{job}/heartbeat body."""
+
+    model_config = ConfigDict(extra="forbid", title="Heartbeat")
+
+    lease_id: str = Field(min_length=1)
+    attempt: int = Field(ge=1)
+
+
+class JobStatus(_Request):
+    """POST /v1/jobs/{job}/status body (lease_id and attempt required there) and the Executor.status return value."""
 
     model_config = ConfigDict(extra="forbid", title="Job status")
 
     job_id: str
     state: Literal["queued", "running", "succeeded", "failed", "cancelled"]
     progress: float | None = Field(default=None, ge=0, le=1)
-    message: str | None = None
-    updated_at: AwareDatetime
+    message: str | None = Field(default=None, description="Ids and plain facts only; never personal data.")
+    updated_at: UtcTs
+    lease_id: str | None = None
+    attempt: int | None = Field(default=None, ge=1)
 
 
-class Artifact(_Strict):
-    name: str = Field(description="e.g. adapter, predictions.candidate.jsonl, cost.json.")
-    oid: Oid
+class Artifact(_Request):
+    name: str = Field(description="One of the job's outputs: adapter, predictions, bench, receipt.")
+    oid: Oid = Field(description="Written content-addressed to the job's bucket before the result is posted.")
     size: int = Field(ge=0)
 
 
-class JobResult(_Strict):
-    """Body of POST /v1/jobs/{id}/result and the Executor.result return value."""
+class JobResult(_Request):
+    """POST /v1/jobs/{job}/result body (lease_id and attempt required there) and the Executor.result return value."""
 
     model_config = ConfigDict(
         extra="forbid",
@@ -1175,8 +1376,10 @@ class JobResult(_Strict):
     receipt: Receipt | None = Field(default=None, description="Required when state is succeeded.")
     receipt_sig: Signature | None = None
     metrics: dict[str, float] = Field(default_factory=dict)
-    error: str | None = None
-    finished_at: AwareDatetime
+    error: str | None = Field(default=None, description="Ids and plain facts only; never personal data.")
+    finished_at: UtcTs
+    lease_id: str | None = None
+    attempt: int | None = Field(default=None, ge=1)
 
     @model_validator(mode="after")
     def _receipt_when_succeeded(self) -> JobResult:
@@ -1185,44 +1388,54 @@ class JobResult(_Strict):
         return self
 
 
+class JobNotFinished(Exception):
+    """Executor.result on a job that is still queued or running."""
+
+
 @runtime_checkable
 class Executor(Protocol):
-    """Runs ExecutorJobs. Implementations: runner (GPU box), mock, replay; hf-jobs and together are stubs.
+    """Runs ExecutorJobs for the control plane (async, like the worker).
 
-    Every JobResult with state 'succeeded' carries a Receipt whose predicate.executor.name is the
-    implementation's name, so mock output can never pass as a real run.
+    Implemented on the control-plane side: `runner` is an adapter over the /v1/jobs lease queue that the
+    GPU box polls; `mock` and `replay` run in process; `hf-jobs` and `together` are stubs. The GPU box
+    itself speaks only HTTP. Every succeeded JobResult carries a Receipt whose predicate.executor.name is
+    the implementation's name, so mock output can never pass as a real run.
     """
 
     name: ExecutorName
 
-    def submit(self, job: ExecutorJob) -> str:
+    async def submit(self, job: ExecutorJob) -> str:
         """Queue the job. Returns the job id. Idempotent on job.id."""
         ...
 
-    def status(self, job_id: str) -> JobStatus: ...
-
-    def result(self, job_id: str) -> JobResult:
-        """Final result. Raises LookupError for an unknown id and RuntimeError while the job still runs."""
+    async def status(self, job_id: str) -> JobStatus:
+        """Raises LookupError for an unknown id."""
         ...
 
-    def cancel(self, job_id: str) -> None: ...
+    async def result(self, job_id: str) -> JobResult:
+        """Final result. Raises LookupError for an unknown id and JobNotFinished while it is queued or running."""
+        ...
+
+    async def cancel(self, job_id: str) -> None:
+        """Ask the job to stop. The runner sees cancel_requested on its next heartbeat. A finished job: no-op."""
+        ...
 
 
 # ---------------------------------------------------------------- gateway alias config
 
 
-class Canary(_Strict):
+class Canary(_Model):
     weight: float = Field(ge=0, le=1, description="Share of traffic, sticky by xxhash(salt + interaction id).")
     salt: str
     adapter: str
     version: str
 
 
-class Shadow(_Strict):
+class Shadow(_Model):
     target: str = Field(description="Upstream URL or alias that gets a fire-and-forget copy.")
 
 
-class AliasRoute(_Strict):
+class AliasRoute(_Model):
     upstream: str = Field(description="OpenAI-compatible base URL, e.g. http://vllm:8000/v1.")
     adapter: str = Field(description="LoRA adapter name loaded in vLLM.")
     version: str = Field(description="Model version sent in x-roadbed-model-version.")
@@ -1230,10 +1443,10 @@ class AliasRoute(_Strict):
     shadow: Shadow | None = None
 
 
-class AliasConfig(_Strict):
+class AliasConfig(_Model):
     """GET /v1/aliases body (with ETag). The gateway polls it every 2 s."""
 
-    model_config = ConfigDict(extra="forbid", title="Alias config")
+    model_config = ConfigDict(extra="ignore", title="Alias config")
 
     spec: SpecVersion
     generation: int = Field(ge=0, description="Increments on every change; the ETag is derived from it.")
@@ -1243,7 +1456,7 @@ class AliasConfig(_Strict):
 # ---------------------------------------------------------------- ingest (SDK -> control plane)
 
 
-class InteractionIn(_Strict):
+class InteractionIn(_Request):
     """POST /v1/interactions body. Pseudonymised client-side; 422 without profile_id."""
 
     model_config = ConfigDict(extra="forbid", title="Interaction (in)")
@@ -1252,7 +1465,7 @@ class InteractionIn(_Strict):
     model: str
     alias: str | None = None
     version: str
-    ts: AwareDatetime
+    ts: UtcTs
     input_ref: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
     input: dict[str, Any] = Field(description="Pseudonymised input (tokens and placeholders such as <PERSON_1>).")
     output: dict[str, Any]
@@ -1264,7 +1477,7 @@ class InteractionIn(_Strict):
     synthetic: bool | None = None
 
 
-class VerdictIn(_Strict):
+class VerdictIn(_Request):
     """POST /v1/verdicts body. A 'fix' carries the corrected output in verdict."""
 
     model_config = ConfigDict(
@@ -1277,11 +1490,12 @@ class VerdictIn(_Strict):
         }]},
     )
 
+    verdict_id: str = Field(min_length=1, max_length=128, description="Client-made id. Retries with the same id are no-ops.")
     interaction_id: str = Field(min_length=1)
     action: Literal["approve", "fix", "reject", "escalate"]
     verdict: dict[str, Any] | None = Field(default=None, description="Required when action is fix.")
-    reason_code: str | None = Field(default=None, description="Required when action is fix.")
-    ts: AwareDatetime
+    reason_code: str | None = Field(default=None, pattern=r"^[a-z_]{1,64}$", description="Required when action is fix.")
+    ts: UtcTs
 
     @model_validator(mode="after")
     def _fix_carries_verdict(self) -> VerdictIn:
@@ -1290,15 +1504,16 @@ class VerdictIn(_Strict):
         return self
 
 
-class OutcomeIn(_Strict):
+class OutcomeIn(_Request):
     """POST /v1/outcomes body: a late system-of-record outcome."""
 
     model_config = ConfigDict(extra="forbid", title="Outcome (in)")
 
+    outcome_id: str = Field(min_length=1, max_length=128, description="Client-made id. Retries with the same id are no-ops.")
     interaction_id: str = Field(min_length=1)
     outcome: dict[str, Any]
     source: Literal["system_of_record", "csv"]
-    observed_at: AwareDatetime
+    observed_at: UtcTs
 
 
 # ---------------------------------------------------------------- schema export
@@ -1341,6 +1556,9 @@ SCHEMA_MODELS: dict[str, type[BaseModel]] = {
     "executor-job": ExecutorJob,
     "job-status": JobStatus,
     "job-result": JobResult,
+    "job-lease": JobLease,
+    "lease-state": LeaseState,
+    "heartbeat": Heartbeat,
     "alias-config": AliasConfig,
     "interaction-in": InteractionIn,
     "verdict-in": VerdictIn,
@@ -1348,10 +1566,37 @@ SCHEMA_MODELS: dict[str, type[BaseModel]] = {
 }
 
 
-def json_schema(name: str) -> dict[str, Any]:
-    """Draft 2020-12 JSON Schema for SCHEMA_MODELS[name], as published in spec/schemas/v0.1."""
+def _close(node: Any) -> Any:
+    """Set additionalProperties: false on every object schema that lists properties and says nothing else."""
+    if isinstance(node, dict):
+        out = {k: _close(v) for k, v in node.items()}
+        if out.get("type") == "object" and "properties" in out and "additionalProperties" not in out:
+            out["additionalProperties"] = False
+        return out
+    if isinstance(node, list):
+        return [_close(v) for v in node]
+    return node
+
+
+def _open(node: Any) -> Any:
+    """Reader form: drop every additionalProperties: false, so unknown fields pass."""
+    if isinstance(node, dict):
+        return {k: _open(v) for k, v in node.items() if not (k == "additionalProperties" and v is False)}
+    if isinstance(node, list):
+        return [_open(v) for v in node]
+    return node
+
+
+def json_schema(name: str, reader: bool = False) -> dict[str, Any]:
+    """Draft 2020-12 JSON Schema for SCHEMA_MODELS[name].
+
+    Default: the published, closed schema in spec/schemas/v0.1 (the producer contract).
+    reader=True: the same schema with unknown fields allowed, for consumers (SPEC.md, compatibility).
+    """
     model = SCHEMA_MODELS[name]
-    body = model.model_json_schema(mode="serialization")
+    body = _close(model.model_json_schema(mode="serialization"))
+    if reader:
+        body = _open(body)
     return {"$schema": SCHEMA_DIALECT, "$id": f"{SCHEMA_BASE_ID}{name}.schema.json", **body}
 
 

@@ -3,10 +3,10 @@
   "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/contamination.schema.json",
   "$defs": {
     "DatasetRef": {
-      "additionalProperties": false,
       "properties": {
         "id": {
           "description": "Snapshot id (S-...) or holdout id (H-...).",
+          "pattern": "^[SH]-[A-Za-z0-9-]{1,64}$",
           "title": "Id",
           "type": "string"
         },
@@ -36,10 +36,10 @@
         "merkle_root"
       ],
       "title": "DatasetRef",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     },
     "ExactOverlap": {
-      "additionalProperties": false,
       "properties": {
         "shared": {
           "minimum": 0,
@@ -61,10 +61,10 @@
         "row_hashes"
       ],
       "title": "ExactOverlap",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     },
     "NearOverlap": {
-      "additionalProperties": false,
       "properties": {
         "method": {
           "description": "minhash estimate, or exact jaccard for small sets.",
@@ -106,10 +106,10 @@
         "pairs"
       ],
       "title": "NearOverlap",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     },
     "NearPair": {
-      "additionalProperties": false,
       "properties": {
         "holdout": {
           "description": "Lowercase hex SHA-256 digest.",
@@ -136,10 +136,10 @@
         "jaccard"
       ],
       "title": "NearPair",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     },
     "SealOrder": {
-      "additionalProperties": false,
       "allOf": [
         {
           "if": {
@@ -211,10 +211,10 @@
         "ok"
       ],
       "title": "SealOrder",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     }
   },
-  "additionalProperties": false,
   "allOf": [
     {
       "if": {
@@ -309,5 +309,6 @@
     "synthetic"
   ],
   "title": "contamination.json",
-  "type": "object"
+  "type": "object",
+  "additionalProperties": false
 }

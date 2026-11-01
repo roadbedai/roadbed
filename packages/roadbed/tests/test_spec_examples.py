@@ -16,12 +16,11 @@ import rfc8785
 from cryptography.hazmat.primitives.serialization import load_pem_public_key
 from typer.testing import CliRunner
 
+from conftest import SPEC_DIR
 from roadbed import io
 from roadbed.cli.main import app
 from roadbed.contracts import SCHEMA_MODELS, Executor, ExecutorJob, JobResult, JobStatus, json_schema
 from roadbed.hashing import sha256_canonical, sha256_file
-
-from conftest import SPEC_DIR
 
 EXAMPLES = SPEC_DIR / "examples"
 CONFORMANCE = SPEC_DIR / "conformance"
@@ -126,6 +125,16 @@ def _manifest(p: Path) -> dict:
     return {"entries": entries}
 
 
+def _only_unknown_fields(errors) -> bool:
+    def leaves(e):
+        return [x for c in e.context for x in leaves(c)] if e.context else [e]
+    return all(x.validator in ("additionalProperties", "unevaluatedProperties") for e in errors for x in leaves(e))
+
+
+def _reader(name: str) -> jsonschema.Draft202012Validator:
+    return jsonschema.Draft202012Validator(json_schema(name, reader=True))
+
+
 def _validator(name: str) -> jsonschema.Draft202012Validator:
     return jsonschema.Draft202012Validator(json_schema(name), format_checker=jsonschema.Draft202012Validator.FORMAT_CHECKER)
 
@@ -187,10 +196,65 @@ def test_conformance_cases():
             v.validate(json.loads(f.read_text()))
         for f in invalid:
             inst = json.loads(f.read_text())
-            assert not v.is_valid(inst), f"{f} should fail {name}.schema.json"
-            with pytest.raises(ValueError):  # pydantic.ValidationError is a ValueError
+            errors = list(v.iter_errors(inst))
+            if f.name.startswith("model-"):  # a two-field rule: only the model can check it
+                with pytest.raises(ValueError):
+                    SCHEMA_MODELS[name].model_validate(inst)
+                assert f"`invalid/{name}/{f.name}`" in readme
+                continue
+            assert errors, f"{f} should fail {name}.schema.json"
+            try:
                 SCHEMA_MODELS[name].model_validate(inst)
+            except ValueError:  # pydantic.ValidationError is a ValueError
+                pass
+            else:  # a lenient reader may accept a case whose only fault is an unknown field
+                assert _only_unknown_fields(errors), f"{f}: the model accepts it, and not only for unknown fields"
+                assert _reader(name).is_valid(inst), f"{f}: the reader schema should accept unknown fields"
             assert f"`invalid/{name}/{f.name}`" in readme, f"README does not explain {f}"
+
+
+@pytest.mark.parametrize("asset", list(ASSETS))
+def test_model_round_trip_keeps_every_hash(asset):
+    """Rule: hash the stored bytes or the parsed stored JSON. A model round trip must not change either."""
+    root = EXAMPLES / asset
+    n = 0
+    for rel in _files(root):
+        schema, kind = _match(rel)
+        if schema is None or kind == "manifest":
+            continue
+        for inst in _read(root, rel, kind):
+            model = SCHEMA_MODELS[schema]
+            back = model.model_validate(inst).model_dump(mode="json", exclude_unset=True, by_alias=True)
+            assert sha256_canonical(back) == sha256_canonical(inst), f"{rel}: a model round trip changed the hash"
+            if "row_hash" in inst and schema == "snapshot-row":
+                assert ref.row_hash(back) == inst["row_hash"]
+            n += 1
+    assert n > 300
+
+
+def test_readers_ignore_unknown_fields_requests_reject_them():
+    """Compatibility within v0.x: file and response models ignore unknown fields; request bodies reject them."""
+    requests = {"interaction-in", "verdict-in", "outcome-in", "job-status", "job-result", "heartbeat"}
+    for name, model in SCHEMA_MODELS.items():
+        inst = json.loads(next((CONFORMANCE / "valid" / name).glob("*.json")).read_text())
+        future = {**inst, "added_in_v0_2": 1}
+        assert not _validator(name).is_valid(future), f"{name}: the published schema is closed"
+        if name in requests:
+            with pytest.raises(ValueError):
+                model.model_validate(future)
+        else:
+            model.model_validate(future)
+            assert _reader(name).is_valid(future)
+
+
+def test_timestamps_are_canonical_strings():
+    from roadbed.contracts import SnapshotRow
+
+    row = io.read_jsonl(EXAMPLES / "pass/data/snapshots/2026-11-01/part-0000.jsonl")[0]
+    assert SnapshotRow.model_validate(row).ts == row["ts"]  # kept as the stored string
+    for bad in ("2026-10-02T09:01:00.120Z", "2026-10-02T09:01:00+00:00", "2026-10-02 09:01:00Z"):
+        with pytest.raises(ValueError):
+            SnapshotRow.model_validate({**row, "ts": bad})
 
 
 # ---------------------------------------------------------------- integrity

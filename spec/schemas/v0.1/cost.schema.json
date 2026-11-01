@@ -3,7 +3,6 @@
   "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/cost.schema.json",
   "$defs": {
     "Bench": {
-      "additionalProperties": false,
       "properties": {
         "prompts": {
           "minimum": 1,
@@ -45,10 +44,22 @@
         "eur_per_1k_calls"
       ],
       "title": "Bench",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
+    },
+    "ExecutorName": {
+      "description": "Who ran a job. mock and replay never produce demo numbers.",
+      "enum": [
+        "runner",
+        "mock",
+        "replay",
+        "hf-jobs",
+        "together"
+      ],
+      "title": "ExecutorName",
+      "type": "string"
     },
     "Gpu": {
-      "additionalProperties": false,
       "properties": {
         "name": {
           "description": "e.g. NVIDIA H100 80GB HBM3; 'none' for the mock executor.",
@@ -78,10 +89,10 @@
         "count"
       ],
       "title": "Gpu",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     },
     "PhaseCost": {
-      "additionalProperties": false,
       "properties": {
         "gpu_hours": {
           "minimum": 0,
@@ -99,10 +110,10 @@
         "eur"
       ],
       "title": "PhaseCost",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     },
     "Vllm": {
-      "additionalProperties": false,
       "properties": {
         "version": {
           "title": "Version",
@@ -121,10 +132,10 @@
         "flags"
       ],
       "title": "Vllm",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     }
   },
-  "additionalProperties": false,
   "allOf": [
     {
       "if": {
@@ -202,15 +213,7 @@
       "type": "integer"
     },
     "executor": {
-      "enum": [
-        "runner",
-        "mock",
-        "replay",
-        "hf-jobs",
-        "together"
-      ],
-      "title": "Executor",
-      "type": "string"
+      "$ref": "#/$defs/ExecutorName"
     },
     "gpu": {
       "$ref": "#/$defs/Gpu"
@@ -268,5 +271,6 @@
     "synthetic"
   ],
   "title": "cost.json",
-  "type": "object"
+  "type": "object",
+  "additionalProperties": false
 }

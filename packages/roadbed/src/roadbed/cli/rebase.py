@@ -22,7 +22,7 @@ from roadbed.cli.asset import (
     read_meta,
 )
 from roadbed.cli.output import MINUS, plain, signed
-from roadbed.contracts import Contamination, FileDigest, GateResult, HoldoutDigest, PredictionDigests, Scores
+from roadbed.contracts import FileDigest, GateContaminationInput, GateResult, HoldoutDigest, PredictionDigests, Scores
 from roadbed.gate import decide_license, evaluate
 from roadbed.hashing import sha256_file
 from roadbed.io import read_yaml, write_yaml
@@ -192,7 +192,7 @@ def write_manifest(asset: Asset, d: Path) -> Path:
     return m
 
 
-def run(asset: Asset, d: Path, n: int, base: BaseRef, emit, contamination: Contamination | None = None) -> RebaseResult:
+def run(asset: Asset, d: Path, n: int, base: BaseRef, emit, contamination: GateContaminationInput | None = None) -> RebaseResult:
     """contamination: overlap between the training snapshot and the holdout; None means no train manifest (skipped)."""
     cfg = asset.cfg
     meta = read_meta(d)
