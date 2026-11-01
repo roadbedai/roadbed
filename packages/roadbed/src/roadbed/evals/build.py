@@ -188,9 +188,10 @@ class _Texts:
             self.sets[iid] = frozenset(self.vocab.setdefault(s, len(self.vocab)) for s in shingles(text, self.k))
 
     def near(self, a: Iterable[str], b: Iterable[str], threshold: float) -> tuple[float, list[tuple[str, str, float]]]:
-        """Exact Jaccard of every a x b pair that shares a shingle: (max Jaccard, pairs at or above threshold)."""
+        """Exact Jaccard of every a x b pair that shares a shingle: (max Jaccard, pairs at or above threshold).
+        A repeated id in b is indexed once, so its shingles are not counted twice."""
         index: dict[int, list[str]] = defaultdict(list)
-        for bid in b:
+        for bid in dict.fromkeys(b):
             for x in self.sets[bid]:
                 index[x].append(bid)
         best, pairs = 0.0, []
@@ -316,7 +317,9 @@ def build(
     s_refs = {r["input_ref"] for r in sealed}
     s_hashes = {r["row_hash"] for r in sealed if r.get("row_hash")}
     by_iid = {r["interaction_id"]: r for r in live}
-    sealed_side = [{"interaction_id": r["id"], "input_ref": r["input_ref"], "row_hash": r.get("row_hash") or ""} for r in sealed]
+    # two seals can share rows: each sealed row counts once
+    sealed_side = [dict(t) for t in dict.fromkeys(
+        (("interaction_id", r["id"]), ("input_ref", r["input_ref"]), ("row_hash", r.get("row_hash") or "")) for r in sealed)]
     ref_text = {r["input_ref"]: r["input_text"] for r in live}
     for r in sealed_side:
         # The sealed row's text is the text of any live row with its input_ref (same id or not). A live row with the
@@ -334,7 +337,7 @@ def build(
     pool = [r for r in live if r["use"] == "train"]
     eval_only = [r for r in live if r["use"] == "eval"]
     ref_n = Counter(r["input_ref"] for r in pool)
-    prior = [dict(r) for r in trained_on]
+    prior = list({r["row_hash"]: dict(r) for r in trained_on}.values())  # snapshots repeat rows: each counts once
     p_ids, p_refs, p_hashes = ({r[k] for r in prior} for k in ("interaction_id", "input_ref", "row_hash"))
     by_ref = {r["input_ref"]: r["interaction_id"] for r in live}
     p_text = sorted({i for i in p_ids if i in texts.sets} | {by_ref[f] for f in p_refs if f in by_ref})
