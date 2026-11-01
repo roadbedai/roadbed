@@ -24,8 +24,8 @@
     "pairs": []
   },
   "seal_order": {
-    "seal_commit": "dd401870bd807f82614d7a95326c72ecb1b2c62c",
-    "train_commit": "b0c256ce76664f00eab59a3756c5d7f450738d9a",
+    "seal_commit": "cabbfc1b70a1844d6bd6d10d20443d4df31b601d",
+    "train_commit": "b7dd9257b583a2bef86b5155b42e5bfca8acc246",
     "audit_seq": true,
     "timestamp": true,
     "git_ancestor": false,

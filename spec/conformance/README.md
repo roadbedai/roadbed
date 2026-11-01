@@ -13,6 +13,7 @@ A case whose only fault is an unknown field fails the published (closed) schema;
 |---|---|---|
 | `invalid/roadbed/revision-branch-name.json` | `roadbed.schema.json` | base.revision must be 40 hex characters or 'unpinned' |
 | `invalid/holdout-row/input-ref-no-prefix.json` | `holdout-row.schema.json` | input_ref must be sha256:<64 hex> |
+| `invalid/holdout-row/synthetic-not-bool.json` | `holdout-row.schema.json` | synthetic is a boolean (W01b) |
 | `invalid/prediction-row/missing-output.json` | `prediction-row.schema.json` | output is required |
 | `invalid/scorers/zero-weight.json` | `scorers.schema.json` | weight must be > 0 |
 | `invalid/slices/missing-keys.json` | `slices.schema.json` | keys is required |
@@ -29,6 +30,7 @@ A case whose only fault is an unknown field fails the published (closed) schema;
 | `invalid/snapshot-row/ts-milliseconds.json` | `snapshot-row.schema.json` | timestamps are YYYY-MM-DDTHH:MM:SSZ: no fraction (hashed fields keep stored bytes) |
 | `invalid/snapshot-row/ts-offset.json` | `snapshot-row.schema.json` | timestamps end in Z, not an offset |
 | `invalid/snapshot-row/missing-row-hash.json` | `snapshot-row.schema.json` | row_hash is required on snapshot rows |
+| `invalid/snapshot-row/synthetic-not-bool.json` | `snapshot-row.schema.json` | synthetic is a boolean (W01b) |
 | `invalid/seal/bad-id.json` | `seal.schema.json` | holdout ids are H-... |
 | `invalid/seal/probe-w01-fields-partial.json` | `seal.schema.json` | merkle_root, minhash_oid, snapshot and stratification come together (verifier probe) |
 | `invalid/seal/probe-sealed-by-email.json` | `seal.schema.json` | sealed_by is a user id, never an email address (verifier probe) |
@@ -36,7 +38,9 @@ A case whose only fault is an unknown field fails the published (closed) schema;
 | `invalid/seal/short-commit.json` | `seal.schema.json` | seal_commit must be a 40-hex commit |
 | `invalid/tombstone-row/raw-email-subject.json` | `tombstone-row.schema.json` | subject_token must be an HMAC token tok_<hex>, never a raw identifier |
 | `invalid/golden-row/extra-field.json` | `golden-row.schema.json` | unknown fields are rejected |
+| `invalid/golden-row/synthetic-not-bool.json` | `golden-row.schema.json` | synthetic is a boolean (W01b) |
 | `invalid/correction-test-row/bad-id.json` | `correction-test-row.schema.json` | id must match CT-NNNN |
+| `invalid/correction-test-row/synthetic-not-bool.json` | `correction-test-row.schema.json` | synthetic is a boolean (W01b) |
 | `invalid/recipe/full-finetune.json` | `recipe.schema.json` | method must be lora or qlora |
 | `invalid/model-version/version-name.json` | `model-version.schema.json` | version must match vN |
 | `invalid/receipt/probe-mock-with-gpu-and-cost.json` | `receipt.schema.json` | a mock or replay receipt has gpu 'none' and zero cost (verifier probe) |
@@ -44,6 +48,8 @@ A case whose only fault is an unknown field fails the published (closed) schema;
 | `invalid/receipt/missing-executor.json` | `receipt.schema.json` | predicate.executor is required |
 | `invalid/receipt/wrong-predicate-type.json` | `receipt.schema.json` | predicateType must be https://roadbed.dev/run/v1 |
 | `invalid/receipt/unknown-executor.json` | `receipt.schema.json` | executor.name must be runner, mock, replay, hf-jobs or together |
+| `invalid/receipt/rebase-without-snapshot.json` | `receipt.schema.json` | only a bench receipt may leave out snapshot (W01b) |
+| `invalid/receipt/eval-without-holdout.json` | `receipt.schema.json` | an eval receipt names its sealed holdout (W01b) |
 | `invalid/signature/rsa.json` | `signature.schema.json` | alg must be ed25519 |
 | `invalid/rebase/unknown-state.json` | `rebase.schema.json` | state must be a rebase state of the orchestrator |
 | `invalid/contamination/missing-seal-order.json` | `contamination.schema.json` | seal_order is required |
@@ -80,8 +86,12 @@ A case whose only fault is an unknown field fails the published (closed) schema;
 | `invalid/executor-job/no-parts.json` | `executor-job.schema.json` | the runner needs the snapshot part oids |
 | `invalid/executor-job/no-storage.json` | `executor-job.schema.json` | the job names its bucket |
 | `invalid/executor-job/secret-in-credentials.json` | `executor-job.schema.json` | credentials is the name of a credential, never the secret |
+| `invalid/executor-job/receipt-path-outside.json` | `executor-job.schema.json` | receipt_path is versions/vN/receipt.json or rebases/N/receipt.json (W01b) |
+| `invalid/executor-job/receipt-path-sig.json` | `executor-job.schema.json` | receipt_path names the receipt, not its signature (W01b) |
 | `invalid/job-status/progress-over-one.json` | `job-status.schema.json` | progress must be in [0, 1] |
 | `invalid/job-lease/no-attempt.json` | `job-lease.schema.json` | a lease names its attempt |
+| `invalid/job-lease/audit-seq-zero.json` | `job-lease.schema.json` | audit_seq starts at 1 (W01b) |
+| `invalid/job-lease/prev-receipt-prefixed.json` | `job-lease.schema.json` | prev_receipt is bare lowercase hex (W01b) |
 | `invalid/lease-state/no-cancel-flag.json` | `lease-state.schema.json` | the runner learns about cancels here |
 | `invalid/heartbeat/extra-field.json` | `heartbeat.schema.json` | request bodies reject unknown fields |
 | `invalid/job-result/succeeded-without-receipt.json` | `job-result.schema.json` | receipt is required when state is succeeded |
@@ -91,4 +101,15 @@ A case whose only fault is an unknown field fails the published (closed) schema;
 | `invalid/interaction-in/no-profile.json` | `interaction-in.schema.json` | profile_id is required: ingest without it is a 422 |
 | `invalid/verdict-in/fix-without-verdict.json` | `verdict-in.schema.json` | a fix must carry verdict and reason_code |
 | `invalid/verdict-in/unknown-action.json` | `verdict-in.schema.json` | action must be approve, fix, reject or escalate |
+| `invalid/verdict-in/synthetic-not-bool.json` | `verdict-in.schema.json` | synthetic is a boolean (W01b) |
 | `invalid/outcome-in/bad-source.json` | `outcome-in.schema.json` | source must be system_of_record or csv |
+| `invalid/outcome-in/synthetic-not-bool.json` | `outcome-in.schema.json` | synthetic is a boolean (W01b) |
+
+More valid cases (besides `valid/<schema>/example.json`):
+
+| File | Schema | What it shows |
+|---|---|---|
+| `valid/executor-job/eval-with-snapshot.json` | `executor-job.schema.json` | an eval job carries the snapshot ref its receipt copies |
+| `valid/executor-job/bench-with-refs.json` | `executor-job.schema.json` | a bench job may carry snapshot and sealed holdout refs |
+| `valid/receipt/bench-without-data.json` | `receipt.schema.json` | a bench receipt may leave out snapshot and holdout |
+| `valid/job-lease/first-receipt.json` | `job-lease.schema.json` | the first receipt of an asset has prev_receipt null |

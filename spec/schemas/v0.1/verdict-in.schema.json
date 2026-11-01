@@ -87,6 +87,19 @@
       "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$",
       "title": "Ts",
       "type": "string"
+    },
+    "synthetic": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "True when the row is synthetic.",
+      "title": "Synthetic"
     }
   },
   "required": [

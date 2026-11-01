@@ -18,7 +18,7 @@
     },
     {
       "path": "data/holdout/H-2026-10-01/SEAL.json",
-      "sha256": "066b078e82abcb1f335f16015413c6f6af8303b60e2ea834fd0336e9eef73bd3",
+      "sha256": "f3665d499d0af26649e93335a3354a952cdaa77b017f68591871763e2be8c090",
       "size": 586
     },
     {
@@ -28,12 +28,12 @@
     },
     {
       "path": "data/holdout/H-2026-10-01/holdout.jsonl",
-      "sha256": "a20d6b1a5d5ca66a5a1ea85b337db9a62da9dd6d230484f02ca59520b5da778b",
-      "size": 17558
+      "sha256": "ea8c16fc1addf901068c67027fbac57ef8b0c030df9dcb44d4d8fa070cabbb56",
+      "size": 18578
     },
     {
       "path": "data/holdout/H-2026-11-01/SEAL.json",
-      "sha256": "dc6a577f6283db40c2a8edee5384b66f131cbc03aedfa4145712ae9cef25f6b7",
+      "sha256": "8015fa86ae734a768cc45f8daf16be16a684fc0db5ac1267ba5175f0c26be664",
       "size": 587
     },
     {
@@ -43,17 +43,17 @@
     },
     {
       "path": "data/holdout/H-2026-11-01/holdout.jsonl",
-      "sha256": "752d5a6c04b207baedbd4d258a1c29ea3977b5fccff05a979b71ad04ac595d01",
-      "size": 17583
+      "sha256": "f5a68469607562cb6f0e153c21e76055720f5d5698e1654f2fc40472d3149bff",
+      "size": 18603
     },
     {
       "path": "data/snapshots/2026-10-15/MANIFEST.json",
-      "sha256": "68e3b713273dc30ea64c7b32e1e3d112ec617b393a0540ecfb25fc55ddb713fc",
+      "sha256": "604383793c7b48ba3d33cdb5f934ea02bd7bd392d8c8bc99d59231bc48d321cf",
       "size": 617
     },
     {
       "path": "data/snapshots/2026-11-01/MANIFEST.json",
-      "sha256": "7919744e3e6e8ecd4da73f796bc1bedc5786f4a9160baa37ac5468279867914a",
+      "sha256": "0372ccd55a28d61e202f0207f6c76d3643c4e324314d817a30c747103e032a91",
       "size": 676
     },
     {
@@ -63,8 +63,8 @@
     },
     {
       "path": "data/snapshots/2026-11-01/part-0000.jsonl",
-      "sha256": "cfcba667407b0d414590a3a566bbd5f8d77c1316ac34abb20556ff38d5328bc3",
-      "size": 32724
+      "sha256": "0abfb0cfad6a07d06d041a615553d22cc978b06760e68896498d5732c8fc400c",
+      "size": 34084
     },
     {
       "path": "data/tombstones.jsonl",
@@ -78,13 +78,13 @@
     },
     {
       "path": "evals/correction_tests.jsonl",
-      "sha256": "934269820bab748f34d73262b9055bab48ee3820bd478321d8b23c858a65d242",
-      "size": 952
+      "sha256": "81b99221232377ad89572d8541cc7109cd433eb88bd21ef464c5305310d1ebea",
+      "size": 986
     },
     {
       "path": "evals/golden.jsonl",
-      "sha256": "6934844385ed3e9e36061d1a2ec18ca174f371cfe05ba1056f8719daaba7f071",
-      "size": 1473
+      "sha256": "acb68cf5ba6911940f9e621b7ff5f9a6368605f4f53eed8a1c166e9ada3f2d1f",
+      "size": 1558
     },
     {
       "path": "evals/output.schema.json",
@@ -138,7 +138,7 @@
     },
     {
       "path": "rebases/13/MANIFEST.sha256",
-      "sha256": "36ec9d3fe2f661f4631b8936531fd536a33d7070935100b3ae46af0e16e3b447",
+      "sha256": "f8d7f655bb6ae18e0dbb8e90154b7323ead0e20af56906093e62c5f9b52eb909",
       "size": 1618
     },
     {
@@ -148,7 +148,7 @@
     },
     {
       "path": "rebases/13/contamination.json",
-      "sha256": "a20242582cd171436696f4333bb50d893ef7e2e8d7a96541152604b3ac740669",
+      "sha256": "e277d38a1c3f60bb070112698fde83b9ab558d318b181f444007c691d89087fc",
       "size": 802
     },
     {
@@ -158,18 +158,18 @@
     },
     {
       "path": "rebases/13/evidence/MANIFEST.sha256",
-      "sha256": "7075297f86107e0feca44b5010a12d47229530281eb9774de354d2f7a857f7cf",
+      "sha256": "afc34a57ac624bffe27fb0d279aefabdee41712633176162a5d924108c66e94d",
       "size": 194
     },
     {
       "path": "rebases/13/evidence/MANIFEST.sig",
-      "sha256": "46dcf448170247ffa6784769d6b97b053e743b00d64a603c81048bccde2fae6a",
+      "sha256": "04fde53c45775a27832c9891bc7fb5f7a119100370b68ce707afdc0f216e7de5",
       "size": 311
     },
     {
       "path": "rebases/13/evidence/approvals.json",
-      "sha256": "b40ca93cd026169026fff00ed254b335323701b484e11bb9842177e94ffea736",
-      "size": 851
+      "sha256": "0df330fe2787e01b379a9d8165526c458263b246c7147b0a0786b8042c04ef2d",
+      "size": 1422
     },
     {
       "path": "rebases/13/gate.json",
@@ -198,12 +198,12 @@
     },
     {
       "path": "rebases/13/receipt.json",
-      "sha256": "839e849e5cb6d73d6bee3fb9de5f29fd78f864ae7a4331826225f7a152eeee55",
+      "sha256": "80fa809bcf129ab5dc8f1b770ab917ebf51406e917c35d895144b7769f9f7f27",
       "size": 2199
     },
     {
       "path": "rebases/13/receipt.sig",
-      "sha256": "c3fe8b64b57ad8f9b1510da4ef057e616547e84c0e7a6e3c09c84acb0915c47d",
+      "sha256": "ee99a5605060abb29f9c06945f8ade7b5979485fcc836666963784608fabf410",
       "size": 298
     },
     {
@@ -218,7 +218,7 @@
     },
     {
       "path": "rebases/13/scores.json",
-      "sha256": "9979f0293c9776a13a0156cd909e1fbae7f852c3e17538e19fb03384e3b72542",
+      "sha256": "dc65272c0679e6b93f8e969059907ae63c11435a1376496873de23ab5354dad7",
       "size": 3145
     },
     {
@@ -243,16 +243,21 @@
     },
     {
       "path": "versions/v12/receipt.json",
-      "sha256": "35ab24c62b061eea6a328b041cf59b489e4837f957aa44ecd83ae0b49acc3f31",
+      "sha256": "a88847466606d3662e0bdc539b4f7a4ebda143eb28caca20d9c0d0d29c10f15a",
       "size": 1776
     },
     {
       "path": "versions/v12/receipt.sig",
-      "sha256": "1cd39f0bd38cc1682fa990f95dc8032c46b5fc7c9e1b24a7d36547e6e5a9106d",
+      "sha256": "82518198a293c99a7c77c319633a0a46cdb131c754a26190fa68b001608f2c8a",
       "size": 300
     }
   ],
   "objects": [
+    {
+      "oid": "06e13e4bcbbf5653f901ac3e25a08bf6ea7efe0f62ab7cbfa2e0c827f2a51183",
+      "size": 31610,
+      "ref": "data/snapshots/2026-10-15/MANIFEST.json"
+    },
     {
       "oid": "31361358c0d60e7d90edcb604f6bcef9e95bd2a83e6dca1b63ddbdb3abe79c18",
       "size": 150103,
@@ -272,11 +277,6 @@
       "oid": "cc6d151b0927d136e2554dbae256893a92e9b1dad123fe50f240e8706fa06e44",
       "size": 150103,
       "ref": "data/holdout/H-2026-11-01/SEAL.json"
-    },
-    {
-      "oid": "fc872db01971cf6c7cfa68fb94280bda5826c37447b4fba12da9bc01114afadc",
-      "size": 30352,
-      "ref": "data/snapshots/2026-10-15/MANIFEST.json"
     }
   ],
   "synthetic": true

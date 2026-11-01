@@ -53,6 +53,30 @@
           "title": "Price Per Hour Eur",
           "type": "number"
         },
+        "snapshot": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DatasetRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional. Training snapshot of the adapter; the receipt copies it."
+        },
+        "holdout": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HoldoutSealRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional. Sealed holdout of the rebase (no rows); the receipt copies it."
+        },
         "outputs": {
           "description": "Artifacts the result must name: bench (cost.json input) and receipt.",
           "items": {
@@ -121,6 +145,43 @@
       "type": "object",
       "additionalProperties": false
     },
+    "DatasetRef": {
+      "properties": {
+        "id": {
+          "description": "Snapshot id (S-...) or holdout id (H-...).",
+          "pattern": "^[SH]-[A-Za-z0-9-]{1,64}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "merkle_root": {
+          "description": "Merkle root of the sorted row hashes (SPEC.md, hashing).",
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Merkle Root",
+          "type": "string"
+        },
+        "rows": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional. Row count.",
+          "title": "Rows"
+        }
+      },
+      "required": [
+        "id",
+        "merkle_root"
+      ],
+      "title": "DatasetRef",
+      "type": "object",
+      "additionalProperties": false
+    },
     "EvalSpec": {
       "description": "Predict the sealed holdout with the base plus an adapter, guided by the output schema.",
       "properties": {
@@ -159,6 +220,18 @@
         "holdout": {
           "$ref": "#/$defs/HoldoutInput",
           "description": "Includes file: the runner reads the rows (SoD-05 runner exemption)."
+        },
+        "snapshot": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DatasetRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional. Training snapshot of the adapter (id, Merkle root); the receipt copies it."
         },
         "output_schema": {
           "$ref": "#/$defs/ObjectRef",
@@ -276,6 +349,20 @@
           "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
           "title": "Requested By",
           "type": "string"
+        },
+        "receipt_path": {
+          "anyOf": [
+            {
+              "pattern": "^(versions/v\\d+|rebases/\\d+)/receipt\\.json$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Asset path the receipt is stored at, versions/vN/receipt.json or rebases/N/receipt.json.",
+          "title": "Receipt Path"
         }
       },
       "required": [
@@ -374,6 +461,64 @@
         "row_hashes"
       ],
       "title": "HoldoutInput",
+      "type": "object",
+      "additionalProperties": false
+    },
+    "HoldoutSealRef": {
+      "properties": {
+        "id": {
+          "description": "Snapshot id (S-...) or holdout id (H-...).",
+          "pattern": "^[SH]-[A-Za-z0-9-]{1,64}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "merkle_root": {
+          "description": "Merkle root of the sorted row hashes (SPEC.md, hashing).",
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Merkle Root",
+          "type": "string"
+        },
+        "rows": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional. Row count.",
+          "title": "Rows"
+        },
+        "seal_seq": {
+          "description": "Audit seq of the seal event (SEAL.json audit_seq).",
+          "minimum": 1,
+          "title": "Seal Seq",
+          "type": "integer"
+        },
+        "sealed_at": {
+          "description": "SEAL.json sealed_at.",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$",
+          "title": "Sealed At",
+          "type": "string"
+        },
+        "seal_commit": {
+          "description": "Asset repo commit that added SEAL.json (git log --diff-filter=A).",
+          "pattern": "^[0-9a-f]{40}$",
+          "title": "Seal Commit",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "merkle_root",
+        "seal_seq",
+        "sealed_at",
+        "seal_commit"
+      ],
+      "title": "HoldoutSealRef",
       "type": "object",
       "additionalProperties": false
     },
@@ -585,6 +730,35 @@
       "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$",
       "title": "Lease Until",
       "type": "string"
+    },
+    "audit_seq": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Audit seq of the job start event.",
+      "title": "Audit Seq"
+    },
+    "prev_receipt": {
+      "anyOf": [
+        {
+          "description": "Lowercase hex SHA-256 digest.",
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "sha256(JCS(previous receipt.json)) in this asset; null for the first receipt.",
+      "title": "Prev Receipt"
     }
   },
   "required": [

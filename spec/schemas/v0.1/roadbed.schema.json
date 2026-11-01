@@ -192,6 +192,20 @@
           "description": "Path (from asset root) to the JSON Schema of one model output.",
           "title": "Output Schema",
           "type": "string"
+        },
+        "text_field": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional. Input field that holds the free text for the near-overlap check (SPEC.md). Default narrative.",
+          "title": "Text Field"
         }
       },
       "required": [

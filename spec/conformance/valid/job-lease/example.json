@@ -18,13 +18,13 @@
         "merkle_root": "2990864b9166593013ee5f4d3a26f36b6c8e5ee2e69a3a45328d0cd8603713c2",
         "rows": 80,
         "manifest": {
-          "oid": "7919744e3e6e8ecd4da73f796bc1bedc5786f4a9160baa37ac5468279867914a",
+          "oid": "0372ccd55a28d61e202f0207f6c76d3643c4e324314d817a30c747103e032a91",
           "size": 676
         },
         "parts": [
           {
-            "oid": "cfcba667407b0d414590a3a566bbd5f8d77c1316ac34abb20556ff38d5328bc3",
-            "size": 32724
+            "oid": "0abfb0cfad6a07d06d041a615553d22cc978b06760e68896498d5732c8fc400c",
+            "size": 34084
           }
         ]
       },
@@ -34,7 +34,7 @@
         "rows": 60,
         "seal_seq": 1204,
         "sealed_at": "2026-11-01T09:02:00Z",
-        "seal_commit": "dd401870bd807f82614d7a95326c72ecb1b2c62c",
+        "seal_commit": "cabbfc1b70a1844d6bd6d10d20443d4df31b601d",
         "row_hashes": {
           "oid": "e7bf8f817eb32a594e94550479a21e0a3c5d55cbfaa3ff7c38699dfdfda11b7d",
           "size": 3900
@@ -59,10 +59,13 @@
     },
     "cost_cap_eur": 25.0,
     "created_at": "2026-11-01T10:20:00Z",
-    "requested_by": "dana"
+    "requested_by": "dana",
+    "receipt_path": "rebases/13/receipt.json"
   },
   "lease_id": "lease-7f3a",
   "attempt": 1,
   "max_attempts": 3,
-  "lease_until": "2026-11-01T10:25:00Z"
+  "lease_until": "2026-11-01T10:25:00Z",
+  "audit_seq": 1377,
+  "prev_receipt": "187c1d135c4c7b75fa838e1a9b544f7a309c84d6700aa402fcd6dcaaaefe9faa"
 }

@@ -7,9 +7,9 @@
   "merkle_root": "568512eb9694c4461e83bef638e02eb29d745832b1e771b16d46881a74d79414",
   "parts": [
     {
-      "oid": "fc872db01971cf6c7cfa68fb94280bda5826c37447b4fba12da9bc01114afadc",
+      "oid": "06e13e4bcbbf5653f901ac3e25a08bf6ea7efe0f62ab7cbfa2e0c827f2a51183",
       "rows": 74,
-      "size": 30352
+      "size": 31610
     }
   ],
   "label_rules": "label_rules@v1",

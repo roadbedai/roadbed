@@ -58,7 +58,7 @@
     "started_at": "2026-11-01T10:20:00Z",
     "ended_at": "2026-11-01T10:20:07Z",
     "audit_seq": 1377,
-    "prev_receipt": "ee525882581e3fb6ac68123817dc30fd5560fa650823d88e09fc5246d5ad80a2",
+    "prev_receipt": "187c1d135c4c7b75fa838e1a9b544f7a309c84d6700aa402fcd6dcaaaefe9faa",
     "cost": {
       "gpu_hours": 0.0,
       "price_per_hour_eur": 0.0,

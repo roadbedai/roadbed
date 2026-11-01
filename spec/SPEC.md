@@ -7,7 +7,7 @@ It is plain files: a git repo of manifests, plus content-addressed objects in th
 One asset repo governs one model.
 
 The JSON Schemas (Draft 2020-12) are in `schemas/v0.1/`. They are generated from the Pydantic models in `roadbed.contracts` by `export_schemas`, and a test keeps them in sync.
-Two complete SYNTHETIC fixture assets are in `examples/pass/` (rebase 13, gate pass, awaiting sign-off) and `examples/blocked/` (rebase 14, gate blocked, finding F-0001).
+Two complete SYNTHETIC fixture assets are in `examples/pass/` (rebase 13, gate pass, signed off: requested by dana, validated by vik, approved by ana) and `examples/blocked/` (rebase 14, gate blocked, finding F-0001).
 Their git histories are `examples/pass.bundle` and `examples/blocked.bundle` (`git clone examples/pass.bundle`), so the seal order can be checked with git.
 The Day 0 example `examples/claims-triage/` stays as the minimal asset.
 Valid and invalid cases for every schema, and hashing test vectors, are in `conformance/`.
@@ -119,8 +119,8 @@ These sentences are the frozen rules. The sections below make them exact.
 0. **Hash what is stored.** A file digest is over the stored bytes. A JSON digest is `sha256(JCS(obj))` of the stored JSON as parsed, never of a model re-dump. Models keep every stored value as it was (timestamps stay strings), and a test proves a model round trip changes no hash in the fixtures. Store what you hash; hash what you stored.
 1. **File digest.** Lowercase hex SHA-256 of the file bytes, without a prefix.
 2. **JSON object digest.** `sha256(JCS(obj))`, where JCS is RFC 8785 canonical JSON. Use it when a JSON value is identified independent of its formatting: receipts in a chain, policies (`policy_sha256`, null fields left out), output schemas (`schema_sha256`), audit events.
-3. **Content address.** `input_ref` is `sha256:<hex>` of the raw input. The raw input is not stored in the asset.
-4. **Row hash.** `sha256(JCS({interaction_id, input_ref, output, verdict, reason_code, outcome, ts}))`. All seven keys are present; a missing value is `null`. `ts` is the string as stored. Snapshot rows carry it as `row_hash`. Holdout, golden and correction-test rows carry the row hash of the verdict row they came from. A Day 0 holdout row without `row_hash` uses `sha256(JCS(row))`.
+3. **Content address.** `input_ref` is `sha256:<hex>` of JCS(pseudonymised input); also its bucket oid. The input is a JSON object (for example `{"narrative": ..., "line": ...}`), pseudonymised by the SDK before it is hashed. The raw input is not stored in the asset.
+4. **Row hash.** `sha256(JCS({interaction_id, input_ref, output, verdict, reason_code, outcome, ts}))`. All seven keys are present; a missing value is `null`. `ts` is the string as stored. Snapshot rows carry it as `row_hash`. Holdout, golden and correction-test rows carry the row hash of the verdict row they came from. A Day 0 holdout row without `row_hash` uses `sha256(JCS(row))`. The optional `synthetic` flag of a row is part of the stored row: hash the stored row as is. So it is in `sha256(JCS(row))` when present, and it is never one of the seven row-hash keys.
 5. **Dataset identity.** The Merkle root of the row hashes sorted ascending (hex order, duplicates kept), built as RFC 6962 section 2.1: leaf = `sha256(0x00 || 32 digest bytes)`, node = `sha256(0x01 || left || right)`, split at the largest power of two below n. The empty set hashes to `sha256("")`. Vectors: `conformance/vectors/hashing.json`.
 6. **Bucket objects.** An object id (oid) is the file digest of the object bytes. The key is `objects/sha256/<oid[0:2]>/<oid[2:4]>/<oid>`. A tracked file over 1 MB is replaced in git by `<path>.ptr` (schema `object-pointer`). `roadbed.lock` lists every oid the tree names.
 7. **Lock.** `roadbed.lock` lists every tracked file except itself. Paths are `/` separated, from the asset root, sorted by their UTF-8 bytes. Rewrite the lock last, after every other file.
@@ -148,6 +148,8 @@ A `MANIFEST.sha256` is text: one line per file, `<sha256>  <path>` (two spaces),
 - **Predicate fields.** job (id, kind), model, rebase, base (repo and revision sha), recipe (path and sha256), snapshot (id and Merkle root), holdout (id, Merkle root, seal seq, sealed_at, seal commit), image digest, uv.lock sha256, gpu, seed, started_at, ended_at, audit_seq (job start), prev_receipt, cost, executor.
 - **Executor.** `executor` is required. Its `name` is one of `runner`, `mock`, `replay`, `hf-jobs`, `together`. Mock and replay output always says so. A demo number never comes from a receipt whose executor is `mock`.
 - **No GPU for mock.** When the executor is `mock` or `replay`, `gpu.name` is `none`, `gpu.count` is 0 and every cost number is 0, in the receipt and in `cost.json`.
+- **Snapshot and holdout.** A receipt of job kind `train`, `eval` or `rebase` names `snapshot` and `holdout`; schema and model reject one without them. A `bench` receipt may leave both out.
+- **Receipt path.** The runner signs the receipt with `signed` set to the job's `receipt_path` (`versions/vN/receipt.json` or `rebases/N/receipt.json`). The control plane stores the receipt at that path, so the signature verifies in the asset as it is.
 - **Job results.** A `JobResult` with state `succeeded` carries both `receipt` and `receipt_sig`.
 - **Chain.** `prev_receipt` is `sha256(JCS(previous receipt.json))` of the previous receipt in this asset, by `started_at`. The first receipt has none (absent or null).
 
@@ -159,7 +161,16 @@ A rebase is valid only if all of these hold:
 2. **Timestamp.** `SEAL.json.sealed_at` < `predicate.started_at`.
 3. **Git ancestry.** The seal commit is an ancestor of the train commit, and they differ. The seal commit is the commit that added `SEAL.json`: `git log --diff-filter=A --format=%H -- data/holdout/<id>/SEAL.json`. The train commit is the commit that added the training `receipt.json`, found the same way. Both come from git, never from a stored field. `SEAL.json.seal_commit` is informational only; a file cannot name the commit that adds it.
 4. **No exact overlap.** The training snapshot and the holdout share no row hash.
-5. **No near overlap.** No pair of a training row and a holdout row has MinHash Jaccard ≥ 0.8 (`policy/gate.yaml` `contamination.minhash_threshold`; the holdout signatures are the object `SEAL.json.minhash_oid`). Small sets may use exact Jaccard (`near.method: jaccard`).
+5. **No near overlap.** No pair of a training row and a holdout row has MinHash Jaccard ≥ 0.8 (`policy/gate.yaml` `contamination.minhash_threshold`; the holdout signatures are the object `SEAL.json.minhash_oid`). Small sets may use exact Jaccard (`near.method: jaccard`) over the same shingles.
+
+**MinHash input, exactly.** Every producer and checker (seal, runner, contamination, verify, dataset builders) computes it this way:
+
+- **Text.** The value of `input.narrative`, or of the single free-text input field that `roadbed.yaml` `task.text_field` names. The input is the pseudonymised JSON object at oid `input_ref` (Hashing, rule 3). Other input fields are not part of the text.
+- **Tokens.** Lowercase the text (Unicode lowercase), then take every match of `[a-z0-9<>_]+` in order. Placeholders such as `<person_1>` stay one token.
+- **Shingles.** Word k-shingles with k = `contamination.shingle` (3): each run of k consecutive tokens, joined by one space, as a set. A text with k or fewer tokens is one shingle (all its tokens). A text with no token has no shingles and is left out of the near check (the exact check still covers it).
+- **Signature.** `contamination.num_perm` (128) slots. Slot j, for j = 0 to num_perm − 1, is the minimum over the shingles s of the first 8 bytes of `sha256(UTF-8 "<j>|<s>")`, written as 16 lowercase hex. The slot index j is the only key: there is no random seed or salt, so every party gets the same signature.
+- **Estimate.** The MinHash Jaccard of two rows is the share of slots with equal values. A pair is near when it is ≥ the threshold.
+- **Holdout object.** `SEAL.json.minhash_oid` names the bytes `JCS({"num_perm", "shingle", "signatures": {<row_hash>: [<16 hex>, ...]}})`.
 
 The receipt binds the seal: `predicate.holdout` repeats `seal_seq`, `sealed_at`, `merkle_root` and the seal commit, and verify compares them with `SEAL.json` and git.
 
@@ -213,13 +224,40 @@ A daily anchor (`audit/anchors/<date>.json`) records the head seq and hash. A co
 
 7. A failed check blocks when its reason is in `block_on`. Otherwise its status is `warn`. A gate with status `pass` has no failed check. Every check has a non-empty `detail`; a skipped check says why.
 8. `policy_sha256` is the SHA-256 of the RFC 8785 canonical JSON of the policy, null fields left out.
-9. Synthetic data: `synthetic: true` in `roadbed.yaml`, `scores.json`, `gate.json` and every other file that has the field, and a `SYNTHETIC.md` in any directory of synthetic JSONL.
+9. Synthetic data: `synthetic: true` in `roadbed.yaml`, `scores.json`, `gate.json` and every other file or row that has the field, a `SYNTHETIC.md` at the asset root, and, for each synthetic JSONL file, a `SYNTHETIC.md` in its directory or in any parent directory below the asset root.
 
 ## Verify
 
 `roadbed verify rebases/N` checks integrity, not the gate outcome. A blocked rebase still verifies. Exit 0 means every check passed. Exit 4 names the first failed check (`V-...`).
 
-Checks, in order: the rebase `MANIFEST.sha256` hashes (and, when a receipt exists, the bound files: `V-MANIFEST-INCOMPLETE`), the `scores.json` and `gate.json` schemas (reader form), `scores.json` recomputed from the two prediction files with the stored seed, and the seal time before the rebase time. The Status section says which checks exist today.
+A Day 0 rebase (no receipt, no evidence, no lock) gets the Day 0 checks, in order: the rebase `MANIFEST.sha256` hashes, the `scores.json` and `gate.json` schemas (reader form), `scores.json` recomputed from the two prediction files with the stored seed, and the seal time before the rebase time.
+
+A full rebase gets every check below. Without git history or `--objects`, the git and near-overlap checks are skipped, not passed; `--strict` makes a skip a failure. These are all the codes verify emits:
+
+| Code | The check fails when |
+|---|---|
+| `V-MANIFEST-MISSING`, `V-MANIFEST-MALFORMED` | A `MANIFEST.sha256` is absent or a line is not `<sha256>  <path>`. |
+| `V-HASH-MISSING`, `V-HASH-MISMATCH` | A listed file is absent or its bytes do not match. Also: the sealed MinHash object does not match the raw holdout inputs. |
+| `V-MANIFEST-INCOMPLETE` | The rebase manifest leaves out a bound file, or the evidence manifest leaves out an evidence file or the rebase manifest. |
+| `V-LOCK-MISSING` | `roadbed.lock` is absent. |
+| `V-LOCK-INCOMPLETE` | The lock does not list every tracked file and bucket object, or a size or hash differs. |
+| `V-PATH-UNSAFE` | A path is a symlink or points outside the asset. |
+| `V-SCHEMA-INVALID` | A file or row does not validate against its schema (reader form; closed form with `--strict`). |
+| `V-SYNTHETIC-FLAG` | A synthetic asset has a file or row without `synthetic: true`, a `SYNTHETIC.md` is missing (rule 9), or a mock or replay receipt is not synthetic. |
+| `V-PII` | A file holds an email address. |
+| `V-SIG-MISSING`, `V-SIG-INVALID`, `V-SIG-UNTRUSTED` | A receipt or evidence manifest has no signature, a bad one, or one by a key not in `--trust-key`. |
+| `V-RECEIPT-CHAIN` | `prev_receipt` does not chain the receipts by `started_at`. |
+| `V-RECEIPT-MISMATCH` | The receipt names predictions, a recipe, a snapshot or a holdout that is not the one in the asset. |
+| `V-POLICY-MISMATCH` | `gate.json` `policy_sha256` is not `sha256(JCS(policy/gate.yaml))`. |
+| `V-SCORES-MISMATCH` | `scores.json` differs from the recomputed scores. |
+| `V-SEAL-AFTER-REBASE` | The holdout was sealed after the rebase was created (Day 0 check). |
+| `V-SEAL-INCOMPLETE` | Row hashes, Merkle roots or snapshot parts do not re-hash to the sealed values. |
+| `V-SEAL-ORDER` | A leg of "Seal precedes training" (audit seq, timestamp, git ancestry) fails. |
+| `V-HOLDOUT-OVERLAP` | Train and holdout share a row hash or an input, or a pair is near (Jaccard ≥ threshold). |
+| `V-CONTAMINATION-MISMATCH` | `contamination.json` or the gate's contamination check differs from what verify computed. |
+| `V-SOD` | SoD-01 (the sealer requested the run) or SoD-02 (the requester approved). |
+| `V-OBJECT-MISSING` | A bucket object the asset names is not in `--objects` (last check; without `--strict` a skip). |
+| `V-CHECK-ERROR` | A check could not run (unreadable file, bad value). |
 
 ## Sign-off
 
@@ -232,11 +270,13 @@ Checks, in order: the rebase `MANIFEST.sha256` hashes (and, when a receipt exist
 
 - **Self-contained jobs.** An `ExecutorJob` holds everything the runner needs: the base, the recipe (path and sha256), every input as an object (oid and size), the bucket (`storage`), and the outputs the result must name. The runner asks the control plane for nothing else.
 - **Inputs.** The runner reads inputs from `storage` by oid, at `objects/sha256/<oid[0:2]>/<oid[2:4]>/<oid>`. The recipe bytes have oid `recipe.sha256`. A raw (pseudonymised) input has oid `input_ref` without the `sha256:` prefix. Train jobs get the snapshot manifest and parts, plus the holdout row hashes and MinHash object, never holdout rows. Eval jobs also get `holdout.file`, the holdout rows.
+- **What the receipt copies.** The runner fills the receipt from the job alone. A train job has `snapshot` and `holdout`. An eval job has `holdout` and an optional `snapshot` (the adapter's training snapshot, `DatasetRef`). A bench job has an optional `snapshot` (`DatasetRef`) and an optional `holdout` (`HoldoutSealRef`: refs only, never rows). The control plane sends `snapshot` for every eval job, so its receipt is valid. A bench receipt without them is valid.
+- **Receipt path.** `ExecutorJob.receipt_path` is the asset path the receipt goes to (`versions/vN/receipt.json` or `rebases/N/receipt.json`). The runner puts it in `receipt.sig` `signed`.
 - **Before training.** The runner checks the seal order (seal seq and time against the job start) and disjointness (snapshot row hashes against the holdout row hashes, MinHash). If either fails, it refuses the job.
 - **Outputs.** The runner writes each output content-addressed to the same bucket, then posts a `JobResult` that names each one (`artifacts`: name, oid, size) plus the signed receipt. The control plane records the oids and writes the asset files (predictions, `model.json`, receipt) from them. The runner never writes to git.
 - **Credentials.** `storage.credentials` names a credential the runner already holds. A job never carries a secret.
 - **SoD-05 and the runner.** The runner service identity is the only non-validator that reads holdout rows, and only for eval jobs. Each read is audited with role `runner`.
-- **Leases.** `GET /v1/jobs/next` returns a `JobLease` (job, `lease_id`, `attempt`, `max_attempts`, `lease_until`). Heartbeat and status extend the lease and return `LeaseState`, which carries `cancel_requested`. An expired lease re-queues the job with `attempt + 1`; after `max_attempts` the job fails. A status or result with a stale lease or another attempt gets 409. The control plane README has the state machine.
+- **Leases.** `GET /v1/jobs/next` returns a `JobLease` (job, `lease_id`, `attempt`, `max_attempts`, `lease_until`, `audit_seq`, `prev_receipt`). `audit_seq` is the audit seq of the job start event and `prev_receipt` is `sha256(JCS(previous receipt.json))` in the asset (null for the first). The runner copies both into the receipt predicate. They are optional in the schema only for compatibility (additive change); the control plane always sends them. Heartbeat and status extend the lease and return `LeaseState`, which carries `cancel_requested`. An expired lease re-queues the job with `attempt + 1`; after `max_attempts` the job fails. A status or result with a stale lease or another attempt gets 409. The control plane README has the state machine.
 - **Executor protocol.** `roadbed.contracts.Executor` is an async Protocol: `submit`, `status`, `result` (raises `JobNotFinished` while queued or running), `cancel` (a no-op on a finished job). The control plane implements it: `runner` is an adapter over the lease queue, and `mock` and `replay` run in process. `hf-jobs` and `together` are stubs. The GPU box only speaks HTTP.
 
 ## Status
@@ -247,7 +287,8 @@ This section changes as the build goes on. The rules above do not.
 |---|---|
 | Day 0 | Engine and CLI: scoring, paired bootstrap, gate, `roadbed verify` (manifest hashes, `scores.json` and `gate.json` schemas, scores recomputed, seal time before the rebase). |
 | W01 (this spec) | All schemas, fixtures, conformance cases and vectors; `V-MANIFEST-INCOMPLETE`; contamination input to the gate. |
-| W02 | verify: the lock, schemas of every file, signatures, the receipt chain, the seal order (ancestry from git) and disjointness. Planned codes `V-HASH-MISMATCH`, `V-SEAL-ORDER`, `V-HOLDOUT-OVERLAP`. |
+| W02 | Asset library `roadbed.asset` and verify of a full rebase: the lock, schemas of every file, synthetic flags, personal data, signatures, the receipt chain, the policy hash, the seal (row hashes, Merkle roots), the seal order (ancestry from git), disjointness, the contamination report, SoD and bucket objects. It emits every code in the Verify table; the codes that were planned in W01 (`V-HASH-MISMATCH` for the MinHash object, `V-SEAL-ORDER`, `V-HOLDOUT-OVERLAP`) exist now. |
+| W01b | Additive amendments from the week-1 change requests: `synthetic` on rows and on verdict and outcome bodies, `audit_seq` and `prev_receipt` on the lease, `snapshot` on eval and bench jobs and `holdout` on bench jobs, bench receipts without data, `receipt_path`, `task.text_field`, the exact MinHash input, the full code table, and an approver in the pass fixture. Known gaps: the fixtures still address inputs by `sha256` of the raw narrative bytes, and W02 and W03 shingle the whole input text without the token rule; both move to this spec in a follow-up. |
 | W03 | Stats and gate engine: `roadbed.stats.compare`, `roadbed.gate.evaluate` (contamination report and license decision as inputs), `roadbed.contamination.check` (exact row hashes, MinHash or exact Jaccard). METHOD.md explains the statistics. |
 
 **Compatibility with Day 0.** Every Day 0 file stays valid: W01 adds fields as optional only, and new constraints (actor ids, timestamps, the seal field group, the gate rules, check names) accept every Day 0 file. `policy_sha256` leaves out null fields, so the new optional policy fields do not change Day 0 hashes. Day 0 rebases have no `evidence/` and no receipt, so their manifests stay valid under the Day 0 rule, and `roadbed verify` prints the same bytes for them as on Day 0.
