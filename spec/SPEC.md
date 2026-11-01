@@ -248,6 +248,7 @@ This section changes as the build goes on. The rules above do not.
 | Day 0 | Engine and CLI: scoring, paired bootstrap, gate, `roadbed verify` (manifest hashes, `scores.json` and `gate.json` schemas, scores recomputed, seal time before the rebase). |
 | W01 (this spec) | All schemas, fixtures, conformance cases and vectors; `V-MANIFEST-INCOMPLETE`; contamination input to the gate. |
 | W02 | verify: the lock, schemas of every file, signatures, the receipt chain, the seal order (ancestry from git) and disjointness. Planned codes `V-HASH-MISMATCH`, `V-SEAL-ORDER`, `V-HOLDOUT-OVERLAP`. |
+| W03 | Stats and gate engine: `roadbed.stats.compare`, `roadbed.gate.evaluate` (contamination report and license decision as inputs), `roadbed.contamination.check` (exact row hashes, MinHash or exact Jaccard). METHOD.md explains the statistics. |
 
 **Compatibility with Day 0.** Every Day 0 file stays valid: W01 adds fields as optional only, and new constraints (actor ids, timestamps, the seal field group, the gate rules, check names) accept every Day 0 file. `policy_sha256` leaves out null fields, so the new optional policy fields do not change Day 0 hashes. Day 0 rebases have no `evidence/` and no receipt, so their manifests stay valid under the Day 0 rule, and `roadbed verify` prints the same bytes for them as on Day 0.
 
