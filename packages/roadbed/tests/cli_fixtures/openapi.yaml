@@ -54,8 +54,8 @@ info:
   x-roadbed-spec:
     version: roadbed/v0.1
     source: roadbedai/roadbed spec/schemas/v0.1
-    commit: 6501b5975c84d5202d083b86eec2e101178268eb
-    schemas_sha256: fe8d4e5d63abcd569516ff22b42077457a4fc4d2c91fd473f8f6afa9889f58d0
+    commit: 44ac33705efd2410f8799f936d9d3944925c5cd5
+    schemas_sha256: 56349a88b9be454f54618cfa3539e6956b5bda581f35e279c13a360319668211
 servers:
 - url: /
 tags:
@@ -2478,6 +2478,18 @@ components:
           minimum: 0
           title: Price Per Hour Eur
           type: number
+        snapshot:
+          anyOf:
+          - $ref: '#/components/schemas/DatasetRef'
+          - type: 'null'
+          default: null
+          description: Optional. Training snapshot of the adapter; the receipt copies it.
+        holdout:
+          anyOf:
+          - $ref: '#/components/schemas/HoldoutSealRef'
+          - type: 'null'
+          default: null
+          description: Optional. Sealed holdout of the rebase (no rows); the receipt copies it.
         outputs:
           description: 'Artifacts the result must name: bench (cost.json input) and receipt.'
           items:
@@ -2733,6 +2745,13 @@ components:
           - type: 'null'
           default: null
           title: Row Hash
+        synthetic:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          default: null
+          description: True when the row is synthetic.
+          title: Synthetic
       required:
       - id
       - interaction_id
@@ -2937,6 +2956,12 @@ components:
         holdout:
           $ref: '#/components/schemas/HoldoutInput'
           description: 'Includes file: the runner reads the rows (SoD-05 runner exemption).'
+        snapshot:
+          anyOf:
+          - $ref: '#/components/schemas/DatasetRef'
+          - type: 'null'
+          default: null
+          description: Optional. Training snapshot of the adapter (id, Merkle root); the receipt copies it.
         output_schema:
           $ref: '#/components/schemas/ObjectRef'
           description: evals/output.schema.json bytes; used for guided JSON.
@@ -3093,6 +3118,14 @@ components:
           pattern: ^[a-z0-9][a-z0-9_-]{0,63}$
           title: Requested By
           type: string
+        receipt_path:
+          anyOf:
+          - pattern: ^(versions/v\d+|rebases/\d+)/receipt\.json$
+            type: string
+          - type: 'null'
+          default: null
+          description: Asset path the receipt is stored at, versions/vN/receipt.json or rebases/N/receipt.json.
+          title: Receipt Path
       required:
       - id
       - model
@@ -3472,6 +3505,13 @@ components:
           - type: 'null'
           default: null
           title: Row Hash
+        synthetic:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          default: null
+          description: True when the row is synthetic.
+          title: Synthetic
       required:
       - id
       - slices
@@ -3664,6 +3704,13 @@ components:
           default: null
           description: Optional. Row hash of the source verdict row (see SPEC.md, hashing). When absent, sha256(JCS(row)).
           title: Row Hash
+        synthetic:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          default: null
+          description: True when the row is synthetic.
+          title: Synthetic
       required:
       - id
       - slices
@@ -3743,6 +3790,7 @@ components:
           title: Ts
           type: string
         input_ref:
+          description: sha256:<hex> of JCS(pseudonymised input); also its bucket oid.
           pattern: ^sha256:[0-9a-f]{64}$
           title: Input Ref
           type: string
@@ -3828,6 +3876,23 @@ components:
           pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$
           title: Lease Until
           type: string
+        audit_seq:
+          anyOf:
+          - minimum: 1
+            type: integer
+          - type: 'null'
+          default: null
+          description: Audit seq of the job start event.
+          title: Audit Seq
+        prev_receipt:
+          anyOf:
+          - description: Lowercase hex SHA-256 digest.
+            pattern: ^[0-9a-f]{64}$
+            type: string
+          - type: 'null'
+          default: null
+          description: sha256(JCS(previous receipt.json)) in this asset; null for the first receipt.
+          title: Prev Receipt
       required:
       - job
       - lease_id
@@ -4488,6 +4553,13 @@ components:
           pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$
           title: Observed At
           type: string
+        synthetic:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          default: null
+          description: True when the row is synthetic.
+          title: Synthetic
       required:
       - outcome_id
       - interaction_id
@@ -5092,6 +5164,22 @@ components:
                   maximum: 0
                 eur:
                   maximum: 0
+      - if:
+          not:
+            properties:
+              job:
+                properties:
+                  kind:
+                    const: bench
+        then:
+          properties:
+            snapshot:
+              type: object
+            holdout:
+              type: object
+          required:
+          - snapshot
+          - holdout
       properties:
         job:
           $ref: '#/components/schemas/JobRef'
@@ -5111,11 +5199,18 @@ components:
           $ref: '#/components/schemas/RecipeRef'
           description: Recipe path and file hash.
         snapshot:
-          $ref: '#/components/schemas/DatasetRef'
-          description: Training snapshot id and Merkle root.
+          anyOf:
+          - $ref: '#/components/schemas/DatasetRef'
+          - type: 'null'
+          default: null
+          description: Training snapshot id and Merkle root. Required unless job.kind is bench.
         holdout:
-          $ref: '#/components/schemas/HoldoutSealRef'
-          description: 'Sealed holdout: id, Merkle root, seal seq, sealed_at and seal commit.'
+          anyOf:
+          - $ref: '#/components/schemas/HoldoutSealRef'
+          - type: 'null'
+          default: null
+          description: 'Sealed holdout: id, Merkle root, seal seq, sealed_at and seal commit. Required unless job.kind is
+            bench.'
         image_digest:
           description: OCI image digest, sha256:<hex>.
           pattern: ^sha256:[0-9a-f]{64}$
@@ -5170,8 +5265,6 @@ components:
       - model
       - base
       - recipe
-      - snapshot
-      - holdout
       - image_digest
       - uv_lock_sha256
       - gpu
@@ -5467,7 +5560,7 @@ components:
           title: Key
           type: string
         signed:
-          description: Path of the signed file from asset root.
+          description: Path of the signed file from asset root. For a run receipt, the job's receipt_path.
           title: Signed
           type: string
         payload:
@@ -5754,6 +5847,13 @@ components:
           pattern: ^[0-9a-f]{64}$
           title: Row Hash
           type: string
+        synthetic:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          default: null
+          description: True when the row is synthetic.
+          title: Synthetic
       required:
       - interaction_id
       - input_ref
@@ -5852,6 +5952,14 @@ components:
           description: Path (from asset root) to the JSON Schema of one model output.
           title: Output Schema
           type: string
+        text_field:
+          anyOf:
+          - minLength: 1
+            type: string
+          - type: 'null'
+          default: null
+          description: Optional. Input field that holds the free text for the near-overlap check (SPEC.md). Default narrative.
+          title: Text Field
       required:
       - type
       - output_schema
@@ -6016,6 +6124,13 @@ components:
           pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$
           title: Ts
           type: string
+        synthetic:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          default: null
+          description: True when the row is synthetic.
+          title: Synthetic
       required:
       - verdict_id
       - interaction_id

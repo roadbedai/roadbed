@@ -107,7 +107,7 @@ def summarize(view: dict[str, Any]) -> Summary:
     receipt = Receipt.model_validate(view["receipt"]) if view.get("receipt") else None
     lab = labels(view, receipt)
     lines: list[str] = []
-    if receipt is not None and lab.executor == "runner":
+    if receipt is not None and lab.executor == "runner" and receipt.predicate.snapshot is not None:
         lines.append(f"trained on {receipt.predicate.snapshot.rows:,} verdicts")
     if scores is not None:
         o = scores.overall

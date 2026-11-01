@@ -276,7 +276,7 @@ def _ev(a: Path, n: int, *extra: str):
     return cli.invoke(app, ["evidence", "verify", str(a / f"rebases/{n}/evidence"), *extra])
 
 
-@pytest.mark.parametrize("name,n,status", [("pass", 13, "awaiting MRM sign-off"), ("blocked", 14, "blocked by the gate: no sign-off")])
+@pytest.mark.parametrize("name,n,status", [("pass", 13, "approved: MRM sign-off complete"), ("blocked", 14, "blocked by the gate: no sign-off")])
 def test_evidence_verify_fixtures(name: str, n: int, status: str, cli_env):
     r = _ev(EX / name, n)
     assert r.exit_code == 0, r.output
