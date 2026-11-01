@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import logging
+import math
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -44,12 +45,16 @@ def _cell(v: str) -> Any:
         return None
     if s.lower() in ("true", "false"):
         return s.lower() == "true"
-    for cast in (int, float):
-        try:
-            return cast(s)
-        except ValueError:
-            pass
-    return s
+    try:
+        return int(s)
+    except ValueError:
+        pass
+    try:
+        f = float(s)
+    except ValueError:
+        return s
+    # "nan" and "inf" (pandas writes NaN for a missing value) have no JSON form: keep the cell as text.
+    return f if math.isfinite(f) else s
 
 
 def reconcile(path: str | Path, *, id_column: str = "interaction_id", observed_at_column: str = "observed_at",
@@ -77,9 +82,14 @@ def reconcile(path: str | Path, *, id_column: str = "interaction_id", observed_a
                 if not ix or observed is None:
                     rep.skipped += 1
                     continue
-                outcome = {c: _cell(row.get(c) or "") for c in wanted}
-                oid = rec.keyed_id("oc", {"interaction_id": ix, "observed_at": observed, "outcome": outcome})
-                if rec.record_outcome(ix, outcome, "csv", oid, observed, None):
+                try:
+                    outcome = {c: _cell(row.get(c) or "") for c in wanted}
+                    oid = rec.keyed_id("oc", {"interaction_id": ix, "observed_at": observed, "outcome": outcome})
+                    ok = rec.record_outcome(ix, outcome, "csv", oid, observed, None)
+                except Exception as e:  # one bad row never stops the file or reaches the host
+                    log.warning("roadbed_sdk: reconcile row %d skipped: %s", rep.rows, type(e).__name__)
+                    ok = None
+                if ok:
                     rep.spooled += 1
                 else:
                     rep.skipped += 1

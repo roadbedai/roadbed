@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 import roadbed_sdk
 from conftest import API, TEST_KEY, FakeIngest
 
@@ -34,4 +36,34 @@ def test_reconcile_spools_outcomes_and_is_idempotent(ingest: FakeIngest, spool_p
 def test_reconcile_missing_file_reports_without_raising(spool_path: Path) -> None:
     roadbed_sdk.init(API, "test-token", TEST_KEY, "p@v1", spool_path=spool_path, background=False)
     assert roadbed_sdk.reconcile(spool_path.parent / "nope.csv").error == "FileNotFoundError"
+    roadbed_sdk.shutdown()
+
+
+def test_reconcile_never_raises_on_a_nan_or_inf_cell(ingest: FakeIngest, spool_path: Path, tmp_path: Path) -> None:
+    roadbed_sdk.init(API, "test-token", TEST_KEY, "p@v1", keep=("amount",), spool_path=spool_path, background=False)
+    ingest.interactions.update({"ix_1": {}, "ix_2": {}})
+    csv_path = tmp_path / "sor.csv"
+    csv_path.write_text("interaction_id,observed_at,paid,amount\nix_1,2026-11-02,true,nan\nix_2,2026-11-02,false,inf\n")
+    rep = roadbed_sdk.reconcile(csv_path)
+    assert (rep.rows, rep.spooled, rep.skipped, rep.error) == (2, 2, 0, None)
+    roadbed_sdk.flush()
+    by_ix = {o["interaction_id"]: o["outcome"] for o in ingest.outcomes.values()}
+    assert by_ix == {"ix_1": {"paid": True, "amount": "nan"}, "ix_2": {"paid": False, "amount": "inf"}}
+    roadbed_sdk.shutdown()
+
+
+def test_reconcile_skips_a_row_that_fails(spool_path: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    rec = roadbed_sdk.init(API, "test-token", TEST_KEY, "p@v1", spool_path=spool_path, background=False)
+    real = rec.keyed_id
+
+    def boom(prefix: str, obj: dict[str, object]) -> str:
+        if obj["interaction_id"] == "ix_bad":
+            raise RuntimeError("bad row")
+        return real(prefix, obj)
+
+    monkeypatch.setattr(rec, "keyed_id", boom)
+    csv_path = tmp_path / "sor.csv"
+    csv_path.write_text("interaction_id,observed_at,paid\nix_bad,2026-11-02,true\nix_2,2026-11-02,false\n")
+    rep = roadbed_sdk.reconcile(csv_path)
+    assert (rep.rows, rep.spooled, rep.skipped, rep.error) == (2, 1, 1, None)
     roadbed_sdk.shutdown()
