@@ -1,0 +1,211 @@
+interactions:
+- request:
+    body: ''
+    headers:
+      accept:
+      - application/json, text/plain
+    method: GET
+    uri: https://huggingface.co/api/models?author=Qwen&sort=createdAt&direction=-1&limit=500&expand%5B%5D=createdAt&search=Qwen3
+  response:
+    body:
+      string: '[{"_id":"6a8bfff357482d2b4bb219de","id":"Qwen/Qwen3.8-Flash-Next-FP8","createdAt":"2026-08-24T08:25:23.000Z"},{"_id":"6a8bffdb39eb84b2b2755a6e","id":"Qwen/Qwen3.8-Flash-Next","createdAt":"2026-08-24T08:24:59.000Z"},{"_id":"6a7d79f66c7b74d953ca055e","id":"Qwen/Qwen3.8-27B-FP8","createdAt":"2026-08-13T08:01:58.000Z"},{"_id":"6a768b7cf3f180fc4e95f56f","id":"Qwen/Qwen3.8-2.4T-A95B","createdAt":"2026-08-08T01:50:52.000Z"},{"_id":"6a768b3db58b55b6e6f28c94","id":"Qwen/Qwen3.8-2.4T-A95B-FP8","createdAt":"2026-08-08T01:49:49.000Z"},{"_id":"6a72f2e302294c7d32dd278e","id":"Qwen/Qwen3.8-27B","createdAt":"2026-08-05T08:22:59.000Z"},{"_id":"6a3e3b595e9462d0ece032fa","id":"Qwen/Qwen3-ForcedAligner-0.6B-hf","createdAt":"2026-06-26T08:42:01.000Z"},{"_id":"6a3e3aa4444639d84407da62","id":"Qwen/Qwen3-ASR-0.6B-hf","createdAt":"2026-06-26T08:39:00.000Z"},{"_id":"6a3e398dd7a0533dc8073fc5","id":"Qwen/Qwen3-ASR-1.7B-hf","createdAt":"2026-06-26T08:34:21.000Z"},{"_id":"69eeda83b6b9285bdfc51540","id":"Qwen/SAE-Res-Qwen3.5-35B-A3B-Base-W128K-L0_100","createdAt":"2026-04-27T03:39:47.000Z"},{"_id":"69eeda82f9e4c4bc3e8d8b63","id":"Qwen/SAE-Res-Qwen3.5-35B-A3B-Base-W32K-L0_50","createdAt":"2026-04-27T03:39:46.000Z"},{"_id":"69eeda81fc754d3b3ae877a7","id":"Qwen/SAE-Res-Qwen3-30B-A3B-Base-W128K-L0_100","createdAt":"2026-04-27T03:39:45.000Z"},{"_id":"69eeda80030ad1a11bd8e00d","id":"Qwen/SAE-Res-Qwen3-30B-A3B-Base-W32K-L0_50","createdAt":"2026-04-27T03:39:44.000Z"},{"_id":"69eeda7f88524a7ee6d927f4","id":"Qwen/SAE-Res-Qwen3.5-27B-W80K-L0_100","createdAt":"2026-04-27T03:39:43.000Z"},{"_id":"69eeda7ee0922c2790c32f20","id":"Qwen/SAE-Res-Qwen3.5-27B-W80K-L0_50","createdAt":"2026-04-27T03:39:42.000Z"},{"_id":"69eeda7d5b1c8b762f37e7e4","id":"Qwen/SAE-Res-Qwen3.5-9B-Base-W64K-L0_100","createdAt":"2026-04-27T03:39:41.000Z"},{"_id":"69eeda7cd07024f734eb92df","id":"Qwen/SAE-Res-Qwen3.5-9B-Base-W64K-L0_50","createdAt":"2026-04-27T03:39:40.000Z"},{"_id":"69eeda7c62d99e6d4326af83","id":"Qwen/SAE-Res-Qwen3.5-2B-Base-W32K-L0_100","createdAt":"2026-04-27T03:39:40.000Z"},{"_id":"69eeda7bf2c727541c2dcba5","id":"Qwen/SAE-Res-Qwen3.5-2B-Base-W32K-L0_50","createdAt":"2026-04-27T03:39:39.000Z"},{"_id":"69eeda7ac87e5378becef7d6","id":"Qwen/SAE-Res-Qwen3-8B-Base-W64K-L0_100","createdAt":"2026-04-27T03:39:38.000Z"},{"_id":"69eeda79fc754d3b3ae87741","id":"Qwen/SAE-Res-Qwen3-8B-Base-W64K-L0_50","createdAt":"2026-04-27T03:39:37.000Z"},{"_id":"69eeda780621cac42f0d24ca","id":"Qwen/SAE-Res-Qwen3-1.7B-Base-W32K-L0_100","createdAt":"2026-04-27T03:39:36.000Z"},{"_id":"69eeda77139c8d61de720c4c","id":"Qwen/SAE-Res-Qwen3-1.7B-Base-W32K-L0_50","createdAt":"2026-04-27T03:39:35.000Z"},{"_id":"69e72c857e1bebc64bf29c7d","id":"Qwen/Qwen3.6-27B-FP8","createdAt":"2026-04-21T07:51:33.000Z"},{"_id":"69e72c53d67c64360835c464","id":"Qwen/Qwen3.6-27B","createdAt":"2026-04-21T07:50:43.000Z"},{"_id":"69df2a9936056d27fc9fe708","id":"Qwen/Qwen3.6-35B-A3B-FP8","createdAt":"2026-04-15T06:05:13.000Z"},{"_id":"69df2937a1a44a4df58e0dd5","id":"Qwen/Qwen3.6-35B-A3B","createdAt":"2026-04-15T05:59:19.000Z"},{"_id":"69a68b48d69aad5b935222bc","id":"Qwen/Qwen3.5-35B-A3B-GPTQ-Int4","createdAt":"2026-03-03T07:18:32.000Z"},{"_id":"69a688f9a324c48a3b707e11","id":"Qwen/Qwen3.5-27B-GPTQ-Int4","createdAt":"2026-03-03T07:08:41.000Z"},{"_id":"69a67ee0a324c48a3b6f9f1a","id":"Qwen/Qwen3.5-397B-A17B-GPTQ-Int4","createdAt":"2026-03-03T06:25:36.000Z"},{"_id":"69a67ac0ae4e7dd37aeb2c9c","id":"Qwen/Qwen3.5-122B-A10B-GPTQ-Int4","createdAt":"2026-03-03T06:08:00.000Z"},{"_id":"69a380f963d82db3000b2722","id":"Qwen/Qwen3.5-0.8B-Base","createdAt":"2026-02-28T23:57:45.000Z"},{"_id":"69a380e31f73b6d64f5d8d4e","id":"Qwen/Qwen3.5-2B-Base","createdAt":"2026-02-28T23:57:23.000Z"},{"_id":"69a380cd89a162034708a04b","id":"Qwen/Qwen3.5-0.8B","createdAt":"2026-02-28T23:57:01.000Z"},{"_id":"69a380a0ae63980df575326b","id":"Qwen/Qwen3.5-2B","createdAt":"2026-02-28T23:56:16.000Z"},{"_id":"69a1adef9060862380ddaff7","id":"Qwen/Qwen3.5-4B","createdAt":"2026-02-27T14:45:03.000Z"},{"_id":"69a19a0980d784142fcf5218","id":"Qwen/Qwen3.5-4B-Base","createdAt":"2026-02-27T13:20:09.000Z"},{"_id":"69a194f2d29af86e5f085743","id":"Qwen/Qwen3.5-9B","createdAt":"2026-02-27T12:58:26.000Z"},{"_id":"69a072ba6af161bf9190e6ef","id":"Qwen/Qwen3.5-9B-Base","createdAt":"2026-02-26T16:20:10.000Z"},{"_id":"699efa5d4f60d0a4023ca172","id":"Qwen/Qwen3.5-35B-A3B-FP8","createdAt":"2026-02-25T13:34:21.000Z"},{"_id":"699ef70770765a4107699b8e","id":"Qwen/Qwen3.5-27B-FP8","createdAt":"2026-02-25T13:20:07.000Z"},{"_id":"699ef2a3528490a53f714f7f","id":"Qwen/Qwen3.5-122B-A10B-FP8","createdAt":"2026-02-25T13:01:23.000Z"},{"_id":"699d72c9b5f257599e82bd27","id":"Qwen/Qwen3.5-122B-A10B","createdAt":"2026-02-24T09:43:37.000Z"},{"_id":"699d72925f1a202edc4cbe3b","id":"Qwen/Qwen3.5-35B-A3B-Base","createdAt":"2026-02-24T09:42:42.000Z"},{"_id":"699d726468613908140f9c29","id":"Qwen/Qwen3.5-27B","createdAt":"2026-02-24T09:41:56.000Z"},{"_id":"699d71cd2b8317e9175c4457","id":"Qwen/Qwen3.5-35B-A3B","createdAt":"2026-02-24T09:39:25.000Z"},{"_id":"6995b845edd8dc5511a4019c","id":"Qwen/Qwen3.5-397B-A17B-FP8","createdAt":"2026-02-18T13:01:57.000Z"},{"_id":"6992a330541b46136322b094","id":"Qwen/Qwen3.5-397B-A17B","createdAt":"2026-02-16T04:55:12.000Z"},{"_id":"698038e3ee3ce83b9a06e0d5","id":"Qwen/Qwen3-Coder-Next-GGUF","createdAt":"2026-02-02T05:40:51.000Z"},{"_id":"697f4a277b4ea8733ca7d962","id":"Qwen/Qwen3-Coder-Next-Base","createdAt":"2026-02-01T12:42:15.000Z"},{"_id":"697f459103755de5f6541db0","id":"Qwen/Qwen3-Coder-Next-FP8","createdAt":"2026-02-01T12:22:41.000Z"},{"_id":"697cc96264f02a073172f2bd","id":"Qwen/Qwen3-Coder-Next","createdAt":"2026-01-30T15:08:18.000Z"},{"_id":"697982b2b3cb93f25a619847","id":"Qwen/Qwen3-ForcedAligner-0.6B","createdAt":"2026-01-28T03:29:54.000Z"},{"_id":"69798100a4e37b8a8fc8fc55","id":"Qwen/Qwen3-ASR-1.7B","createdAt":"2026-01-28T03:22:40.000Z"},{"_id":"69797f5bff25f0257439fd24","id":"Qwen/Qwen3-ASR-0.6B","createdAt":"2026-01-28T03:15:39.000Z"},{"_id":"6970951ee2df7d59cf1b6be8","id":"Qwen/Qwen3-TTS-12Hz-0.6B-Base","createdAt":"2026-01-21T08:58:06.000Z"},{"_id":"697095021b36e8744bdc8ea5","id":"Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice","createdAt":"2026-01-21T08:57:38.000Z"},{"_id":"697094e713cfabf70b302a63","id":"Qwen/Qwen3-TTS-12Hz-1.7B-Base","createdAt":"2026-01-21T08:57:11.000Z"},{"_id":"697094d13b1fe1d6aa85d594","id":"Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice","createdAt":"2026-01-21T08:56:49.000Z"},{"_id":"697094b4b7499c69e8db562d","id":"Qwen/Qwen3-TTS-Tokenizer-12Hz","createdAt":"2026-01-21T08:56:20.000Z"},{"_id":"6970949b13cfabf70b30255e","id":"Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign","createdAt":"2026-01-21T08:55:55.000Z"},{"_id":"695dcef9c64218e3aa749cc6","id":"Qwen/Qwen3-VL-Reranker-8B","createdAt":"2026-01-07T03:11:53.000Z"},{"_id":"695dce95150f6bce4ce4d36d","id":"Qwen/Qwen3-VL-Reranker-2B","createdAt":"2026-01-07T03:10:13.000Z"},{"_id":"695dccfd4e351abe5275218a","id":"Qwen/Qwen3-VL-Embedding-2B","createdAt":"2026-01-07T03:03:25.000Z"},{"_id":"695dccdfce33bbec610ac2f2","id":"Qwen/Qwen3-VL-Embedding-8B","createdAt":"2026-01-07T03:02:55.000Z"},{"_id":"692fdea0da83d772a9d32738","id":"Qwen/Qwen3-Next-80B-A3B-Thinking-GGUF","createdAt":"2025-12-03T06:54:24.000Z"},{"_id":"692fd99bda83d772a9d2df73","id":"Qwen/Qwen3-Next-80B-A3B-Instruct-GGUF","createdAt":"2025-12-03T06:32:59.000Z"},{"_id":"69048800c8dbf6db89f69427","id":"Qwen/Qwen3-VL-235B-A22B-Thinking-GGUF","createdAt":"2025-10-31T09:57:20.000Z"},{"_id":"6904806d35a23efc4d78e393","id":"Qwen/Qwen3-VL-30B-A3B-Thinking-GGUF","createdAt":"2025-10-31T09:25:01.000Z"},{"_id":"690475ac0d782a95645cbf1e","id":"Qwen/Qwen3-VL-235B-A22B-Instruct-GGUF","createdAt":"2025-10-31T08:39:08.000Z"},{"_id":"69045916482524f0085bd22f","id":"Qwen/Qwen3-VL-30B-A3B-Instruct-GGUF","createdAt":"2025-10-31T06:37:10.000Z"},{"_id":"69042a3bc37f023cd886ed49","id":"Qwen/Qwen3-VL-2B-Thinking-GGUF","createdAt":"2025-10-31T03:17:15.000Z"},{"_id":"69042a208bf182204103bb8c","id":"Qwen/Qwen3-VL-4B-Thinking-GGUF","createdAt":"2025-10-31T03:16:48.000Z"},{"_id":"69042a06878e4db4fae5d786","id":"Qwen/Qwen3-VL-8B-Thinking-GGUF","createdAt":"2025-10-31T03:16:22.000Z"},{"_id":"690429f2f775b823116e2141","id":"Qwen/Qwen3-VL-32B-Thinking-GGUF","createdAt":"2025-10-31T03:16:02.000Z"},{"_id":"690424e3a6b1eb4c3f6af369","id":"Qwen/Qwen3-VL-32B-Instruct-GGUF","createdAt":"2025-10-31T02:54:27.000Z"},{"_id":"690423f78a96bf6adf05998f","id":"Qwen/Qwen3-VL-8B-Instruct-GGUF","createdAt":"2025-10-31T02:50:31.000Z"},{"_id":"690423e7a57d06b1ed4704e4","id":"Qwen/Qwen3-VL-4B-Instruct-GGUF","createdAt":"2025-10-31T02:50:15.000Z"},{"_id":"690423d48bf18220410310ca","id":"Qwen/Qwen3-VL-2B-Instruct-GGUF","createdAt":"2025-10-31T02:49:56.000Z"},{"_id":"68f5e9f209392930b5e23c65","id":"Qwen/Qwen3-VL-2B-Thinking-FP8","createdAt":"2025-10-20T07:51:14.000Z"},{"_id":"68f4f93c601caceb60d584af","id":"Qwen/Qwen3-VL-2B-Thinking","createdAt":"2025-10-19T14:44:12.000Z"},{"_id":"68f4e44191d0af9848d8e16d","id":"Qwen/Qwen3-VL-2B-Instruct-FP8","createdAt":"2025-10-19T13:14:41.000Z"},{"_id":"68f4e3f4f82416217114139c","id":"Qwen/Qwen3-VL-2B-Instruct","createdAt":"2025-10-19T13:13:24.000Z"},{"_id":"68f4e12a19098b8e9b857874","id":"Qwen/Qwen3-VL-32B-Instruct-FP8","createdAt":"2025-10-19T13:01:30.000Z"},{"_id":"68f4dbeec7b8dfc4251c5faa","id":"Qwen/Qwen3-VL-32B-Thinking-FP8","createdAt":"2025-10-19T12:39:10.000Z"},{"_id":"68f4dbcef80f98b8e573fab7","id":"Qwen/Qwen3-VL-32B-Thinking","createdAt":"2025-10-19T12:38:38.000Z"},{"_id":"68f4d9f1645feb80d4568236","id":"Qwen/Qwen3-VL-32B-Instruct","createdAt":"2025-10-19T12:30:41.000Z"},{"_id":"68ea26a6ff1e4c45c1da031f","id":"Qwen/Qwen3-VL-8B-Instruct-FP8","createdAt":"2025-10-11T09:43:02.000Z"},{"_id":"68ea268de79b11c5896eb2c7","id":"Qwen/Qwen3-VL-8B-Thinking-FP8","createdAt":"2025-10-11T09:42:37.000Z"},{"_id":"68ea23094163e5036905070a","id":"Qwen/Qwen3-VL-4B-Thinking-FP8","createdAt":"2025-10-11T09:27:37.000Z"},{"_id":"68ea220c98287fc5e7b33985","id":"Qwen/Qwen3-VL-4B-Instruct-FP8","createdAt":"2025-10-11T09:23:24.000Z"},{"_id":"68ea0632652c28ca3bfd109e","id":"Qwen/Qwen3-VL-8B-Thinking","createdAt":"2025-10-11T07:24:34.000Z"},{"_id":"68ea0618ef718c72d3de33ad","id":"Qwen/Qwen3-VL-4B-Thinking","createdAt":"2025-10-11T07:24:08.000Z"},{"_id":"68ea05fb43df37d95ad2491d","id":"Qwen/Qwen3-VL-8B-Instruct","createdAt":"2025-10-11T07:23:39.000Z"},{"_id":"68ea05ea8bfbf816c8e9ad2e","id":"Qwen/Qwen3-VL-4B-Instruct","createdAt":"2025-10-11T07:23:22.000Z"},{"_id":"68dd4020744865739ad7f3eb","id":"Qwen/Qwen3-VL-30B-A3B-Thinking-FP8","createdAt":"2025-10-01T14:52:16.000Z"},{"_id":"68dd3f6c6629a79d04cb08b6","id":"Qwen/Qwen3-VL-30B-A3B-Instruct-FP8","createdAt":"2025-10-01T14:49:16.000Z"},{"_id":"68dd3b508120222aae052e20","id":"Qwen/Qwen3-VL-235B-A22B-Thinking-FP8","createdAt":"2025-10-01T14:31:44.000Z"},{"_id":"68dd335bc34ce48c24323a88","id":"Qwen/Qwen3-VL-235B-A22B-Instruct-FP8","createdAt":"2025-10-01T13:57:47.000Z"},{"_id":"68dbb92dccfdaf8c81ebcecf","id":"Qwen/Qwen3-VL-30B-A3B-Thinking","createdAt":"2025-09-30T11:04:13.000Z"},{"_id":"68dbb651542e04c5d9a90b86","id":"Qwen/Qwen3-VL-30B-A3B-Instruct","createdAt":"2025-09-30T10:52:01.000Z"},{"_id":"68dbb0130bcd1813a6e95d91","id":"Qwen/Qwen3-4B-SafeRL","createdAt":"2025-09-30T10:25:23.000Z"},{"_id":"68d28a121a3492f8a2b4eeb1","id":"Qwen/Qwen3Guard-Stream-8B","createdAt":"2025-09-23T11:52:50.000Z"},{"_id":"68d2893969aae6802b18327f","id":"Qwen/Qwen3Guard-Stream-4B","createdAt":"2025-09-23T11:49:13.000Z"},{"_id":"68d288965470af794cb88c3e","id":"Qwen/Qwen3Guard-Stream-0.6B","createdAt":"2025-09-23T11:46:30.000Z"},{"_id":"68d287197d927c11d861e19b","id":"Qwen/Qwen3Guard-Gen-8B","createdAt":"2025-09-23T11:40:09.000Z"},{"_id":"68d2867529e663ea4824cbae","id":"Qwen/Qwen3Guard-Gen-4B","createdAt":"2025-09-23T11:37:25.000Z"},{"_id":"68d285f548f18aa202a8c019","id":"Qwen/Qwen3Guard-Gen-0.6B","createdAt":"2025-09-23T11:35:17.000Z"},{"_id":"68d0c888d7ff1b5bff997613","id":"Qwen/Qwen3-VL-235B-A22B-Thinking","createdAt":"2025-09-22T03:54:48.000Z"},{"_id":"68d0c878f7dc520a235be3c5","id":"Qwen/Qwen3-VL-235B-A22B-Instruct","createdAt":"2025-09-22T03:54:32.000Z"},{"_id":"68d0c73910ce2fd73fb01b22","id":"Qwen/Qwen3-Next-80B-A3B-Thinking-FP8","createdAt":"2025-09-22T03:49:13.000Z"},{"_id":"68d0c7259e8b5ab82714ee66","id":"Qwen/Qwen3-Next-80B-A3B-Instruct-FP8","createdAt":"2025-09-22T03:48:53.000Z"},{"_id":"68ce1c7099a9d37caa504e90","id":"Qwen/Qwen3-Omni-30B-A3B-Instruct","createdAt":"2025-09-20T03:16:00.000Z"},{"_id":"68c83340604821b122288810","id":"Qwen/Qwen3-Omni-30B-A3B-Thinking","createdAt":"2025-09-15T15:39:44.000Z"},{"_id":"68c830337bbd7590036c629b","id":"Qwen/Qwen3-Omni-30B-A3B-Captioner","createdAt":"2025-09-15T15:26:43.000Z"},{"_id":"68c04b9ba4d1823e9b0ee2bd","id":"Qwen/Qwen3-Next-80B-A3B-Thinking","createdAt":"2025-09-09T15:45:31.000Z"},{"_id":"68c04a8865953b21d7f88ec6","id":"Qwen/Qwen3-Next-80B-A3B-Instruct","createdAt":"2025-09-09T15:40:56.000Z"},{"_id":"6892fb7f7e589749f520da30","id":"Qwen/Qwen3-4B-Instruct-2507-FP8","createdAt":"2025-08-06T06:51:43.000Z"},{"_id":"6892f34373eb3fc200b601a8","id":"Qwen/Qwen3-4B-Thinking-2507-FP8","createdAt":"2025-08-06T06:16:35.000Z"},{"_id":"6891e4c34b616cd1bb82f50e","id":"Qwen/Qwen3-4B-Thinking-2507","createdAt":"2025-08-05T11:02:27.000Z"},{"_id":"6891e3bb084ce75acffb033d","id":"Qwen/Qwen3-4B-Instruct-2507","createdAt":"2025-08-05T10:58:03.000Z"},{"_id":"688b25d301116efa6ae21836","id":"Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8","createdAt":"2025-07-31T08:14:11.000Z"},{"_id":"688b1597e5e83e19d1b3238a","id":"Qwen/Qwen3-Coder-30B-A3B-Instruct","createdAt":"2025-07-31T07:04:55.000Z"},{"_id":"6888b080a7123dc82b281edd","id":"Qwen/Qwen3-30B-A3B-Thinking-2507-FP8","createdAt":"2025-07-29T11:29:04.000Z"},{"_id":"6888aae7c54baad7997d7b4b","id":"Qwen/Qwen3-30B-A3B-Thinking-2507","createdAt":"2025-07-29T11:05:11.000Z"},{"_id":"68876c2c3c174e9d14da0924","id":"Qwen/Qwen3-30B-A3B-Instruct-2507-FP8","createdAt":"2025-07-28T12:25:16.000Z"},{"_id":"6887274f2626398dc2e9f540","id":"Qwen/Qwen3-30B-A3B-Instruct-2507","createdAt":"2025-07-28T07:31:27.000Z"},{"_id":"688319d063ffa9e075f21f7c","id":"Qwen/Qwen3-235B-A22B-Thinking-2507-FP8","createdAt":"2025-07-25T05:44:48.000Z"},{"_id":"68830f190d96f185cd243ef5","id":"Qwen/Qwen3-235B-A22B-Thinking-2507","createdAt":"2025-07-25T04:59:05.000Z"},{"_id":"687fad051ddf0947249b6695","id":"Qwen/Qwen3-Coder-480B-A35B-Instruct-FP8","createdAt":"2025-07-22T15:23:49.000Z"},{"_id":"687fa5b678e85b9b93b7bac2","id":"Qwen/Qwen3-Coder-480B-A35B-Instruct","createdAt":"2025-07-22T14:52:38.000Z"},{"_id":"687e21806afc5d217330f769","id":"Qwen/Qwen3-235B-A22B-Instruct-2507-FP8","createdAt":"2025-07-21T11:16:16.000Z"},{"_id":"687de260234339fed21e768a","id":"Qwen/Qwen3-235B-A22B-Instruct-2507","createdAt":"2025-07-21T06:46:56.000Z"},{"_id":"684a319186c1f6c1fe341d8f","id":"Qwen/Qwen3-14B-MLX-bf16","createdAt":"2025-06-12T01:46:57.000Z"},{"_id":"68498c9665acd5fd76034d5b","id":"Qwen/Qwen3-235B-A22B-MLX-8bit","createdAt":"2025-06-11T14:03:02.000Z"},{"_id":"684974d512264c9754b316f6","id":"Qwen/Qwen3-235B-A22B-MLX-6bit","createdAt":"2025-06-11T12:21:41.000Z"},{"_id":"684963dddc19fc3b38bf01a6","id":"Qwen/Qwen3-235B-A22B-MLX-4bit","createdAt":"2025-06-11T11:09:17.000Z"},{"_id":"684946496a4e526f37cce014","id":"Qwen/Qwen3-235B-A22B-MLX-bf16","createdAt":"2025-06-11T09:03:05.000Z"},{"_id":"6849437b86556f7a2de7ccc2","id":"Qwen/Qwen3-30B-A3B-MLX-4bit","createdAt":"2025-06-11T08:51:07.000Z"},{"_id":"684941be4d0091f8dced7631","id":"Qwen/Qwen3-30B-A3B-MLX-6bit","createdAt":"2025-06-11T08:43:42.000Z"},{"_id":"68493db5a0617a8d702050a2","id":"Qwen/Qwen3-30B-A3B-MLX-8bit","createdAt":"2025-06-11T08:26:29.000Z"},{"_id":"6849376a93e156c263c12a79","id":"Qwen/Qwen3-30B-A3B-MLX-bf16","createdAt":"2025-06-11T07:59:38.000Z"},{"_id":"68493644b7fd0eb51a2b97f9","id":"Qwen/Qwen3-32B-MLX-4bit","createdAt":"2025-06-11T07:54:44.000Z"},{"_id":"68492dfe63a7f9ec08568f99","id":"Qwen/Qwen3-32B-MLX-6bit","createdAt":"2025-06-11T07:19:26.000Z"},{"_id":"684928a222ca156345f959ef","id":"Qwen/Qwen3-32B-MLX-8bit","createdAt":"2025-06-11T06:56:34.000Z"},{"_id":"684924de63a7f9ec08542fb9","id":"Qwen/Qwen3-32B-MLX-bf16","createdAt":"2025-06-11T06:40:30.000Z"},{"_id":"684156ab3b8c48d81ba37219","id":"Qwen/Qwen3-Embedding-0.6B-GGUF","createdAt":"2025-06-05T08:34:51.000Z"},{"_id":"6841528d96b56a2a82c7d197","id":"Qwen/Qwen3-Embedding-4B-GGUF","createdAt":"2025-06-05T08:17:17.000Z"},{"_id":"68414e495b02118dea8056c1","id":"Qwen/Qwen3-Embedding-8B-GGUF","createdAt":"2025-06-05T07:59:05.000Z"},{"_id":"683f0ad7aadcd6f4348272cf","id":"Qwen/Qwen3-Reranker-4B","createdAt":"2025-06-03T14:46:47.000Z"},{"_id":"683f090e77b41ac9fc98c51f","id":"Qwen/Qwen3-Embedding-8B","createdAt":"2025-06-03T14:39:10.000Z"},{"_id":"683f07454f6e7115e88614de","id":"Qwen/Qwen3-Embedding-4B","createdAt":"2025-06-03T14:31:33.000Z"},{"_id":"683f05dc98de733bf4c59f3d","id":"Qwen/Qwen3-Embedding-0.6B","createdAt":"2025-06-03T14:25:32.000Z"},{"_id":"68386185bdc46832e6e88e6c","id":"Qwen/Qwen3-Reranker-0.6B","createdAt":"2025-05-29T13:30:45.000Z"},{"_id":"6838616abb5ff3845381807e","id":"Qwen/Qwen3-Reranker-8B","createdAt":"2025-05-29T13:30:18.000Z"},{"_id":"68310bd09d503ac7785fddf6","id":"Qwen/Qwen3-14B-MLX-4bit","createdAt":"2025-05-23T23:59:12.000Z"},{"_id":"68310ba5d0f7709f8a6dc82d","id":"Qwen/Qwen3-4B-MLX-4bit","createdAt":"2025-05-23T23:58:29.000Z"},{"_id":"68310a6d09a930f3c0a440e1","id":"Qwen/Qwen3-4B-MLX-6bit","createdAt":"2025-05-23T23:53:17.000Z"},{"_id":"68310a3f281996a7ba2a6f47","id":"Qwen/Qwen3-14B-MLX-6bit","createdAt":"2025-05-23T23:52:31.000Z"},{"_id":"683108ff802db9cd25640451","id":"Qwen/Qwen3-4B-MLX-8bit","createdAt":"2025-05-23T23:47:11.000Z"},{"_id":"683108b96e0ecfe48b6e2f32","id":"Qwen/Qwen3-14B-MLX-8bit","createdAt":"2025-05-23T23:46:01.000Z"},{"_id":"68310790ee4e3333a06d27ab","id":"Qwen/Qwen3-4B-MLX-bf16","createdAt":"2025-05-23T23:41:04.000Z"},{"_id":"6831066b0b3bfdc2a28fb8c7","id":"Qwen/Qwen3-8B-MLX-bf16","createdAt":"2025-05-23T23:36:11.000Z"},{"_id":"6831043fd0f7709f8a6be145","id":"Qwen/Qwen3-8B-MLX-8bit","createdAt":"2025-05-23T23:26:55.000Z"},{"_id":"683103cbb3d28fce9c6be29a","id":"Qwen/Qwen3-8B-MLX-4bit","createdAt":"2025-05-23T23:24:59.000Z"},{"_id":"6831034eef14a6c9cfca8385","id":"Qwen/Qwen3-1.7B-MLX-4bit","createdAt":"2025-05-23T23:22:54.000Z"},{"_id":"68309ec786d8c4ce26eb583d","id":"Qwen/Qwen3-1.7B-MLX-8bit","createdAt":"2025-05-23T16:13:59.000Z"},{"_id":"68309df2ef14a6c9cfb121a3","id":"Qwen/Qwen3-1.7B-MLX-6bit","createdAt":"2025-05-23T16:10:26.000Z"},{"_id":"68309c53bebc6a508de0596c","id":"Qwen/Qwen3-8B-MLX-6bit","createdAt":"2025-05-23T16:03:31.000Z"},{"_id":"68309a4480ba4d88ee02fbe7","id":"Qwen/Qwen3-1.7B-MLX-bf16","createdAt":"2025-05-23T15:54:44.000Z"},{"_id":"6830999b4a3c86f6401780b6","id":"Qwen/Qwen3-0.6B-MLX-8bit","createdAt":"2025-05-23T15:51:55.000Z"},{"_id":"6830995042e4844b813faf36","id":"Qwen/Qwen3-0.6B-MLX-bf16","createdAt":"2025-05-23T15:50:40.000Z"},{"_id":"683098a98a39ddd9c813dc13","id":"Qwen/Qwen3-0.6B-MLX-6bit","createdAt":"2025-05-23T15:47:53.000Z"},{"_id":"6830982f7ac2508a3676b9f9","id":"Qwen/Qwen3-0.6B-MLX-4bit","createdAt":"2025-05-23T15:45:51.000Z"},{"_id":"681ffa2aee2af89f60dd3223","id":"Qwen/Qwen3-235B-A22B-GGUF","createdAt":"2025-05-11T01:15:22.000Z"},{"_id":"681f5a8d22821bfa68ddd2b9","id":"Qwen/Qwen3-235B-A22B-GPTQ-Int4","createdAt":"2025-05-10T13:54:21.000Z"},{"_id":"681c8bf2838df3b7e83c33e0","id":"Qwen/Qwen3-0.6B-GPTQ-Int8","createdAt":"2025-05-08T10:48:18.000Z"},{"_id":"681c8a7e406f0740a9ad5fab","id":"Qwen/Qwen3-1.7B-GPTQ-Int8","createdAt":"2025-05-08T10:42:06.000Z"},{"_id":"6818ce37fdbf32f1082b94ec","id":"Qwen/Qwen3-4B-AWQ","createdAt":"2025-05-05T14:41:59.000Z"},{"_id":"681881ef3319aedbfd81dc51","id":"Qwen/Qwen3-0.6B-GGUF","createdAt":"2025-05-05T09:16:31.000Z"},{"_id":"6818817cd10dd3f33e3bd95c","id":"Qwen/Qwen3-1.7B-GGUF","createdAt":"2025-05-05T09:14:36.000Z"},{"_id":"68187ec7128a3add1fe4fd08","id":"Qwen/Qwen3-30B-A3B-GPTQ-Int4","createdAt":"2025-05-05T09:03:03.000Z"},{"_id":"68187b5488dd6c8bce222ee6","id":"Qwen/Qwen3-4B-GGUF","createdAt":"2025-05-05T08:48:20.000Z"},{"_id":"6818791c2bd1050b0271ac80","id":"Qwen/Qwen3-30B-A3B-GGUF","createdAt":"2025-05-05T08:38:52.000Z"},{"_id":"6815b8d70e2525074c399975","id":"Qwen/Qwen3-8B-GGUF","createdAt":"2025-05-03T06:33:59.000Z"},{"_id":"68158b914954e5d707baba74","id":"Qwen/Qwen3-8B-AWQ","createdAt":"2025-05-03T03:20:49.000Z"},{"_id":"6813510ed8f9c843f95dca42","id":"Qwen/Qwen3-14B-AWQ","createdAt":"2025-05-01T10:46:38.000Z"},{"_id":"68134f29d882a15c6a3b8c5b","id":"Qwen/Qwen3-32B-AWQ","createdAt":"2025-05-01T10:38:33.000Z"},{"_id":"68134c14d8f9c843f95c6e67","id":"Qwen/Qwen3-14B-GGUF","createdAt":"2025-05-01T10:25:24.000Z"},{"_id":"68134bb1c347c9dffa077aae","id":"Qwen/Qwen3-32B-GGUF","createdAt":"2025-05-01T10:23:45.000Z"},{"_id":"680f92583a9442430aac51ff","id":"Qwen/Qwen3-235B-A22B-FP8","createdAt":"2025-04-28T14:36:08.000Z"},{"_id":"680f8dbc517048583de82f94","id":"Qwen/Qwen3-30B-A3B-FP8","createdAt":"2025-04-28T14:16:28.000Z"},{"_id":"680f77951f10e4a4ecbd4ca5","id":"Qwen/Qwen3-32B-FP8","createdAt":"2025-04-28T12:41:57.000Z"},{"_id":"680f7626a95a28ecf6f0fcf7","id":"Qwen/Qwen3-14B-FP8","createdAt":"2025-04-28T12:35:50.000Z"},{"_id":"680f75ea384885553e1ab6c1","id":"Qwen/Qwen3-8B-FP8","createdAt":"2025-04-28T12:34:50.000Z"},{"_id":"680f756751220d888dbd9406","id":"Qwen/Qwen3-4B-FP8","createdAt":"2025-04-28T12:32:39.000Z"},{"_id":"680f74cc89fe7b4df9dd9b16","id":"Qwen/Qwen3-1.7B-FP8","createdAt":"2025-04-28T12:30:04.000Z"},{"_id":"680f73fcaef9827ec7ae8a73","id":"Qwen/Qwen3-0.6B-FP8","createdAt":"2025-04-28T12:26:36.000Z"},{"_id":"680f0da2f99a20ddfc9a9f26","id":"Qwen/Qwen3-0.6B-Base","createdAt":"2025-04-28T05:09:54.000Z"},{"_id":"680f0cffb790c8c34a30bdf2","id":"Qwen/Qwen3-14B-Base","createdAt":"2025-04-28T05:07:11.000Z"},{"_id":"680f0cb340199096ff7bae3e","id":"Qwen/Qwen3-1.7B-Base","createdAt":"2025-04-28T05:05:55.000Z"},{"_id":"680f0c5b4e1c1da6491f3b9d","id":"Qwen/Qwen3-4B-Base","createdAt":"2025-04-28T05:04:27.000Z"},{"_id":"680f0c3e6eacf22a04ee1219","id":"Qwen/Qwen3-8B-Base","createdAt":"2025-04-28T05:03:58.000Z"},{"_id":"680f0c1ce7b853214d784a83","id":"Qwen/Qwen3-30B-A3B-Base","createdAt":"2025-04-28T05:03:24.000Z"},{"_id":"680daa4ac41c05ba341b67d1","id":"Qwen/Qwen3-235B-A22B","createdAt":"2025-04-27T03:53:46.000Z"},{"_id":"680daa1b62e834e6fd9fdbdf","id":"Qwen/Qwen3-32B","createdAt":"2025-04-27T03:52:59.000Z"},{"_id":"680da7c9aa6c98cb395660ac","id":"Qwen/Qwen3-30B-A3B","createdAt":"2025-04-27T03:43:05.000Z"},{"_id":"680da7b53a9818192728e751","id":"Qwen/Qwen3-14B","createdAt":"2025-04-27T03:42:45.000Z"},{"_id":"680da79d48c19d19cf82ab5e","id":"Qwen/Qwen3-8B","createdAt":"2025-04-27T03:42:21.000Z"},{"_id":"680da769038897aa905586a7","id":"Qwen/Qwen3-4B","createdAt":"2025-04-27T03:41:29.000Z"},{"_id":"680da7517bcb5198014ad394","id":"Qwen/Qwen3-1.7B","createdAt":"2025-04-27T03:41:05.000Z"},{"_id":"680da718233834890aa01f51","id":"Qwen/Qwen3-0.6B","createdAt":"2025-04-27T03:40:08.000Z"}]'
+    headers:
+      content-type:
+      - application/json; charset=utf-8
+      etag:
+      - W/"59d2-26Jh0nbbEPYhnsMJKpbZejOo46g"
+    status:
+      code: 200
+      message: OK
+- request:
+    body: ''
+    headers:
+      accept:
+      - application/json, text/plain
+    method: GET
+    uri: https://huggingface.co/api/models/Qwen/Qwen3.8-27B/revision/main?expand%5B%5D=sha&expand%5B%5D=cardData&expand%5B%5D=siblings&expand%5B%5D=gated
+  response:
+    body:
+      string: '{"_id":"6a72f2e302294c7d32dd278e","id":"Qwen/Qwen3.8-27B","sha":"1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0","cardData":{"library_name":"transformers","license":"apache-2.0","pipeline_tag":"image-text-to-text"},"gated":false,"siblings":[{"rfilename":".gitattributes"},{"rfilename":"LICENSE"},{"rfilename":"README.md"},{"rfilename":"chat_template.jinja"},{"rfilename":"config.json"},{"rfilename":"crc32.txt"},{"rfilename":"generation_config.json"},{"rfilename":"merges.txt"},{"rfilename":"model-00001-of-00018.safetensors"},{"rfilename":"model-00002-of-00018.safetensors"},{"rfilename":"model-00003-of-00018.safetensors"},{"rfilename":"model-00004-of-00018.safetensors"},{"rfilename":"model-00005-of-00018.safetensors"},{"rfilename":"model-00006-of-00018.safetensors"},{"rfilename":"model-00007-of-00018.safetensors"},{"rfilename":"model-00008-of-00018.safetensors"},{"rfilename":"model-00009-of-00018.safetensors"},{"rfilename":"model-00010-of-00018.safetensors"},{"rfilename":"model-00011-of-00018.safetensors"},{"rfilename":"model-00012-of-00018.safetensors"},{"rfilename":"model-00013-of-00018.safetensors"},{"rfilename":"model-00014-of-00018.safetensors"},{"rfilename":"model-00015-of-00018.safetensors"},{"rfilename":"model-00016-of-00018.safetensors"},{"rfilename":"model-00017-of-00018.safetensors"},{"rfilename":"model-00018-of-00018.safetensors"},{"rfilename":"model.safetensors.index.json"},{"rfilename":"preprocessor_config.json"},{"rfilename":"tokenizer.json"},{"rfilename":"tokenizer_config.json"},{"rfilename":"video_preprocessor_config.json"},{"rfilename":"vocab.json"}]}'
+    headers:
+      content-type:
+      - application/json; charset=utf-8
+      etag:
+      - W/"630-Bmt3T0QDTSQiNnPV7ru0c8HguMs"
+    status:
+      code: 200
+      message: OK
+- request:
+    body: ''
+    headers:
+      accept:
+      - application/json, text/plain
+    method: GET
+    uri: https://huggingface.co/Qwen/Qwen3.8-27B/raw/1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0/LICENSE
+  response:
+    body:
+      string: "\r\n                                 Apache License\r\n                           Version
+        2.0, January 2004\r\n                        http://www.apache.org/licenses/\r\n\r\n
+        \  TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION\r\n\r\n   1.
+        Definitions.\r\n\r\n      \"License\" shall mean the terms and conditions
+        for use, reproduction,\r\n      and distribution as defined by Sections 1
+        through 9 of this document.\r\n\r\n      \"Licensor\" shall mean the copyright
+        owner or entity authorized by\r\n      the copyright owner that is granting
+        the License.\r\n\r\n      \"Legal Entity\" shall mean the union of the acting
+        entity and all\r\n      other entities that control, are controlled by, or
+        are under common\r\n      control with that entity. For the purposes of this
+        definition,\r\n      \"control\" means (i) the power, direct or indirect,
+        to cause the\r\n      direction or management of such entity, whether by contract
+        or\r\n      otherwise, or (ii) ownership of fifty percent (50%) or more of
+        the\r\n      outstanding shares, or (iii) beneficial ownership of such entity.\r\n\r\n
+        \     \"You\" (or \"Your\") shall mean an individual or Legal Entity\r\n      exercising
+        permissions granted by this License.\r\n\r\n      \"Source\" form shall mean
+        the preferred form for making modifications,\r\n      including but not limited
+        to software source code, documentation\r\n      source, and configuration
+        files.\r\n\r\n      \"Object\" form shall mean any form resulting from mechanical\r\n
+        \     transformation or translation of a Source form, including but\r\n      not
+        limited to compiled object code, generated documentation,\r\n      and conversions
+        to other media types.\r\n\r\n      \"Work\" shall mean the work of authorship,
+        whether in Source or\r\n      Object form, made available under the License,
+        as indicated by a\r\n      copyright notice that is included in or attached
+        to the work\r\n      (an example is provided in the Appendix below).\r\n\r\n
+        \     \"Derivative Works\" shall mean any work, whether in Source or Object\r\n
+        \     form, that is based on (or derived from) the Work and for which the\r\n
+        \     editorial revisions, annotations, elaborations, or other modifications\r\n
+        \     represent, as a whole, an original work of authorship. For the purposes\r\n
+        \     of this License, Derivative Works shall not include works that remain\r\n
+        \     separable from, or merely link (or bind by name) to the interfaces of,\r\n
+        \     the Work and Derivative Works thereof.\r\n\r\n      \"Contribution\"
+        shall mean any work of authorship, including\r\n      the original version
+        of the Work and any modifications or additions\r\n      to that Work or Derivative
+        Works thereof, that is intentionally\r\n      submitted to Licensor for inclusion
+        in the Work by the copyright owner\r\n      or by an individual or Legal Entity
+        authorized to submit on behalf of\r\n      the copyright owner. For the purposes
+        of this definition, \"submitted\"\r\n      means any form of electronic, verbal,
+        or written communication sent\r\n      to the Licensor or its representatives,
+        including but not limited to\r\n      communication on electronic mailing
+        lists, source code control systems,\r\n      and issue tracking systems that
+        are managed by, or on behalf of, the\r\n      Licensor for the purpose of
+        discussing and improving the Work, but\r\n      excluding communication that
+        is conspicuously marked or otherwise\r\n      designated in writing by the
+        copyright owner as \"Not a Contribution.\"\r\n\r\n      \"Contributor\" shall
+        mean Licensor and any individual or Legal Entity\r\n      on behalf of whom
+        a Contribution has been received by Licensor and\r\n      subsequently incorporated
+        within the Work.\r\n\r\n   2. Grant of Copyright License. Subject to the terms
+        and conditions of\r\n      this License, each Contributor hereby grants to
+        You a perpetual,\r\n      worldwide, non-exclusive, no-charge, royalty-free,
+        irrevocable\r\n      copyright license to reproduce, prepare Derivative Works
+        of,\r\n      publicly display, publicly perform, sublicense, and distribute
+        the\r\n      Work and such Derivative Works in Source or Object form.\r\n\r\n
+        \  3. Grant of Patent License. Subject to the terms and conditions of\r\n
+        \     this License, each Contributor hereby grants to You a perpetual,\r\n
+        \     worldwide, non-exclusive, no-charge, royalty-free, irrevocable\r\n      (except
+        as stated in this section) patent license to make, have made,\r\n      use,
+        offer to sell, sell, import, and otherwise transfer the Work,\r\n      where
+        such license applies only to those patent claims licensable\r\n      by such
+        Contributor that are necessarily infringed by their\r\n      Contribution(s)
+        alone or by combination of their Contribution(s)\r\n      with the Work to
+        which such Contribution(s) was submitted. If You\r\n      institute patent
+        litigation against any entity (including a\r\n      cross-claim or counterclaim
+        in a lawsuit) alleging that the Work\r\n      or a Contribution incorporated
+        within the Work constitutes direct\r\n      or contributory patent infringement,
+        then any patent licenses\r\n      granted to You under this License for that
+        Work shall terminate\r\n      as of the date such litigation is filed.\r\n\r\n
+        \  4. Redistribution. You may reproduce and distribute copies of the\r\n      Work
+        or Derivative Works thereof in any medium, with or without\r\n      modifications,
+        and in Source or Object form, provided that You\r\n      meet the following
+        conditions:\r\n\r\n      (a) You must give any other recipients of the Work
+        or\r\n          Derivative Works a copy of this License; and\r\n\r\n      (b)
+        You must cause any modified files to carry prominent notices\r\n          stating
+        that You changed the files; and\r\n\r\n      (c) You must retain, in the Source
+        form of any Derivative Works\r\n          that You distribute, all copyright,
+        patent, trademark, and\r\n          attribution notices from the Source form
+        of the Work,\r\n          excluding those notices that do not pertain to any
+        part of\r\n          the Derivative Works; and\r\n\r\n      (d) If the Work
+        includes a \"NOTICE\" text file as part of its\r\n          distribution,
+        then any Derivative Works that You distribute must\r\n          include a
+        readable copy of the attribution notices contained\r\n          within such
+        NOTICE file, excluding those notices that do not\r\n          pertain to any
+        part of the Derivative Works, in at least one\r\n          of the following
+        places: within a NOTICE text file distributed\r\n          as part of the
+        Derivative Works; within the Source form or\r\n          documentation, if
+        provided along with the Derivative Works; or,\r\n          within a display
+        generated by the Derivative Works, if and\r\n          wherever such third-party
+        notices normally appear. The contents\r\n          of the NOTICE file are
+        for informational purposes only and\r\n          do not modify the License.
+        You may add Your own attribution\r\n          notices within Derivative Works
+        that You distribute, alongside\r\n          or as an addendum to the NOTICE
+        text from the Work, provided\r\n          that such additional attribution
+        notices cannot be construed\r\n          as modifying the License.\r\n\r\n
+        \     You may add Your own copyright statement to Your modifications and\r\n
+        \     may provide additional or different license terms and conditions\r\n
+        \     for use, reproduction, or distribution of Your modifications, or\r\n
+        \     for any such Derivative Works as a whole, provided Your use,\r\n      reproduction,
+        and distribution of the Work otherwise complies with\r\n      the conditions
+        stated in this License.\r\n\r\n   5. Submission of Contributions. Unless You
+        explicitly state otherwise,\r\n      any Contribution intentionally submitted
+        for inclusion in the Work\r\n      by You to the Licensor shall be under the
+        terms and conditions of\r\n      this License, without any additional terms
+        or conditions.\r\n      Notwithstanding the above, nothing herein shall supersede
+        or modify\r\n      the terms of any separate license agreement you may have
+        executed\r\n      with Licensor regarding such Contributions.\r\n\r\n   6.
+        Trademarks. This License does not grant permission to use the trade\r\n      names,
+        trademarks, service marks, or product names of the Licensor,\r\n      except
+        as required for reasonable and customary use in describing the\r\n      origin
+        of the Work and reproducing the content of the NOTICE file.\r\n\r\n   7. Disclaimer
+        of Warranty. Unless required by applicable law or\r\n      agreed to in writing,
+        Licensor provides the Work (and each\r\n      Contributor provides its Contributions)
+        on an \"AS IS\" BASIS,\r\n      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
+        either express or\r\n      implied, including, without limitation, any warranties
+        or conditions\r\n      of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS
+        FOR A\r\n      PARTICULAR PURPOSE. You are solely responsible for determining
+        the\r\n      appropriateness of using or redistributing the Work and assume
+        any\r\n      risks associated with Your exercise of permissions under this
+        License.\r\n\r\n   8. Limitation of Liability. In no event and under no legal
+        theory,\r\n      whether in tort (including negligence), contract, or otherwise,\r\n
+        \     unless required by applicable law (such as deliberate and grossly\r\n
+        \     negligent acts) or agreed to in writing, shall any Contributor be\r\n
+        \     liable to You for damages, including any direct, indirect, special,\r\n
+        \     incidental, or consequential damages of any character arising as a\r\n
+        \     result of this License or out of the use or inability to use the\r\n
+        \     Work (including but not limited to damages for loss of goodwill,\r\n
+        \     work stoppage, computer failure or malfunction, or any and all\r\n      other
+        commercial damages or losses), even if such Contributor\r\n      has been
+        advised of the possibility of such damages.\r\n\r\n   9. Accepting Warranty
+        or Additional Liability. While redistributing\r\n      the Work or Derivative
+        Works thereof, You may choose to offer,\r\n      and charge a fee for, acceptance
+        of support, warranty, indemnity,\r\n      or other liability obligations and/or
+        rights consistent with this\r\n      License. However, in accepting such obligations,
+        You may act only\r\n      on Your own behalf and on Your sole responsibility,
+        not on behalf\r\n      of any other Contributor, and only if You agree to
+        indemnify,\r\n      defend, and hold each Contributor harmless for any liability\r\n
+        \     incurred by, or claims asserted against, such Contributor by reason\r\n
+        \     of your accepting any such warranty or additional liability.\r\n\r\n
+        \  END OF TERMS AND CONDITIONS\r\n\r\n   APPENDIX: How to apply the Apache
+        License to your work.\r\n\r\n      To apply the Apache License to your work,
+        attach the following\r\n      boilerplate notice, with the fields enclosed
+        by brackets \"[]\"\r\n      replaced with your own identifying information.
+        (Don't include\r\n      the brackets!)  The text should be enclosed in the
+        appropriate\r\n      comment syntax for the file format. We also recommend
+        that a\r\n      file or class name and description of purpose be included
+        on the\r\n      same \"printed page\" as the copyright notice for easier\r\n
+        \     identification within third-party archives.\r\n\r\n   Copyright 2026
+        Alibaba Cloud\r\n\r\n   Licensed under the Apache License, Version 2.0 (the
+        \"License\");\r\n   you may not use this file except in compliance with the
+        License.\r\n   You may obtain a copy of the License at\r\n\r\n       http://www.apache.org/licenses/LICENSE-2.0\r\n\r\n
+        \  Unless required by applicable law or agreed to in writing, software\r\n
+        \  distributed under the License is distributed on an \"AS IS\" BASIS,\r\n
+        \  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\r\n
+        \  See the License for the specific language governing permissions and\r\n
+        \  limitations under the License."
+    headers:
+      content-type:
+      - text/plain; charset=utf-8
+      etag:
+      - W/"f938136e3adacfd92be087f6e113b5d6d97f678f"
+      x-repo-commit:
+      - 1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0
+    status:
+      code: 200
+      message: OK
+version: 1
