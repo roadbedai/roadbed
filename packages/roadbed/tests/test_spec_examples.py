@@ -486,8 +486,9 @@ def test_verify_requires_bound_files_when_a_receipt_exists(tmp_path):
     assert r.exit_code == 4 and "V-MANIFEST-INCOMPLETE" in r.output and "SEAL.json" in r.output, r.output
 
 
-def test_verify_accepts_day0_manifest_without_receipt(tmp_path):
-    """Day 0 rule: a rebase without receipt.json needs only the files its MANIFEST lists."""
+def test_verify_refuses_receipt_stripped_back_to_day0(tmp_path):
+    """W02 carry-over: deleting the receipt and its manifest lines does not drop a full rebase (evidence/, lock)
+    back to the Day 0 rule. The Day 0 rule itself is covered by tests/cli/test_cli_verify.py on claims-triage."""
     root = tmp_path / "pass"
     shutil.copytree(EXAMPLES / "pass", root)
     d = root / "rebases/13"
@@ -497,7 +498,7 @@ def test_verify_accepts_day0_manifest_without_receipt(tmp_path):
             if not any(x in ln for x in ("receipt.", "SEAL.json", "snapshots/", "recipes/"))]
     (d / "MANIFEST.sha256").write_text("\n".join(keep) + "\n")
     r = runner.invoke(app, ["verify", str(d)])
-    assert r.exit_code == 0, r.output
+    assert r.exit_code == 4 and "receipt.json not found" in r.output, r.output
 
 
 # ---------------------------------------------------------------- Executor protocol

@@ -15,6 +15,7 @@ dependencies = [
     "httpx",
     "huggingface_hub",
     "rfc8785",
+    "cryptography>=43",
 ]
 
 [project.scripts]
