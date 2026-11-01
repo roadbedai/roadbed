@@ -1,4 +1,5 @@
-"""`roadbed verify`: recompute and re-hash a rebase offline."""
+"""The Day 0 checks of `roadbed verify`: rebase manifest hashes, scores.json and gate.json schemas, scores recomputed,
+seal time before the rebase. Moved here from roadbed.cli.verify (W02); their output for a Day 0 rebase is unchanged."""
 
 from __future__ import annotations
 
@@ -11,6 +12,7 @@ from typing import Any
 
 import jsonschema
 
+from roadbed.asset.files import safe_rel
 from roadbed.cli.asset import MANIFEST, PRED_FILES, Asset, bound_files, load_rows, read_meta, seal_time
 from roadbed.contracts import HoldoutDigest, PredictionDigests, json_schema
 from roadbed.hashing import sha256_file
@@ -33,7 +35,9 @@ class VerifyFailed(Exception):
         self.check = check
 
 
-def _hashes(asset: Asset, d: Path) -> Check:
+def _hashes(asset: Asset, d: Path, required: list[str] | None = None) -> Check:
+    """Manifest hashes. `required` (full rebases, roadbed.asset.verify) lists every path the manifest must name;
+    each must exist. Without it, the Day 0 rule applies: a rebase with receipt.json must list the bound files."""
     m = d / MANIFEST
     if not m.is_file():
         return Check("V-MANIFEST-MISSING", "hashes OK", False, f"{asset.rel(m)} not found")
@@ -45,13 +49,25 @@ def _hashes(asset: Asset, d: Path) -> Check:
         digest, sep, rel = line.partition("  ")
         if not sep or len(digest) != 64:
             return Check("V-MANIFEST-MALFORMED", "hashes OK", False, f"{asset.rel(m)}:{lineno}")
+        if not safe_rel(rel):
+            return Check("V-MANIFEST-MALFORMED", "hashes OK", False, f"{asset.rel(m)}:{lineno}: path outside the asset")
         f = asset.root / rel
-        if not f.is_file():
+        if f.is_symlink() or not f.is_file():
             return Check("V-HASH-MISSING", "hashes OK", False, f"{rel} listed in {MANIFEST} but not found")
         if sha256_file(f) != digest:
             return Check("V-HASH-MISMATCH", "hashes OK", False, f"{rel} does not match {MANIFEST}")
         count += 1
         listed.add(rel)
+    if required is not None:
+        for rel in required:
+            if not safe_rel(rel):
+                return Check("V-MANIFEST-MALFORMED", "hashes OK", False, f"bound path outside the asset: {rel!r}")
+            if not (asset.root / rel).is_file():
+                return Check("V-HASH-MISSING", "hashes OK", False, f"{rel} not found (a rebase with a receipt, evidence or lock is not Day 0)")
+        missing = [rel for rel in required if rel not in listed]
+        if missing:
+            return Check("V-MANIFEST-INCOMPLETE", "hashes OK", False, f"{MANIFEST} does not list {', '.join(missing)}")
+        return Check("V-HASH-MISMATCH", "hashes OK", True, f"{count} files")
     # A rebase with a receipt binds the seal, the snapshot manifest and the recipe (SPEC.md, Manifests).
     # A Day 0 rebase has no receipt; its manifest needs only what it lists.
     if (d / "receipt.json").is_file():
@@ -139,18 +155,3 @@ def _seal(asset: Asset, d: Path) -> Check:
     if not sealed < created:
         return Check("V-SEAL-AFTER-REBASE", label, False, f"holdout sealed {sealed.isoformat()} is not before rebase created {created.isoformat()}")
     return Check("V-SEAL-AFTER-REBASE", label, True)
-
-
-def run(asset: Asset, d: Path, n: int, on_check) -> list[Check]:
-    """Run the checks in order. Calls on_check(check) for each. Raises VerifyFailed on the first failure."""
-    done: list[Check] = []
-    for fn in (lambda: _hashes(asset, d), lambda: _schemas(d), lambda: _scores(asset, d, n), lambda: _seal(asset, d)):
-        try:
-            c = fn()
-        except (OSError, ValueError, KeyError, TypeError) as e:
-            c = Check("V-CHECK-ERROR", "", False, f"{type(e).__name__}: {e}")
-        done.append(c)
-        on_check(c)
-        if c.ok is False:
-            raise VerifyFailed(c)
-    return done
