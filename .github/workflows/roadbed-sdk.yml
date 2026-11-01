@@ -1,0 +1,37 @@
+name: roadbed-sdk
+
+on:
+  pull_request:
+    paths:
+      - "packages/roadbed-sdk/**"
+      - "packages/roadbed/src/roadbed/contracts.py"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/roadbed-sdk.yml"
+  push:
+    branches: [main]
+    paths:
+      - "packages/roadbed-sdk/**"
+      - "packages/roadbed/src/roadbed/contracts.py"
+
+permissions:
+  contents: read
+
+jobs:
+  sdk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - name: Install (SDK and its dev group, no extras)
+        run: uv sync --package roadbed-sdk --locked
+      - name: Lint (ruff)
+        run: uv run --package roadbed-sdk ruff check packages/roadbed-sdk
+      - name: Type check (mypy)
+        run: uv run --package roadbed-sdk mypy packages/roadbed-sdk/src
+      - name: Tests (no network; respx routes only)
+        run: uv run --package roadbed-sdk pytest packages/roadbed-sdk/tests -q
+      - name: Capture overhead (slow, p50 under 1 ms)
+        run: uv run --package roadbed-sdk pytest packages/roadbed-sdk/tests -q -m slow
