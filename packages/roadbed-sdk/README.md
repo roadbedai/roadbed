@@ -1,0 +1,62 @@
+# roadbed-sdk
+
+Capture SDK for Roadbed (prototype). It wraps OpenAI and Anthropic clients, pseudonymises each interaction on the client, writes it to a local SQLite spool and sends it to the control plane in the background.
+
+## Use
+
+```python
+import roadbed_sdk
+from openai import OpenAI
+
+roadbed_sdk.init(
+    "https://roadbed.example.eu", token, tenant_key,      # tenant_key: at least 16 bytes, stays in this process
+    profile_id="insurer-default@v1",                       # required: ingest without a profile is refused
+    model="claims-triage", keep=("severity", "route", "line"),
+)
+client = roadbed_sdk.wrap_openai(OpenAI(base_url="https://gateway.example.eu/v1"))
+
+with roadbed_sdk.capture(subject="claimant-123", pii=["Jane Doe"], slices={"line": "auto"}) as cap:
+    client.chat.completions.create(model="claims-triage-prod", messages=messages)
+
+roadbed_sdk.verdict(cap.interaction_id, "fix", {"severity": 3, "route": "fast_track", "line": "auto"},
+                    reason_code="underestimated_injury")
+roadbed_sdk.outcome(cap.interaction_id, {"paid": True}, observed_at="2026-11-02T10:00:00Z")
+roadbed_sdk.reconcile("outcomes.csv")   # columns: interaction_id, observed_at, then outcome fields
+```
+
+| Call | What it does |
+|---|---|
+| `init(url, token, tenant_key, profile_id, ...)` | Starts capture. The only call that raises (`ConfigError`, `ProfileRequiredError`). |
+| `wrap_openai(client)`, `wrap_anthropic(client)` | Patch `chat.completions.create` or `messages.create` in place. Sync and async clients. |
+| `capture(...)` | Context for the calls inside it: subject, known personal values, slices, interaction id. |
+| `verdict(...)`, `outcome(...)`, `reconcile(csv)` | Spool `VerdictIn` and `OutcomeIn` bodies. They return the id, or `None` on failure. |
+| `flush()`, `shutdown()` | Send now; final flush and close. `shutdown` also runs at exit. |
+| `Sink` | Protocol: `write(kind, items) -> WriteResult`. `HttpSink` is the default. |
+
+Bodies are `InteractionIn`, `VerdictIn` and `OutcomeIn` from `roadbed.contracts`. Interactions go to `POST /v1/interactions:batch` (500 per call). Verdicts and outcomes go to `POST /v1/verdicts` and `POST /v1/outcomes`.
+
+## Personal data
+
+- Free text becomes an HMAC token `<TEXT:tok_...>` (default `text="tokenize"`). With `text="redact"`, Presidio replaces the entities it finds with placeholders such as `<PERSON_1>`. Install it with `pip install 'roadbed-sdk[redact]'` and a spaCy model.
+- Values in `pii=` and pattern entities (email, phone, IBAN, card, SSN, IP, date) always become placeholders.
+- A field in `keep` keeps a short identifier value (a label such as `fast_track`). Other values in it are tokenised.
+- Numbers with 7 or more digits are tokenised, unless the field is in `keep`.
+- The subject id becomes `tok_` plus 32 hex of HMAC-SHA256 with the tenant key. Only the key id (`hk_...`) is recorded.
+- Ids with personal data in them are not used. Logs hold ids and error types, never values.
+
+Limit: in `redact` mode, a name that Presidio does not find stays in the text. `tokenize` mode has no such gap.
+
+## Delivery
+
+- The spool is SQLite in WAL mode, file mode 0600. A row leaves only when the server acknowledges its id.
+- Retries back off from 0.5 s to 60 s. A 404 on a verdict or outcome is retried (its interaction may arrive later). A 422 keeps the row out of the send loop.
+- One row per id: duplicate ids are stored once, and the server dedupes by the same id.
+- Streaming calls (`stream=True`) are not captured yet.
+
+## Test
+
+```sh
+uv sync --package roadbed-sdk
+uv run --package roadbed-sdk pytest packages/roadbed-sdk/tests -q            # no network
+uv run --package roadbed-sdk pytest packages/roadbed-sdk/tests -q -m slow    # capture overhead, p50 under 1 ms
+```
