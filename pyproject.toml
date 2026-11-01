@@ -15,7 +15,7 @@ roadbed = { workspace = true }
 members = ["packages/roadbed"]
 
 [dependency-groups]
-dev = ["pytest>=8", "hypothesis>=6", "pytest-cov>=5", "cryptography>=43", "ruff>=0.8", "mypy>=1.13", "vcrpy>=7"]
+dev = ["pytest>=8", "hypothesis>=6", "pytest-cov>=5", "cryptography>=43", "ruff>=0.8", "mypy>=1.13", "vcrpy>=7", "respx>=0.22"]
 
 [tool.pytest.ini_options]
 testpaths = ["packages/roadbed/tests"]
@@ -36,7 +36,7 @@ ignore = ["B904", "B905", "E731"]
 "packages/roadbed/tests/**" = ["F811"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["roadbed", "conftest", "cli_asset", "test_asset_support"]
+known-first-party = ["roadbed", "conftest", "cli_asset", "test_asset_support", "test_cli_fakeapi"]
 
 [tool.mypy]
 python_version = "3.12"
