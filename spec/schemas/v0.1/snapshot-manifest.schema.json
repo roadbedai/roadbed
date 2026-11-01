@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/snapshot-manifest.schema.json",
+  "$defs": {
+    "Pseudonymisation": {
+      "additionalProperties": false,
+      "properties": {
+        "profile": {
+          "description": "Pseudonymisation profile id applied by the SDK, e.g. insurer-default@v1.",
+          "title": "Profile",
+          "type": "string"
+        },
+        "hmac_key_id": {
+          "description": "Id of the tenant HMAC key. The key itself is never stored.",
+          "title": "Hmac Key Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "profile",
+        "hmac_key_id"
+      ],
+      "title": "Pseudonymisation",
+      "type": "object"
+    },
+    "SnapshotPart": {
+      "additionalProperties": false,
+      "properties": {
+        "oid": {
+          "description": "sha256 of the part bytes; the object key is objects/sha256/ab/cd/<oid>.",
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Oid",
+          "type": "string"
+        },
+        "rows": {
+          "minimum": 0,
+          "title": "Rows",
+          "type": "integer"
+        },
+        "size": {
+          "minimum": 0,
+          "title": "Size",
+          "type": "integer"
+        },
+        "path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional. Repo path when the part is small enough to live in git.",
+          "title": "Path"
+        }
+      },
+      "required": [
+        "oid",
+        "rows",
+        "size"
+      ],
+      "title": "SnapshotPart",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "data/snapshots/<date>/MANIFEST.json: one frozen training snapshot.",
+  "properties": {
+    "spec": {
+      "const": "roadbed/v0.1",
+      "description": "Spec version of this file.",
+      "title": "Spec",
+      "type": "string"
+    },
+    "id": {
+      "description": "Snapshot id, S-<date>.",
+      "pattern": "^S-\\d{4}-\\d{2}-\\d{2}(-[a-z0-9]+)?$",
+      "title": "Id",
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "rows": {
+      "minimum": 0,
+      "title": "Rows",
+      "type": "integer"
+    },
+    "schema_sha256": {
+      "description": "sha256(JCS(output schema)) the verdicts validate against.",
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Schema Sha256",
+      "type": "string"
+    },
+    "merkle_root": {
+      "description": "Merkle root of the sorted row hashes of every row in the parts.",
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Merkle Root",
+      "type": "string"
+    },
+    "parts": {
+      "items": {
+        "$ref": "#/$defs/SnapshotPart"
+      },
+      "title": "Parts",
+      "type": "array"
+    },
+    "label_rules": {
+      "description": "Label resolution rules and version, e.g. label_rules@v1.",
+      "title": "Label Rules",
+      "type": "string"
+    },
+    "pseudonymisation": {
+      "$ref": "#/$defs/Pseudonymisation"
+    },
+    "parent": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional. Snapshot this one replaces (e.g. after an erasure).",
+      "title": "Parent"
+    },
+    "synthetic": {
+      "title": "Synthetic",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "spec",
+    "id",
+    "created_at",
+    "rows",
+    "schema_sha256",
+    "merkle_root",
+    "parts",
+    "label_rules",
+    "pseudonymisation",
+    "synthetic"
+  ],
+  "title": "Snapshot MANIFEST.json",
+  "type": "object"
+}

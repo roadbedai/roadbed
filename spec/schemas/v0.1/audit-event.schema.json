@@ -1,0 +1,153 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/audit-event.schema.json",
+  "$defs": {
+    "AuditObject": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "description": "e.g. rebase, holdout, alias, subject.",
+          "title": "Type",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "id"
+      ],
+      "title": "AuditObject",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "One audit event. Also one line of GET /v1/audit/export.jsonl.",
+  "properties": {
+    "seq": {
+      "minimum": 1,
+      "title": "Seq",
+      "type": "integer"
+    },
+    "ts": {
+      "format": "date-time",
+      "title": "Ts",
+      "type": "string"
+    },
+    "actor": {
+      "title": "Actor",
+      "type": "string"
+    },
+    "role": {
+      "anyOf": [
+        {
+          "enum": [
+            "developer",
+            "validator",
+            "approver",
+            "admin",
+            "auditor"
+          ],
+          "type": "string"
+        },
+        {
+          "enum": [
+            "system",
+            "runner"
+          ],
+          "type": "string"
+        }
+      ],
+      "title": "Role"
+    },
+    "action": {
+      "description": "e.g. holdout.seal, rebase.approve.",
+      "pattern": "^[a-z_]+(\\.[a-z_]+)+$",
+      "title": "Action",
+      "type": "string"
+    },
+    "object": {
+      "$ref": "#/$defs/AuditObject"
+    },
+    "outcome": {
+      "enum": [
+        "allowed",
+        "denied"
+      ],
+      "title": "Outcome",
+      "type": "string"
+    },
+    "rule": {
+      "anyOf": [
+        {
+          "enum": [
+            "SoD-01",
+            "SoD-02",
+            "SoD-03",
+            "SoD-04",
+            "SoD-05"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "SoD rule id when outcome is denied by SoD.",
+      "title": "Rule"
+    },
+    "payload": {
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "integer"
+          },
+          {
+            "type": "number"
+          },
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "description": "Ids, tokens, hashes and aggregates only. No free text, no personal data.",
+      "title": "Payload",
+      "type": "object"
+    },
+    "prev_hash": {
+      "description": "hash of seq-1; 64 zeros for seq 1.",
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Prev Hash",
+      "type": "string"
+    },
+    "hash": {
+      "description": "sha256(JCS(event without 'hash')).",
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Hash",
+      "type": "string"
+    }
+  },
+  "required": [
+    "seq",
+    "ts",
+    "actor",
+    "role",
+    "action",
+    "object",
+    "outcome",
+    "payload",
+    "prev_hash",
+    "hash"
+  ],
+  "title": "Audit event",
+  "type": "object"
+}

@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/license-decision.schema.json",
+  "$defs": {
+    "PinnedBase": {
+      "additionalProperties": false,
+      "properties": {
+        "repo": {
+          "description": "Hugging Face repo id of the base model.",
+          "title": "Repo",
+          "type": "string"
+        },
+        "revision": {
+          "description": "40-hex commit sha.",
+          "pattern": "^[0-9a-f]{40}$",
+          "title": "Revision",
+          "type": "string"
+        }
+      },
+      "required": [
+        "repo",
+        "revision"
+      ],
+      "title": "PinnedBase",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "rebases/<n>/license.json.",
+  "properties": {
+    "spec": {
+      "const": "roadbed/v0.1",
+      "description": "Spec version of this file.",
+      "title": "Spec",
+      "type": "string"
+    },
+    "rebase": {
+      "title": "Rebase",
+      "type": "integer"
+    },
+    "base": {
+      "$ref": "#/$defs/PinnedBase"
+    },
+    "license": {
+      "description": "Lowercase SPDX id read from the model card or LICENSE file.",
+      "title": "License",
+      "type": "string"
+    },
+    "source": {
+      "enum": [
+        "cardData",
+        "LICENSE",
+        "none"
+      ],
+      "title": "Source",
+      "type": "string"
+    },
+    "decision": {
+      "enum": [
+        "allow",
+        "review",
+        "deny"
+      ],
+      "title": "Decision",
+      "type": "string"
+    },
+    "policy": {
+      "description": "Policy path, e.g. policy/license.yaml.",
+      "title": "Policy",
+      "type": "string"
+    },
+    "policy_sha256": {
+      "description": "sha256(JCS(policy)) with null fields left out.",
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Policy Sha256",
+      "type": "string"
+    },
+    "decided_at": {
+      "format": "date-time",
+      "title": "Decided At",
+      "type": "string"
+    },
+    "synthetic": {
+      "title": "Synthetic",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "spec",
+    "rebase",
+    "base",
+    "license",
+    "source",
+    "decision",
+    "policy",
+    "policy_sha256",
+    "decided_at",
+    "synthetic"
+  ],
+  "title": "license.json",
+  "type": "object"
+}

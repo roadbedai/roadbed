@@ -1,0 +1,143 @@
+{
+  "spec": "roadbed/v0.1",
+  "synthetic": true,
+  "model": "claims-triage",
+  "rebase": 13,
+  "seed": 20261101,
+  "n_boot": 10000,
+  "ci": 0.95,
+  "holdout": {
+    "id": "H-2026-11-01",
+    "rows": 60,
+    "sha256": "63dbab48e50e2766e5fb7e425ab62d175c0b9cc851854e17eedb6c8190b728c7"
+  },
+  "predictions": {
+    "incumbent": {
+      "path": "rebases/13/predictions.incumbent.jsonl",
+      "sha256": "413d137b571ca526c6d1a25b8f0fcea0067f5acf23a031c04b7e2924493f0488"
+    },
+    "candidate": {
+      "path": "rebases/13/predictions.candidate.jsonl",
+      "sha256": "760d45a21d77ef925584c671a2be66ac44ebcea6c4a446cf6e1590fee1987e54"
+    }
+  },
+  "notice": "predictions supplied via --from-predictions; no training in this run",
+  "overall": {
+    "n": 60,
+    "incumbent": 90.0,
+    "candidate": 100.0,
+    "delta": 10.0,
+    "ci_low": 5.0,
+    "ci_high": 16.0
+  },
+  "slices": [
+    {
+      "n": 15,
+      "incumbent": 80.0,
+      "candidate": 100.0,
+      "delta": 20.0,
+      "ci_low": 8.0,
+      "ci_high": 36.0,
+      "key": "line",
+      "value": "auto_physical",
+      "low_n": true,
+      "below_margin": false
+    },
+    {
+      "n": 30,
+      "incumbent": 90.0,
+      "candidate": 100.0,
+      "delta": 10.0,
+      "ci_low": 2.0,
+      "ci_high": 18.0,
+      "key": "line",
+      "value": "bodily_injury",
+      "low_n": false,
+      "below_margin": false
+    },
+    {
+      "n": 15,
+      "incumbent": 100.0,
+      "candidate": 100.0,
+      "delta": 0.0,
+      "ci_low": 0.0,
+      "ci_high": 0.0,
+      "key": "line",
+      "value": "property",
+      "low_n": true,
+      "below_margin": false
+    },
+    {
+      "n": 20,
+      "incumbent": 70.0,
+      "candidate": 100.0,
+      "delta": 30.0,
+      "ci_low": 18.0,
+      "ci_high": 42.0,
+      "key": "state",
+      "value": "CA",
+      "low_n": true,
+      "below_margin": false
+    },
+    {
+      "n": 20,
+      "incumbent": 100.0,
+      "candidate": 100.0,
+      "delta": 0.0,
+      "ci_low": 0.0,
+      "ci_high": 0.0,
+      "key": "state",
+      "value": "FL",
+      "low_n": true,
+      "below_margin": false
+    },
+    {
+      "n": 20,
+      "incumbent": 100.0,
+      "candidate": 100.0,
+      "delta": 0.0,
+      "ci_low": 0.0,
+      "ci_high": 0.0,
+      "key": "state",
+      "value": "TX",
+      "low_n": true,
+      "below_margin": false
+    },
+    {
+      "n": 21,
+      "incumbent": 88.57142857142857,
+      "candidate": 100.0,
+      "delta": 11.428571428571429,
+      "ci_low": 2.857142857142857,
+      "ci_high": 22.857142857142858,
+      "key": "channel",
+      "value": "broker",
+      "low_n": true,
+      "below_margin": false
+    },
+    {
+      "n": 21,
+      "incumbent": 91.42857142857143,
+      "candidate": 100.0,
+      "delta": 8.571428571428571,
+      "ci_low": 0.0,
+      "ci_high": 17.142857142857142,
+      "key": "channel",
+      "value": "direct",
+      "low_n": true,
+      "below_margin": false
+    },
+    {
+      "n": 18,
+      "incumbent": 90.0,
+      "candidate": 100.0,
+      "delta": 10.0,
+      "ci_low": 0.0,
+      "ci_high": 20.0,
+      "key": "channel",
+      "value": "partner",
+      "low_n": true,
+      "below_margin": false
+    }
+  ]
+}

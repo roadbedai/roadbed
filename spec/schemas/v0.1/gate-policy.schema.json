@@ -2,6 +2,67 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/gate-policy.schema.json",
   "$defs": {
+    "ContaminationPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "minhash_threshold": {
+          "description": "Near-duplicate when MinHash Jaccard >= this. Plan value 0.8.",
+          "exclusiveMinimum": 0,
+          "maximum": 1,
+          "title": "Minhash Threshold",
+          "type": "number"
+        },
+        "num_perm": {
+          "description": "MinHash permutations.",
+          "minimum": 16,
+          "title": "Num Perm",
+          "type": "integer"
+        },
+        "shingle": {
+          "description": "Word shingle size.",
+          "minimum": 1,
+          "title": "Shingle",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "minhash_threshold",
+        "num_perm",
+        "shingle"
+      ],
+      "title": "ContaminationPolicy",
+      "type": "object"
+    },
+    "CostCap": {
+      "additionalProperties": false,
+      "properties": {
+        "eur": {
+          "description": "Abort the rebase when its cost reaches this many euros.",
+          "exclusiveMinimum": 0,
+          "title": "Eur",
+          "type": "number"
+        },
+        "gpu_hours": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional. Abort at this many GPU-hours.",
+          "title": "Gpu Hours"
+        }
+      },
+      "required": [
+        "eur"
+      ],
+      "title": "CostCap",
+      "type": "object"
+    },
     "Stage": {
       "additionalProperties": false,
       "properties": {
@@ -87,6 +148,30 @@
     },
     "stages": {
       "$ref": "#/$defs/Stages"
+    },
+    "cost_cap": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CostCap"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional. Cost cap per rebase."
+    },
+    "contamination": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ContaminationPolicy"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional. Near-duplicate settings."
     },
     "synthetic": {
       "anyOf": [

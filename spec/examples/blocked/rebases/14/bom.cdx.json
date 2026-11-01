@@ -1,0 +1,73 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.6",
+  "serialNumber": "urn:uuid:32753439-1bc7-c236-48c1-bfa7cdef6c87",
+  "version": 1,
+  "metadata": {
+    "timestamp": "2026-11-01T10:36:07Z",
+    "component": {
+      "type": "machine-learning-model",
+      "bom-ref": "model:claims-triage:v14",
+      "name": "claims-triage",
+      "version": "v14"
+    }
+  },
+  "components": [
+    {
+      "type": "machine-learning-model",
+      "bom-ref": "base",
+      "name": "Qwen/Qwen3.8-4B",
+      "version": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ]
+    },
+    {
+      "type": "data",
+      "bom-ref": "adapter",
+      "name": "claims-triage v14 LoRA adapter",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "5b421077a39b3bad7d118ffd0c206272d5609d56184369796d1275ffe156c70b"
+        }
+      ]
+    },
+    {
+      "type": "data",
+      "bom-ref": "snapshot",
+      "name": "S-2026-11-01",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "4910a01e05c3c8dc8b6061d413271e711351d84429ca67a6f1efa79d1b0d80bd"
+        }
+      ]
+    },
+    {
+      "type": "data",
+      "bom-ref": "holdout",
+      "name": "H-2026-11-01",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "9e9da6bdcc1ec867ae2d75f27fed8a6bc489f9191a405c04419754176ea6c15e"
+        }
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "ref": "model:claims-triage:v14",
+      "dependsOn": [
+        "base",
+        "adapter",
+        "snapshot"
+      ]
+    }
+  ]
+}

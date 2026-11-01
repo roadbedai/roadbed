@@ -1,0 +1,8 @@
+{
+  "note": "TEST KEY derived from a public string. Never use for a real receipt.",
+  "seed_string": "roadbed fixture receipt key v0.1 - TEST ONLY",
+  "public_raw_hex": "03871d364a08fc02bafa850ba995862616bf41e2fb8cf81a5431c7fa9ce79e0d",
+  "keyid": "cb54bac00a078e10310f8766a331895c9c69a8e4350ea81af133f66ea84955b0",
+  "message_utf8": "roadbed",
+  "sig_b64": "e55GNE0h18UUliXFDnRWU9BgIiFmrZmUWU6gZmh1slWILVWMlv41tBak71dYegUe4fSGRLTfFDjmALSO4ocqDA=="
+}

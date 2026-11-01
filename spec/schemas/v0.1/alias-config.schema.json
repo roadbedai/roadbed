@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/alias-config.schema.json",
+  "$defs": {
+    "AliasRoute": {
+      "additionalProperties": false,
+      "properties": {
+        "upstream": {
+          "description": "OpenAI-compatible base URL, e.g. http://vllm:8000/v1.",
+          "title": "Upstream",
+          "type": "string"
+        },
+        "adapter": {
+          "description": "LoRA adapter name loaded in vLLM.",
+          "title": "Adapter",
+          "type": "string"
+        },
+        "version": {
+          "description": "Model version sent in x-roadbed-model-version.",
+          "title": "Version",
+          "type": "string"
+        },
+        "canary": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Canary"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "shadow": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Shadow"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "upstream",
+        "adapter",
+        "version"
+      ],
+      "title": "AliasRoute",
+      "type": "object"
+    },
+    "Canary": {
+      "additionalProperties": false,
+      "properties": {
+        "weight": {
+          "description": "Share of traffic, sticky by xxhash(salt + interaction id).",
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Weight",
+          "type": "number"
+        },
+        "salt": {
+          "title": "Salt",
+          "type": "string"
+        },
+        "adapter": {
+          "title": "Adapter",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "weight",
+        "salt",
+        "adapter",
+        "version"
+      ],
+      "title": "Canary",
+      "type": "object"
+    },
+    "Shadow": {
+      "additionalProperties": false,
+      "properties": {
+        "target": {
+          "description": "Upstream URL or alias that gets a fire-and-forget copy.",
+          "title": "Target",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target"
+      ],
+      "title": "Shadow",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "GET /v1/aliases body (with ETag). The gateway polls it every 2 s.",
+  "properties": {
+    "spec": {
+      "const": "roadbed/v0.1",
+      "description": "Spec version of this file.",
+      "title": "Spec",
+      "type": "string"
+    },
+    "generation": {
+      "description": "Increments on every change; the ETag is derived from it.",
+      "minimum": 0,
+      "title": "Generation",
+      "type": "integer"
+    },
+    "aliases": {
+      "additionalProperties": {
+        "$ref": "#/$defs/AliasRoute"
+      },
+      "title": "Aliases",
+      "type": "object"
+    }
+  },
+  "required": [
+    "spec",
+    "generation",
+    "aliases"
+  ],
+  "title": "Alias config",
+  "type": "object"
+}

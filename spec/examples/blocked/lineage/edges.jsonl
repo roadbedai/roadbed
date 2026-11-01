@@ -1,0 +1,6 @@
+{"from":"version:v12","to":"snapshot:S-2026-10-15","kind":"trained_on","hashes":{"to":"835427a7f97171659d76c6111f06e9fe19b7ef4cb54304b1c6594cb88cb0c120"},"ts":"2026-10-20T08:00:00Z","actor":"runner"}
+{"from":"snapshot:S-2026-11-01","to":"snapshot:S-2026-10-31","kind":"erased_from","hashes":{"from":"4910a01e05c3c8dc8b6061d413271e711351d84429ca67a6f1efa79d1b0d80bd"},"ts":"2026-11-01T09:30:00Z","actor":"system"}
+{"from":"holdout:H-2026-11-01","to":"snapshot:S-2026-10-31","kind":"sealed_from","hashes":{"from":"9e9da6bdcc1ec867ae2d75f27fed8a6bc489f9191a405c04419754176ea6c15e"},"ts":"2026-11-01T09:02:00Z","actor":"vik"}
+{"from":"rebase:14","to":"version:v12","kind":"rebased_from","hashes":{},"ts":"2026-11-01T10:31:00Z","actor":"dana"}
+{"from":"rebase:14","to":"snapshot:S-2026-11-01","kind":"trained_on","hashes":{"to":"4910a01e05c3c8dc8b6061d413271e711351d84429ca67a6f1efa79d1b0d80bd"},"ts":"2026-11-01T10:36:00Z","actor":"runner"}
+{"from":"rebase:14","to":"holdout:H-2026-11-01","kind":"evaluated_on","hashes":{"to":"9e9da6bdcc1ec867ae2d75f27fed8a6bc489f9191a405c04419754176ea6c15e"},"ts":"2026-11-01T10:36:07Z","actor":"runner"}

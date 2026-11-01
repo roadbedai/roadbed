@@ -1,0 +1,225 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/recipe.schema.json",
+  "additionalProperties": false,
+  "description": "recipes/<family>/<name>@<version>.yaml.",
+  "properties": {
+    "recipe": {
+      "description": "Recipe name, <family>/<name>.",
+      "title": "Recipe",
+      "type": "string"
+    },
+    "version": {
+      "title": "Version",
+      "type": "string"
+    },
+    "trainer": {
+      "description": "e.g. unsloth or trl.SFTTrainer.",
+      "title": "Trainer",
+      "type": "string"
+    },
+    "method": {
+      "enum": [
+        "lora",
+        "qlora"
+      ],
+      "title": "Method",
+      "type": "string"
+    },
+    "r": {
+      "minimum": 1,
+      "title": "R",
+      "type": "integer"
+    },
+    "alpha": {
+      "minimum": 1,
+      "title": "Alpha",
+      "type": "integer"
+    },
+    "lr": {
+      "exclusiveMinimum": 0,
+      "title": "Lr",
+      "type": "number"
+    },
+    "epochs": {
+      "exclusiveMinimum": 0,
+      "title": "Epochs",
+      "type": "number"
+    },
+    "seed": {
+      "minimum": 0,
+      "title": "Seed",
+      "type": "integer"
+    },
+    "family": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Family"
+    },
+    "targets": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "LoRA target modules.",
+      "title": "Targets"
+    },
+    "dropout": {
+      "anyOf": [
+        {
+          "exclusiveMaximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Dropout"
+    },
+    "max_seq_len": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Max Seq Len"
+    },
+    "batch_size": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Batch Size"
+    },
+    "grad_accum": {
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Grad Accum"
+    },
+    "chat_template": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Chat Template"
+    },
+    "image": {
+      "anyOf": [
+        {
+          "description": "OCI image digest, sha256:<hex>.",
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Pinned trainer image digest.",
+      "title": "Image"
+    },
+    "fallback": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Fallback trainer, e.g. trl+peft.",
+      "title": "Fallback"
+    },
+    "stub": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Stub"
+    },
+    "synthetic": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Synthetic"
+    },
+    "note": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Note"
+    }
+  },
+  "required": [
+    "recipe",
+    "version",
+    "trainer",
+    "method",
+    "r",
+    "alpha",
+    "lr",
+    "epochs",
+    "seed"
+  ],
+  "title": "Recipe",
+  "type": "object"
+}

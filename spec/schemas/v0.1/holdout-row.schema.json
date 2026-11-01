@@ -29,6 +29,21 @@
       "description": "Reviewer verdict. Must validate against task.output_schema.",
       "title": "Expected",
       "type": "object"
+    },
+    "row_hash": {
+      "anyOf": [
+        {
+          "description": "Lowercase hex SHA-256 digest.",
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional. Row hash of the source verdict row (see SPEC.md, hashing). When absent, sha256(JCS(row)).",
+      "title": "Row Hash"
     }
   },
   "required": [

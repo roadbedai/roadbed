@@ -1,0 +1,33 @@
+{
+  "margin": -2.0,
+  "min_n": 30,
+  "ci": 1.5,
+  "n_boot": 10000,
+  "seed": 20261101,
+  "block_on": [
+    "slice_below_margin",
+    "contamination",
+    "license_denied"
+  ],
+  "stages": {
+    "shadow": {
+      "stub": true
+    },
+    "canary": {
+      "stub": true
+    },
+    "bias_tests": {
+      "stub": true
+    }
+  },
+  "cost_cap": {
+    "eur": 25.0,
+    "gpu_hours": 8.0
+  },
+  "contamination": {
+    "minhash_threshold": 0.8,
+    "num_perm": 128,
+    "shingle": 5
+  },
+  "synthetic": true
+}

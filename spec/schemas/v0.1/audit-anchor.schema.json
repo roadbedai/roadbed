@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/audit-anchor.schema.json",
+  "$defs": {
+    "ObjectLock": {
+      "additionalProperties": false,
+      "properties": {
+        "bucket": {
+          "title": "Bucket",
+          "type": "string"
+        },
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "version_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Version Id"
+        }
+      },
+      "required": [
+        "bucket",
+        "key"
+      ],
+      "title": "ObjectLock",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "audit/anchors/<date>.json: daily head of the audit chain.",
+  "properties": {
+    "spec": {
+      "const": "roadbed/v0.1",
+      "description": "Spec version of this file.",
+      "title": "Spec",
+      "type": "string"
+    },
+    "date": {
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+      "title": "Date",
+      "type": "string"
+    },
+    "head_seq": {
+      "minimum": 1,
+      "title": "Head Seq",
+      "type": "integer"
+    },
+    "head_hash": {
+      "description": "Lowercase hex SHA-256 digest.",
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Head Hash",
+      "type": "string"
+    },
+    "count": {
+      "description": "Events appended on this date.",
+      "minimum": 0,
+      "title": "Count",
+      "type": "integer"
+    },
+    "prev_anchor": {
+      "anyOf": [
+        {
+          "description": "Lowercase hex SHA-256 digest.",
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "sha256(JCS(previous anchor file)), null for the first.",
+      "title": "Prev Anchor"
+    },
+    "anchored_at": {
+      "format": "date-time",
+      "title": "Anchored At",
+      "type": "string"
+    },
+    "object_lock": {
+      "$ref": "#/$defs/ObjectLock"
+    },
+    "synthetic": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Synthetic"
+    }
+  },
+  "required": [
+    "spec",
+    "date",
+    "head_seq",
+    "head_hash",
+    "count",
+    "anchored_at",
+    "object_lock"
+  ],
+  "title": "Audit anchor",
+  "type": "object"
+}

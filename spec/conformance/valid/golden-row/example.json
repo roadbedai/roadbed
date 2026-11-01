@@ -1,0 +1,14 @@
+{
+  "id": "golden-0001",
+  "slices": {
+    "line": "bodily_injury",
+    "state": "CA",
+    "channel": "broker"
+  },
+  "input_ref": "sha256:b80f624e4a36a68a325373f44edb36d6e726b1277096fde0795a49590f9b0653",
+  "expected": {
+    "route": "fast_track",
+    "severity": 1
+  },
+  "row_hash": "1fbefa115fa7bcc79d92d21ffea5d86a009e8f37fbb4071b2d016be57fbb84c1"
+}

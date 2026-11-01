@@ -50,6 +50,32 @@
       "properties": {
         "holdout": {
           "$ref": "#/$defs/HoldoutRef"
+        },
+        "verdicts": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional. Prefix (from asset root) of the frozen verdict snapshots, e.g. data/snapshots.",
+          "title": "Verdicts"
+        },
+        "snapshot": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional. Id of the snapshot the next training run uses, e.g. S-2026-11-01.",
+          "title": "Snapshot"
         }
       },
       "required": [
@@ -81,6 +107,32 @@
           "minimum": 1,
           "title": "Min N",
           "type": "integer"
+        },
+        "golden": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional. Path to evals/golden.jsonl.",
+          "title": "Golden"
+        },
+        "correction_tests": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional. Path to evals/correction_tests.jsonl.",
+          "title": "Correction Tests"
         }
       },
       "required": [
@@ -197,6 +249,32 @@
     },
     "alias": {
       "$ref": "#/$defs/Alias"
+    },
+    "license": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional. Path to the license policy, e.g. policy/license.yaml.",
+      "title": "License"
+    },
+    "lineage": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional. Path to the lineage edge list, e.g. lineage/edges.jsonl.",
+      "title": "Lineage"
     }
   },
   "required": [

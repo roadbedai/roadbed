@@ -1,0 +1,146 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/approvals.schema.json",
+  "$defs": {
+    "Approval": {
+      "additionalProperties": false,
+      "description": "One sign-off. Also the response of POST /v1/rebases/{n}/approvals.",
+      "properties": {
+        "rebase": {
+          "title": "Rebase",
+          "type": "integer"
+        },
+        "role": {
+          "enum": [
+            "validator",
+            "approver"
+          ],
+          "title": "Role",
+          "type": "string"
+        },
+        "actor": {
+          "title": "Actor",
+          "type": "string"
+        },
+        "decision": {
+          "enum": [
+            "validated",
+            "validated_with_findings",
+            "approved",
+            "rejected"
+          ],
+          "title": "Decision",
+          "type": "string"
+        },
+        "comment": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Comment"
+        },
+        "at": {
+          "format": "date-time",
+          "title": "At",
+          "type": "string"
+        },
+        "audit_seq": {
+          "minimum": 1,
+          "title": "Audit Seq",
+          "type": "integer"
+        },
+        "pack_version": {
+          "description": "Evidence pack version this approval signed.",
+          "minimum": 1,
+          "title": "Pack Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "rebase",
+        "role",
+        "actor",
+        "decision",
+        "at",
+        "audit_seq",
+        "pack_version"
+      ],
+      "title": "Approval",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "rebases/<n>/evidence/approvals.json.",
+  "properties": {
+    "spec": {
+      "const": "roadbed/v0.1",
+      "description": "Spec version of this file.",
+      "title": "Spec",
+      "type": "string"
+    },
+    "rebase": {
+      "title": "Rebase",
+      "type": "integer"
+    },
+    "status": {
+      "enum": [
+        "awaiting_signoff",
+        "approved",
+        "rejected",
+        "blocked"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "status_text": {
+      "description": "Display text, e.g. 'awaiting MRM sign-off'.",
+      "title": "Status Text",
+      "type": "string"
+    },
+    "required": {
+      "items": {
+        "enum": [
+          "validator",
+          "approver"
+        ],
+        "type": "string"
+      },
+      "title": "Required",
+      "type": "array"
+    },
+    "pack_version": {
+      "description": "Each approval writes a new signed pack version.",
+      "minimum": 1,
+      "title": "Pack Version",
+      "type": "integer"
+    },
+    "approvals": {
+      "items": {
+        "$ref": "#/$defs/Approval"
+      },
+      "title": "Approvals",
+      "type": "array"
+    },
+    "synthetic": {
+      "title": "Synthetic",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "spec",
+    "rebase",
+    "status",
+    "status_text",
+    "required",
+    "pack_version",
+    "approvals",
+    "synthetic"
+  ],
+  "title": "approvals.json",
+  "type": "object"
+}

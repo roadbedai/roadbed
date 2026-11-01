@@ -1,0 +1,270 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/contamination.schema.json",
+  "$defs": {
+    "DatasetRef": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "description": "Snapshot id (S-...) or holdout id (H-...).",
+          "title": "Id",
+          "type": "string"
+        },
+        "merkle_root": {
+          "description": "Merkle root of the sorted row hashes (SPEC.md, hashing).",
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Merkle Root",
+          "type": "string"
+        },
+        "rows": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional. Row count.",
+          "title": "Rows"
+        }
+      },
+      "required": [
+        "id",
+        "merkle_root"
+      ],
+      "title": "DatasetRef",
+      "type": "object"
+    },
+    "ExactOverlap": {
+      "additionalProperties": false,
+      "properties": {
+        "shared": {
+          "minimum": 0,
+          "title": "Shared",
+          "type": "integer"
+        },
+        "row_hashes": {
+          "items": {
+            "description": "Lowercase hex SHA-256 digest.",
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "title": "Row Hashes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "shared",
+        "row_hashes"
+      ],
+      "title": "ExactOverlap",
+      "type": "object"
+    },
+    "NearOverlap": {
+      "additionalProperties": false,
+      "properties": {
+        "method": {
+          "const": "minhash",
+          "title": "Method",
+          "type": "string"
+        },
+        "num_perm": {
+          "title": "Num Perm",
+          "type": "integer"
+        },
+        "threshold": {
+          "title": "Threshold",
+          "type": "number"
+        },
+        "max_jaccard": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Max Jaccard",
+          "type": "number"
+        },
+        "pairs": {
+          "description": "Pairs with jaccard >= threshold.",
+          "items": {
+            "$ref": "#/$defs/NearPair"
+          },
+          "title": "Pairs",
+          "type": "array"
+        }
+      },
+      "required": [
+        "method",
+        "num_perm",
+        "threshold",
+        "max_jaccard",
+        "pairs"
+      ],
+      "title": "NearOverlap",
+      "type": "object"
+    },
+    "NearPair": {
+      "additionalProperties": false,
+      "properties": {
+        "holdout": {
+          "description": "Lowercase hex SHA-256 digest.",
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Holdout",
+          "type": "string"
+        },
+        "train": {
+          "description": "Lowercase hex SHA-256 digest.",
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Train",
+          "type": "string"
+        },
+        "jaccard": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Jaccard",
+          "type": "number"
+        }
+      },
+      "required": [
+        "holdout",
+        "train",
+        "jaccard"
+      ],
+      "title": "NearPair",
+      "type": "object"
+    },
+    "SealOrder": {
+      "additionalProperties": false,
+      "properties": {
+        "seal_seq": {
+          "title": "Seal Seq",
+          "type": "integer"
+        },
+        "train_seq": {
+          "title": "Train Seq",
+          "type": "integer"
+        },
+        "sealed_at": {
+          "format": "date-time",
+          "title": "Sealed At",
+          "type": "string"
+        },
+        "train_started_at": {
+          "format": "date-time",
+          "title": "Train Started At",
+          "type": "string"
+        },
+        "seal_commit": {
+          "anyOf": [
+            {
+              "description": "40-hex commit sha.",
+              "pattern": "^[0-9a-f]{40}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seal Commit"
+        },
+        "train_commit": {
+          "anyOf": [
+            {
+              "description": "40-hex commit sha.",
+              "pattern": "^[0-9a-f]{40}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Train Commit"
+        },
+        "git_ancestor": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "seal_commit is an ancestor of train_commit; null when unknown.",
+          "title": "Git Ancestor"
+        },
+        "ok": {
+          "description": "seal_seq < train_seq and sealed_at < train_started_at and git_ancestor is not false.",
+          "title": "Ok",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "seal_seq",
+        "train_seq",
+        "sealed_at",
+        "train_started_at",
+        "ok"
+      ],
+      "title": "SealOrder",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "rebases/<n>/contamination.json.",
+  "properties": {
+    "spec": {
+      "const": "roadbed/v0.1",
+      "description": "Spec version of this file.",
+      "title": "Spec",
+      "type": "string"
+    },
+    "rebase": {
+      "title": "Rebase",
+      "type": "integer"
+    },
+    "status": {
+      "enum": [
+        "pass",
+        "fail"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "holdout": {
+      "$ref": "#/$defs/DatasetRef"
+    },
+    "train": {
+      "$ref": "#/$defs/DatasetRef"
+    },
+    "exact": {
+      "$ref": "#/$defs/ExactOverlap"
+    },
+    "near": {
+      "$ref": "#/$defs/NearOverlap"
+    },
+    "seal_order": {
+      "$ref": "#/$defs/SealOrder"
+    },
+    "synthetic": {
+      "title": "Synthetic",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "spec",
+    "rebase",
+    "status",
+    "holdout",
+    "train",
+    "exact",
+    "near",
+    "seal_order",
+    "synthetic"
+  ],
+  "title": "contamination.json",
+  "type": "object"
+}

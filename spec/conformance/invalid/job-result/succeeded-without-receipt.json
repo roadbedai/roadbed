@@ -1,0 +1,24 @@
+{
+  "job_id": "job-rebase-13-train",
+  "state": "succeeded",
+  "artifacts": [
+    {
+      "name": "adapter",
+      "oid": "b38f5b1fb1abc567f20938bca10fcd23484b976c7ed13d301ad7d53782a0900e",
+      "size": 66060288
+    }
+  ],
+  "receipt_sig": {
+    "alg": "ed25519",
+    "keyid": "cb54bac00a078e10310f8766a331895c9c69a8e4350ea81af133f66ea84955b0",
+    "key": "policy/keys/receipt.pub",
+    "signed": "rebases/13/receipt.json",
+    "payload": "jcs",
+    "sig": "56XlaaNEDIHqq6x5bVM2kQKTEIwIzawZ8pVXxXa/1PAxJL2bCiE1giCe9+tBz4kSlbntzueoPM1HSpf2Wl8pBQ=="
+  },
+  "metrics": {
+    "train_loss": 0.41
+  },
+  "error": null,
+  "finished_at": "2026-11-01T10:20:00Z"
+}

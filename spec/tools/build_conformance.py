@@ -1,0 +1,238 @@
+"""Build spec/conformance/{valid,invalid}/<schema>/*.json and spec/conformance/README.md. Deterministic.
+
+    uv run python spec/tools/build_conformance.py
+
+Valid cases come from spec/examples/pass (run build_examples.py first) plus hand-written API bodies.
+Each invalid case is a valid case with one change, and the README says which rule it breaks.
+"""
+
+from __future__ import annotations
+
+import copy
+import json
+import shutil
+import sys
+from collections.abc import Callable
+from pathlib import Path
+from typing import Any
+
+from roadbed.io import read_jsonl, read_yaml
+
+SPEC_DIR = Path(__file__).resolve().parents[1]
+PASS = SPEC_DIR / "examples" / "pass"
+OUT = SPEC_DIR / "conformance"
+H = "a" * 64
+TS = "2026-11-01T10:20:00Z"
+
+
+def _yaml(rel: str) -> Any:
+    return json.loads(json.dumps(read_yaml(PASS / rel)))
+
+
+def _json(rel: str) -> Any:
+    return json.loads((PASS / rel).read_text(encoding="utf-8"))
+
+
+def _row(rel: str) -> Any:
+    return read_jsonl(PASS / rel)[0]
+
+
+def _manifest(rel: str) -> dict[str, Any]:
+    lines = (PASS / rel).read_text(encoding="utf-8").splitlines()
+    return {"entries": [{"sha256": ln[:64], "path": ln[66:]} for ln in lines if ln.strip()]}
+
+
+def valid_cases() -> dict[str, Any]:
+    receipt = _json("rebases/13/receipt.json")
+    sig = _json("rebases/13/receipt.sig")
+    return {
+        "roadbed": _yaml("roadbed.yaml"),
+        "holdout-row": _row("data/holdout/H-2026-11-01/holdout.jsonl"),
+        "prediction-row": _row("rebases/13/predictions.candidate.jsonl"),
+        "scorers": _yaml("evals/scorers.yaml"),
+        "slices": _yaml("evals/slices.yaml"),
+        "gate-policy": _yaml("policy/gate.yaml"),
+        "license-policy": _yaml("policy/license.yaml"),
+        "scores": _json("rebases/13/scores.json"),
+        "gate": _json("rebases/13/gate.json"),
+        "lock": _json("roadbed.lock"),
+        "object-pointer": {"spec": "roadbed/v0.1", "oid": H, "size": 66060288, "media_type": "application/octet-stream"},
+        "snapshot-manifest": _json("data/snapshots/2026-11-01/MANIFEST.json"),
+        "snapshot-row": _row("data/snapshots/2026-11-01/part-0000.jsonl"),
+        "seal": _json("data/holdout/H-2026-11-01/SEAL.json"),
+        "tombstone-row": _row("data/tombstones.jsonl"),
+        "golden-row": _row("evals/golden.jsonl"),
+        "correction-test-row": _row("evals/correction_tests.jsonl"),
+        "recipe": _yaml("recipes/qwen3/lora-r16-sft@v4.yaml"),
+        "model-version": _json("versions/v12/model.json"),
+        "receipt": receipt,
+        "signature": sig,
+        "rebase": _yaml("rebases/13/rebase.yaml"),
+        "contamination": _json("rebases/13/contamination.json"),
+        "cost": _json("rebases/13/cost.json"),
+        "license-decision": _json("rebases/13/license.json"),
+        "approvals": _json("rebases/13/evidence/approvals.json"),
+        "finding": _yaml("findings/F-0001.yaml"),
+        "lineage-edge": _row("lineage/edges.jsonl"),
+        "audit-anchor": _json("audit/anchors/2026-11-01.json"),
+        "evidence-manifest": _manifest("rebases/13/evidence/MANIFEST.sha256"),
+        "audit-event": {
+            "seq": 1377, "ts": TS, "actor": "dana", "role": "developer", "action": "rebase.approve",
+            "object": {"type": "rebase", "id": "13"}, "outcome": "denied", "rule": "SoD-02",
+            "payload": {"rebase": 13}, "prev_hash": H, "hash": "b" * 64,
+        },
+        "approval": _json("rebases/13/evidence/approvals.json")["approvals"][0],
+        "executor-job": {
+            "id": "job-rebase-13-train", "model": "claims-triage", "rebase": 13,
+            "spec": {"kind": "train", "base": receipt["predicate"]["base"], "recipe": receipt["predicate"]["recipe"],
+                     "snapshot": receipt["predicate"]["snapshot"], "holdout": receipt["predicate"]["holdout"],
+                     "seed": 20261101, "image_digest": receipt["predicate"]["image_digest"],
+                     "adapter_name": "claims-triage-v13"},
+            "cost_cap_eur": 25.0, "created_at": TS, "requested_by": "dana",
+        },
+        "job-status": {"job_id": "job-rebase-13-train", "state": "running", "progress": 0.4,
+                       "message": "epoch 2 of 3", "updated_at": TS},
+        "job-result": {
+            "job_id": "job-rebase-13-train", "state": "succeeded",
+            "artifacts": [{"name": "adapter", "oid": receipt["subject"][0]["digest"]["sha256"], "size": 66060288}],
+            "receipt": receipt, "receipt_sig": sig, "metrics": {"train_loss": 0.41}, "error": None,
+            "finished_at": TS,
+        },
+        "alias-config": {
+            "spec": "roadbed/v0.1", "generation": 7,
+            "aliases": {"claims-triage-prod": {
+                "upstream": "http://vllm:8000/v1", "adapter": "claims-triage-v12", "version": "v12",
+                "canary": {"weight": 0.1, "salt": "c13", "adapter": "claims-triage-v13", "version": "v13"},
+                "shadow": None}},
+        },
+        "interaction-in": {
+            "interaction_id": "int-7f3a-0001", "model": "claims-triage", "alias": "claims-triage-prod",
+            "version": "v12", "ts": TS, "input_ref": "sha256:" + H,
+            "input": {"narrative": "<PERSON_1> reported a rear-end collision on <DATE_1>.", "claimant": "tok_7f3a91c2"},
+            "output": {"route": "standard", "severity": 2}, "profile_id": "insurer-default@v1",
+            "hmac_key_id": "acme-hmac-2026-10", "subject_token": "tok_7f3a91c2",
+            "slices": {"line": "bodily_injury", "state": "CA", "channel": "direct"}, "latency_ms": 412.0,
+            "synthetic": True,
+        },
+        "verdict-in": {"interaction_id": "int-7f3a-0001", "action": "fix", "verdict": {"route": "standard", "severity": 3},
+                       "reason_code": "severity_low", "ts": TS},
+        "outcome-in": {"interaction_id": "int-7f3a-0001", "outcome": {"paid": True, "litigated": False},
+                       "source": "system_of_record", "observed_at": "2026-12-01T00:00:00Z"},
+    }
+
+
+Mut = Callable[[dict[str, Any]], None]
+
+
+def _del(*path: str) -> Mut:
+    def f(o: dict[str, Any]) -> None:
+        for k in path[:-1]:
+            o = o[k]
+        del o[path[-1]]
+    return f
+
+
+def _set(value: Any, *path: str | int) -> Mut:
+    def f(o: Any) -> None:
+        for k in path[:-1]:
+            o = o[k]
+        o[path[-1]] = value
+    return f
+
+
+# schema -> [(case, mutation, expected failure)]
+INVALID: dict[str, list[tuple[str, Mut, str]]] = {
+    "roadbed": [("revision-branch-name", _set({"repo": "Qwen/Qwen3.8-4B", "revision": "main"}, "base"),
+                 "base.revision must be 40 hex characters or 'unpinned'")],
+    "holdout-row": [("input-ref-no-prefix", _set(H, "input_ref"), "input_ref must be sha256:<64 hex>")],
+    "prediction-row": [("missing-output", _del("output"), "output is required")],
+    "scorers": [("zero-weight", _set([{"field": "route", "weight": 0}], "fields"), "weight must be > 0")],
+    "slices": [("missing-keys", _del("keys"), "keys is required")],
+    "gate-policy": [("ci-above-one", _set(1.5, "ci"), "ci must be in (0, 1)")],
+    "license-policy": [("bad-default", _set("allow", "default"), "default must be deny or review")],
+    "scores": [("bad-holdout-digest", _set("XYZ", "holdout", "sha256"), "holdout.sha256 must be 64 lowercase hex")],
+    "gate": [("unknown-status", _set("warn", "status"), "status must be pass or blocked")],
+    "lock": [("negative-size", _set(-1, "files", 0, "size"), "files[].size must be >= 0")],
+    "object-pointer": [("small-file", _set(512, "size"), "pointers exist only for files over 1 MB")],
+    "snapshot-manifest": [("missing-pseudonymisation", _del("pseudonymisation"),
+                           "pseudonymisation (profile, hmac_key_id) is required")],
+    "snapshot-row": [("missing-row-hash", _del("row_hash"), "row_hash is required on snapshot rows")],
+    "seal": [("missing-audit-seq", _del("audit_seq"), "audit_seq is required (seal ordering)"),
+             ("short-commit", _set("5e41c0a", "seal_commit"), "seal_commit must be a 40-hex commit")],
+    "tombstone-row": [("raw-email-subject", _set("jane@example.com", "subject_token"),
+                       "subject_token must be an HMAC token tok_<hex>, never a raw identifier")],
+    "golden-row": [("extra-field", _set("free text", "narrative"), "unknown fields are rejected")],
+    "correction-test-row": [("bad-id", _set("CT-97", "id"), "id must match CT-NNNN")],
+    "recipe": [("full-finetune", _set("full", "method"), "method must be lora or qlora")],
+    "model-version": [("version-name", _set("latest", "version"), "version must match vN")],
+    "receipt": [("missing-executor", _del("predicate", "executor"), "predicate.executor is required"),
+                ("wrong-predicate-type", _set("https://slsa.dev/provenance/v1", "predicateType"),
+                 "predicateType must be https://roadbed.dev/run/v1"),
+                ("unknown-executor", _set({"name": "laptop", "version": "1"}, "predicate", "executor"),
+                 "executor.name must be runner, mock, replay, hf-jobs or together")],
+    "signature": [("rsa", _set("rsa", "alg"), "alg must be ed25519")],
+    "rebase": [("unknown-state", _set("merged", "state"), "state must be a rebase state of the orchestrator")],
+    "contamination": [("missing-seal-order", _del("seal_order"), "seal_order is required")],
+    "cost": [("negative-total", _set(-1.0, "total_eur"), "total_eur must be >= 0")],
+    "license-decision": [("decision-maybe", _set("maybe", "decision"), "decision must be allow, review or deny")],
+    "approvals": [("self-approve-role", _set("developer", "approvals", 0, "role"),
+                   "approvals[].role must be validator or approver")],
+    "finding": [("bad-id", _set("F-3", "id"), "id must match F-NNNN")],
+    "lineage-edge": [("untyped-node", _set("v12", "from"), "from must be <type>:<id>")],
+    "audit-anchor": [("missing-head-hash", _del("head_hash"), "head_hash is required")],
+    "evidence-manifest": [("empty", _set([], "entries"), "a MANIFEST has at least one entry")],
+    "audit-event": [("free-text-payload", _set({"note": {"text": "call me"}}, "payload"),
+                    "payload values must be scalars (ids, hashes, aggregates)"),
+                    ("unknown-rule", _set("SoD-09", "rule"), "rule must be SoD-01 to SoD-05")],
+    "approval": [("unknown-decision", _set("lgtm", "decision"), "decision is an enum")],
+    "executor-job": [("unknown-kind", _set("finetune", "spec", "kind"), "spec.kind must be train, eval or bench")],
+    "job-status": [("progress-over-one", _set(1.5, "progress"), "progress must be in [0, 1]")],
+    "job-result": [("succeeded-without-receipt", _del("receipt"), "receipt is required when state is succeeded")],
+    "alias-config": [("canary-weight", _set(2.0, "aliases", "claims-triage-prod", "canary", "weight"),
+                      "canary.weight must be in [0, 1]")],
+    "interaction-in": [("no-profile", _del("profile_id"), "profile_id is required: ingest without it is a 422")],
+    "verdict-in": [("fix-without-verdict", _del("verdict"), "a fix must carry verdict and reason_code"),
+                   ("unknown-action", _set("delete", "action"), "action must be approve, fix, reject or escalate")],
+    "outcome-in": [("bad-source", _set("email", "source"), "source must be system_of_record or csv")],
+}
+
+
+def write_json(p: Path, obj: Any) -> None:
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps(obj, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+
+def main() -> int:
+    valid = valid_cases()
+    for sub in ("valid", "invalid"):
+        if (OUT / sub).exists():
+            shutil.rmtree(OUT / sub)
+    rows = []
+    for name, inst in valid.items():
+        write_json(OUT / "valid" / name / "example.json", inst)
+        for case, mut, why in INVALID[name]:
+            bad = copy.deepcopy(inst)
+            mut(bad)
+            write_json(OUT / "invalid" / name / f"{case}.json", bad)
+            rows.append(f"| `invalid/{name}/{case}.json` | `{name}.schema.json` | {why} |")
+    readme = [
+        "# Conformance cases",
+        "",
+        "Generated by `spec/tools/build_conformance.py`. Do not edit by hand.",
+        "",
+        "Each file in `valid/<schema>/` must validate against `schemas/v0.1/<schema>.schema.json`.",
+        "Each file in `invalid/<schema>/` must fail validation against that schema, for the reason in the table.",
+        "Each invalid case is the valid case with one change.",
+        "`vectors/` holds hashing, Merkle, audit-chain and ed25519 test vectors made by `spec/tools/build_examples.py`.",
+        "",
+        "| File | Schema | Expected failure |",
+        "|---|---|---|",
+        *rows,
+        "",
+    ]
+    (OUT / "README.md").write_text("\n".join(readme), encoding="utf-8")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

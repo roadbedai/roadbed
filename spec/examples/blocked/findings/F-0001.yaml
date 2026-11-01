@@ -1,0 +1,12 @@
+id: F-0001
+rebase: 14
+slice: line=bodily_injury
+n: 30
+delta: -20.0
+ci_low: -32.0
+ci_high: -8.0
+margin: -2.0
+synthetic: true
+gate: rebases/14/gate.json
+kind: slice_below_margin
+status: open

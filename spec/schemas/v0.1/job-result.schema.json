@@ -1,0 +1,626 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/job-result.schema.json",
+  "$defs": {
+    "Artifact": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "description": "e.g. adapter, predictions.candidate.jsonl, cost.json.",
+          "title": "Name",
+          "type": "string"
+        },
+        "oid": {
+          "description": "Bucket object id: lowercase hex sha256 of the object bytes.",
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Oid",
+          "type": "string"
+        },
+        "size": {
+          "minimum": 0,
+          "title": "Size",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "name",
+        "oid",
+        "size"
+      ],
+      "title": "Artifact",
+      "type": "object"
+    },
+    "DatasetRef": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "description": "Snapshot id (S-...) or holdout id (H-...).",
+          "title": "Id",
+          "type": "string"
+        },
+        "merkle_root": {
+          "description": "Merkle root of the sorted row hashes (SPEC.md, hashing).",
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Merkle Root",
+          "type": "string"
+        },
+        "rows": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional. Row count.",
+          "title": "Rows"
+        }
+      },
+      "required": [
+        "id",
+        "merkle_root"
+      ],
+      "title": "DatasetRef",
+      "type": "object"
+    },
+    "ExecutorRef": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "description": "Who ran the job. 'mock' and 'replay' never produce demo numbers.",
+          "enum": [
+            "runner",
+            "mock",
+            "replay",
+            "hf-jobs",
+            "together"
+          ],
+          "title": "Name",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        },
+        "host": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Host"
+        }
+      },
+      "required": [
+        "name",
+        "version"
+      ],
+      "title": "ExecutorRef",
+      "type": "object"
+    },
+    "Gpu": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "description": "e.g. NVIDIA H100 80GB HBM3; 'none' for the mock executor.",
+          "title": "Name",
+          "type": "string"
+        },
+        "count": {
+          "minimum": 0,
+          "title": "Count",
+          "type": "integer"
+        },
+        "driver": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Driver"
+        }
+      },
+      "required": [
+        "name",
+        "count"
+      ],
+      "title": "Gpu",
+      "type": "object"
+    },
+    "HoldoutSealRef": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "description": "Snapshot id (S-...) or holdout id (H-...).",
+          "title": "Id",
+          "type": "string"
+        },
+        "merkle_root": {
+          "description": "Merkle root of the sorted row hashes (SPEC.md, hashing).",
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Merkle Root",
+          "type": "string"
+        },
+        "rows": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional. Row count.",
+          "title": "Rows"
+        },
+        "seal_seq": {
+          "description": "Audit seq of the seal event.",
+          "minimum": 1,
+          "title": "Seal Seq",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "merkle_root",
+        "seal_seq"
+      ],
+      "title": "HoldoutSealRef",
+      "type": "object"
+    },
+    "JobRef": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "train",
+            "eval",
+            "bench",
+            "rebase"
+          ],
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "kind"
+      ],
+      "title": "JobRef",
+      "type": "object"
+    },
+    "PinnedBase": {
+      "additionalProperties": false,
+      "properties": {
+        "repo": {
+          "description": "Hugging Face repo id of the base model.",
+          "title": "Repo",
+          "type": "string"
+        },
+        "revision": {
+          "description": "40-hex commit sha.",
+          "pattern": "^[0-9a-f]{40}$",
+          "title": "Revision",
+          "type": "string"
+        }
+      },
+      "required": [
+        "repo",
+        "revision"
+      ],
+      "title": "PinnedBase",
+      "type": "object"
+    },
+    "Receipt": {
+      "additionalProperties": false,
+      "description": "receipt.json: in-toto Statement v1 with predicate type https://roadbed.dev/run/v1.",
+      "properties": {
+        "_type": {
+          "const": "https://in-toto.io/Statement/v1",
+          "title": "Type",
+          "type": "string"
+        },
+        "subject": {
+          "items": {
+            "$ref": "#/$defs/Subject"
+          },
+          "minItems": 1,
+          "title": "Subject",
+          "type": "array"
+        },
+        "predicateType": {
+          "const": "https://roadbed.dev/run/v1",
+          "title": "Predicatetype",
+          "type": "string"
+        },
+        "predicate": {
+          "$ref": "#/$defs/RunPredicate"
+        }
+      },
+      "required": [
+        "_type",
+        "subject",
+        "predicateType",
+        "predicate"
+      ],
+      "title": "receipt.json",
+      "type": "object"
+    },
+    "RecipeRef": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "description": "Recipe path from asset root, e.g. recipes/qwen3/lora-r16-sft@v4.yaml.",
+          "title": "Path",
+          "type": "string"
+        },
+        "sha256": {
+          "description": "sha256 of the recipe file bytes.",
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "title": "RecipeRef",
+      "type": "object"
+    },
+    "RunCost": {
+      "additionalProperties": false,
+      "properties": {
+        "gpu_hours": {
+          "minimum": 0,
+          "title": "Gpu Hours",
+          "type": "number"
+        },
+        "price_per_hour_eur": {
+          "minimum": 0,
+          "title": "Price Per Hour Eur",
+          "type": "number"
+        },
+        "eur": {
+          "minimum": 0,
+          "title": "Eur",
+          "type": "number"
+        }
+      },
+      "required": [
+        "gpu_hours",
+        "price_per_hour_eur",
+        "eur"
+      ],
+      "title": "RunCost",
+      "type": "object"
+    },
+    "RunPredicate": {
+      "additionalProperties": false,
+      "properties": {
+        "job": {
+          "$ref": "#/$defs/JobRef"
+        },
+        "model": {
+          "title": "Model",
+          "type": "string"
+        },
+        "rebase": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Rebase"
+        },
+        "base": {
+          "$ref": "#/$defs/PinnedBase",
+          "description": "Base model repo and exact revision sha."
+        },
+        "recipe": {
+          "$ref": "#/$defs/RecipeRef",
+          "description": "Recipe path and file hash."
+        },
+        "snapshot": {
+          "$ref": "#/$defs/DatasetRef",
+          "description": "Training snapshot id and Merkle root."
+        },
+        "holdout": {
+          "$ref": "#/$defs/HoldoutSealRef",
+          "description": "Sealed holdout id, Merkle root and seal seq."
+        },
+        "image_digest": {
+          "description": "OCI image digest, sha256:<hex>.",
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Image Digest",
+          "type": "string"
+        },
+        "uv_lock_sha256": {
+          "description": "sha256 of the runner uv.lock bytes.",
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Uv Lock Sha256",
+          "type": "string"
+        },
+        "gpu": {
+          "$ref": "#/$defs/Gpu"
+        },
+        "seed": {
+          "title": "Seed",
+          "type": "integer"
+        },
+        "started_at": {
+          "format": "date-time",
+          "title": "Started At",
+          "type": "string"
+        },
+        "ended_at": {
+          "format": "date-time",
+          "title": "Ended At",
+          "type": "string"
+        },
+        "audit_seq": {
+          "description": "Audit seq of the job start event. Must exceed holdout.seal_seq.",
+          "minimum": 1,
+          "title": "Audit Seq",
+          "type": "integer"
+        },
+        "prev_receipt": {
+          "anyOf": [
+            {
+              "description": "Lowercase hex SHA-256 digest.",
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "sha256(JCS(previous receipt.json)) in this asset, null for the first.",
+          "title": "Prev Receipt"
+        },
+        "cost": {
+          "$ref": "#/$defs/RunCost"
+        },
+        "executor": {
+          "$ref": "#/$defs/ExecutorRef"
+        },
+        "synthetic": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Synthetic"
+        }
+      },
+      "required": [
+        "job",
+        "model",
+        "base",
+        "recipe",
+        "snapshot",
+        "holdout",
+        "image_digest",
+        "uv_lock_sha256",
+        "gpu",
+        "seed",
+        "started_at",
+        "ended_at",
+        "audit_seq",
+        "cost",
+        "executor"
+      ],
+      "title": "RunPredicate",
+      "type": "object"
+    },
+    "Signature": {
+      "additionalProperties": false,
+      "description": "receipt.sig and MANIFEST.sig: one ed25519 signature.",
+      "properties": {
+        "alg": {
+          "const": "ed25519",
+          "title": "Alg",
+          "type": "string"
+        },
+        "keyid": {
+          "description": "sha256 of the raw 32-byte public key.",
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Keyid",
+          "type": "string"
+        },
+        "key": {
+          "description": "Public key path from asset root, e.g. policy/keys/receipt.pub.",
+          "title": "Key",
+          "type": "string"
+        },
+        "signed": {
+          "description": "Path of the signed file from asset root.",
+          "title": "Signed",
+          "type": "string"
+        },
+        "payload": {
+          "description": "jcs: the JCS bytes of the signed JSON file; raw: its bytes.",
+          "enum": [
+            "jcs",
+            "raw"
+          ],
+          "title": "Payload",
+          "type": "string"
+        },
+        "sig": {
+          "description": "Base64 (RFC 4648, padded) 64-byte signature.",
+          "pattern": "^[A-Za-z0-9+/]{86}==$",
+          "title": "Sig",
+          "type": "string"
+        }
+      },
+      "required": [
+        "alg",
+        "keyid",
+        "key",
+        "signed",
+        "payload",
+        "sig"
+      ],
+      "title": "Signature (.sig)",
+      "type": "object"
+    },
+    "Subject": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "description": "Repo path, or oid:<hex> for a bucket object.",
+          "title": "Name",
+          "type": "string"
+        },
+        "digest": {
+          "additionalProperties": {
+            "description": "Lowercase hex SHA-256 digest.",
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "propertyNames": {
+            "const": "sha256"
+          },
+          "title": "Digest",
+          "type": "object"
+        }
+      },
+      "required": [
+        "name",
+        "digest"
+      ],
+      "title": "Subject",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "succeeded"
+          }
+        },
+        "required": [
+          "state"
+        ]
+      },
+      "then": {
+        "properties": {
+          "receipt": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "receipt"
+        ]
+      }
+    }
+  ],
+  "description": "Body of POST /v1/jobs/{id}/result and the Executor.result return value.",
+  "properties": {
+    "job_id": {
+      "title": "Job Id",
+      "type": "string"
+    },
+    "state": {
+      "enum": [
+        "succeeded",
+        "failed",
+        "cancelled"
+      ],
+      "title": "State",
+      "type": "string"
+    },
+    "artifacts": {
+      "items": {
+        "$ref": "#/$defs/Artifact"
+      },
+      "title": "Artifacts",
+      "type": "array"
+    },
+    "receipt": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Receipt"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Required when state is succeeded."
+    },
+    "receipt_sig": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Signature"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "metrics": {
+      "additionalProperties": {
+        "type": "number"
+      },
+      "title": "Metrics",
+      "type": "object"
+    },
+    "error": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Error"
+    },
+    "finished_at": {
+      "format": "date-time",
+      "title": "Finished At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "job_id",
+    "state",
+    "artifacts",
+    "finished_at"
+  ],
+  "title": "Job result",
+  "type": "object"
+}

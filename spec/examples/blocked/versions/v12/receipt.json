@@ -1,0 +1,60 @@
+{
+  "_type": "https://in-toto.io/Statement/v1",
+  "subject": [
+    {
+      "name": "oid:543b70b271b51b1fd9692d6ff429020939a3f06fb2868a89bfe1a63e3bfc3300",
+      "digest": {
+        "sha256": "543b70b271b51b1fd9692d6ff429020939a3f06fb2868a89bfe1a63e3bfc3300"
+      }
+    }
+  ],
+  "predicateType": "https://roadbed.dev/run/v1",
+  "predicate": {
+    "job": {
+      "id": "job-v12-train",
+      "kind": "train"
+    },
+    "model": "claims-triage",
+    "rebase": null,
+    "base": {
+      "repo": "Qwen/Qwen3.6-4B",
+      "revision": "0a1b2c3d4e5f60718293a4b5c6d7e8f901234567"
+    },
+    "recipe": {
+      "path": "recipes/qwen3/lora-r16-sft@v4.yaml",
+      "sha256": "d6dd266cbd01cf3f7352611f36415ed9785c24e3ace9d1cb39ab994942ec9cc8"
+    },
+    "snapshot": {
+      "id": "S-2026-10-15",
+      "merkle_root": "835427a7f97171659d76c6111f06e9fe19b7ef4cb54304b1c6594cb88cb0c120",
+      "rows": 74
+    },
+    "holdout": {
+      "id": "H-2026-10-01",
+      "merkle_root": "f78e660a10173da35733450b2974797ba5535127d6b5db0ec1167c505455748e",
+      "rows": 60,
+      "seal_seq": 640
+    },
+    "image_digest": "sha256:78e4867e2399b4460a21db5944f52e0eca9ac4cca7a460a7664a1b99d637752b",
+    "uv_lock_sha256": "530fe078b35eb3ef0580b27b9b0c7788f7e11beff1febb1a87233c5e49560b56",
+    "gpu": {
+      "name": "none",
+      "count": 0
+    },
+    "seed": 20261101,
+    "started_at": "2026-10-20T08:00:00Z",
+    "ended_at": "2026-10-20T08:00:04Z",
+    "audit_seq": 900,
+    "prev_receipt": null,
+    "cost": {
+      "gpu_hours": 0.0,
+      "price_per_hour_eur": 0.0,
+      "eur": 0.0
+    },
+    "executor": {
+      "name": "mock",
+      "version": "0.1.0"
+    },
+    "synthetic": true
+  }
+}

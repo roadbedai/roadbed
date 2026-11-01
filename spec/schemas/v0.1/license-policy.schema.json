@@ -12,6 +12,39 @@
       "title": "Allow",
       "type": "array"
     },
+    "review": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional. Licenses that need human review, lowercase ids or globs such as llama*.",
+      "title": "Review"
+    },
+    "default": {
+      "anyOf": [
+        {
+          "enum": [
+            "deny",
+            "review"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional. Decision for a license in neither list. Absent means deny.",
+      "title": "Default"
+    },
     "synthetic": {
       "anyOf": [
         {

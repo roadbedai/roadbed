@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/lineage-edge.schema.json",
+  "additionalProperties": false,
+  "description": "One line of lineage/edges.jsonl. Append-only.",
+  "properties": {
+    "from": {
+      "pattern": "^(snapshot|holdout|version|rebase|subject|recipe|base):\\S+$",
+      "title": "From",
+      "type": "string"
+    },
+    "to": {
+      "pattern": "^(snapshot|holdout|version|rebase|subject|recipe|base):\\S+$",
+      "title": "To",
+      "type": "string"
+    },
+    "kind": {
+      "enum": [
+        "sealed_from",
+        "trained_on",
+        "evaluated_on",
+        "rebased_from",
+        "produced",
+        "promoted_to",
+        "erased_from"
+      ],
+      "title": "Kind",
+      "type": "string"
+    },
+    "hashes": {
+      "additionalProperties": {
+        "description": "Lowercase hex SHA-256 digest.",
+        "pattern": "^[0-9a-f]{64}$",
+        "type": "string"
+      },
+      "description": "Digests of the nodes, keyed 'from' and 'to' where known.",
+      "title": "Hashes",
+      "type": "object"
+    },
+    "ts": {
+      "format": "date-time",
+      "title": "Ts",
+      "type": "string"
+    },
+    "actor": {
+      "title": "Actor",
+      "type": "string"
+    }
+  },
+  "required": [
+    "from",
+    "to",
+    "kind",
+    "hashes",
+    "ts",
+    "actor"
+  ],
+  "title": "Lineage edge",
+  "type": "object"
+}

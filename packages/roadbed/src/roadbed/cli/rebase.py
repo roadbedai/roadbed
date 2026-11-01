@@ -179,7 +179,10 @@ def report_md(asset: Asset, n: int, base: BaseRef, scores: Scores, gate: GateRes
 
 
 def write_manifest(asset: Asset, d: Path) -> Path:
-    files = sorted(p for p in d.rglob("*") if p.is_file() and p.name != MANIFEST)
+    """Hash every file of the rebase plus the holdout. evidence/ has its own signed MANIFEST (SPEC.md)."""
+    files = sorted(
+        p for p in d.rglob("*") if p.is_file() and p.name != MANIFEST and "evidence" not in p.relative_to(d).parts
+    )
     files.append(asset.holdout_file)
     lines = [f"{sha256_file(p)}  {asset.rel(p)}" for p in sorted(files, key=lambda p: asset.rel(p))]
     m = d / MANIFEST

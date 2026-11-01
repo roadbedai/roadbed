@@ -1,0 +1,12 @@
+{
+  "entries": [
+    {
+      "sha256": "8c94b308f5be9e5f13778ae08c1c4dcb7729f3b7257cbe13c83c69b24b914c06",
+      "path": "rebases/13/MANIFEST.sha256"
+    },
+    {
+      "sha256": "98a0190dc8b2aa35b395ea26e665b4149ff2e12e32f7ab9be11471760ed2a09c",
+      "path": "rebases/13/evidence/approvals.json"
+    }
+  ]
+}

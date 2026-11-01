@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/tombstone-row.schema.json",
+  "additionalProperties": false,
+  "description": "One line of data/tombstones.jsonl: an erasure request.",
+  "properties": {
+    "subject_token": {
+      "description": "HMAC subject token, never the raw identifier.",
+      "pattern": "^tok_[0-9a-f]{8,64}$",
+      "title": "Subject Token",
+      "type": "string"
+    },
+    "requested_at": {
+      "format": "date-time",
+      "title": "Requested At",
+      "type": "string"
+    },
+    "requested_by": {
+      "title": "Requested By",
+      "type": "string"
+    },
+    "reason": {
+      "enum": [
+        "gdpr_art17",
+        "retention",
+        "other"
+      ],
+      "title": "Reason",
+      "type": "string"
+    },
+    "audit_seq": {
+      "minimum": 1,
+      "title": "Audit Seq",
+      "type": "integer"
+    },
+    "rows_removed": {
+      "minimum": 0,
+      "title": "Rows Removed",
+      "type": "integer"
+    },
+    "snapshot": {
+      "description": "New snapshot id written without the subject's rows.",
+      "title": "Snapshot",
+      "type": "string"
+    }
+  },
+  "required": [
+    "subject_token",
+    "requested_at",
+    "requested_by",
+    "reason",
+    "audit_seq",
+    "rows_removed",
+    "snapshot"
+  ],
+  "title": "Tombstone row",
+  "type": "object"
+}

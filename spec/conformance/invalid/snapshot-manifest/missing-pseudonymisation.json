@@ -1,0 +1,19 @@
+{
+  "spec": "roadbed/v0.1",
+  "id": "S-2026-11-01",
+  "created_at": "2026-11-01T09:30:00Z",
+  "rows": 80,
+  "schema_sha256": "a1231223ed5d35d3f54cce0a67db2e01ce3f97589d7d069be3c3f4d0ab00d113",
+  "merkle_root": "4910a01e05c3c8dc8b6061d413271e711351d84429ca67a6f1efa79d1b0d80bd",
+  "parts": [
+    {
+      "oid": "c77b8ad1cf773c13940996ddfdd99895ac8e86b25bdff503a20c310450de16cd",
+      "rows": 80,
+      "size": 32724,
+      "path": "data/snapshots/2026-11-01/part-0000.jsonl"
+    }
+  ],
+  "label_rules": "label_rules@v1",
+  "parent": "S-2026-10-31",
+  "synthetic": true
+}

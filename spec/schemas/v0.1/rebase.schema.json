@@ -1,0 +1,293 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/rebase.schema.json",
+  "$defs": {
+    "PullRequestRef": {
+      "additionalProperties": false,
+      "properties": {
+        "number": {
+          "minimum": 1,
+          "title": "Number",
+          "type": "integer"
+        },
+        "url": {
+          "title": "Url",
+          "type": "string"
+        }
+      },
+      "required": [
+        "number",
+        "url"
+      ],
+      "title": "PullRequestRef",
+      "type": "object"
+    },
+    "RebaseBase": {
+      "additionalProperties": false,
+      "properties": {
+        "repo": {
+          "title": "Repo",
+          "type": "string"
+        },
+        "revision": {
+          "pattern": "^([0-9a-f]{40}|unpinned)$",
+          "title": "Revision",
+          "type": "string"
+        },
+        "license": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "License"
+        }
+      },
+      "required": [
+        "repo",
+        "revision"
+      ],
+      "title": "RebaseBase",
+      "type": "object"
+    },
+    "VersionBase": {
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "title": "Version",
+          "type": "string"
+        },
+        "base": {
+          "title": "Base",
+          "type": "string"
+        }
+      },
+      "required": [
+        "version",
+        "base"
+      ],
+      "title": "VersionBase",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "rebases/<n>/rebase.yaml. Day 0 fields plus optional orchestrator state.",
+  "properties": {
+    "rebase": {
+      "minimum": 0,
+      "title": "Rebase",
+      "type": "integer"
+    },
+    "model": {
+      "title": "Model",
+      "type": "string"
+    },
+    "base": {
+      "$ref": "#/$defs/RebaseBase"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "synthetic": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Synthetic"
+    },
+    "from": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/VersionBase"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "to": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/VersionBase"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "trigger": {
+      "anyOf": [
+        {
+          "enum": [
+            "watch",
+            "manual",
+            "api"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Trigger"
+    },
+    "materiality": {
+      "anyOf": [
+        {
+          "enum": [
+            "material",
+            "non_material"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Base change is material by default.",
+      "title": "Materiality"
+    },
+    "mode": {
+      "anyOf": [
+        {
+          "enum": [
+            "from-predictions",
+            "train"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Mode"
+    },
+    "note": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Note"
+    },
+    "state": {
+      "anyOf": [
+        {
+          "enum": [
+            "detected",
+            "license",
+            "seal_check",
+            "training",
+            "predicting",
+            "benchmarking",
+            "gating",
+            "evidence",
+            "pr_opened",
+            "awaiting_signoff",
+            "blocked",
+            "approved",
+            "promoted",
+            "rolled_back",
+            "failed"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "State"
+    },
+    "requested_by": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Requested By"
+    },
+    "holdout": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Holdout id.",
+      "title": "Holdout"
+    },
+    "snapshot": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Training snapshot id.",
+      "title": "Snapshot"
+    },
+    "recipe": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Recipe path.",
+      "title": "Recipe"
+    },
+    "pr": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PullRequestRef"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    }
+  },
+  "required": [
+    "rebase",
+    "model",
+    "base",
+    "created_at"
+  ],
+  "title": "rebase.yaml",
+  "type": "object"
+}

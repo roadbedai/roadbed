@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/verdict-in.schema.json",
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "action": {
+            "const": "fix"
+          }
+        },
+        "required": [
+          "action"
+        ]
+      },
+      "then": {
+        "properties": {
+          "verdict": {
+            "type": "object"
+          },
+          "reason_code": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "verdict",
+          "reason_code"
+        ]
+      }
+    }
+  ],
+  "description": "POST /v1/verdicts body. A 'fix' carries the corrected output in verdict.",
+  "properties": {
+    "interaction_id": {
+      "minLength": 1,
+      "title": "Interaction Id",
+      "type": "string"
+    },
+    "action": {
+      "enum": [
+        "approve",
+        "fix",
+        "reject",
+        "escalate"
+      ],
+      "title": "Action",
+      "type": "string"
+    },
+    "verdict": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Required when action is fix.",
+      "title": "Verdict"
+    },
+    "reason_code": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Required when action is fix.",
+      "title": "Reason Code"
+    },
+    "ts": {
+      "format": "date-time",
+      "title": "Ts",
+      "type": "string"
+    }
+  },
+  "required": [
+    "interaction_id",
+    "action",
+    "ts"
+  ],
+  "title": "Verdict (in)",
+  "type": "object"
+}

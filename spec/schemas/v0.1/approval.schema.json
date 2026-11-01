@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/approval.schema.json",
+  "additionalProperties": false,
+  "description": "One sign-off. Also the response of POST /v1/rebases/{n}/approvals.",
+  "properties": {
+    "rebase": {
+      "title": "Rebase",
+      "type": "integer"
+    },
+    "role": {
+      "enum": [
+        "validator",
+        "approver"
+      ],
+      "title": "Role",
+      "type": "string"
+    },
+    "actor": {
+      "title": "Actor",
+      "type": "string"
+    },
+    "decision": {
+      "enum": [
+        "validated",
+        "validated_with_findings",
+        "approved",
+        "rejected"
+      ],
+      "title": "Decision",
+      "type": "string"
+    },
+    "comment": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Comment"
+    },
+    "at": {
+      "format": "date-time",
+      "title": "At",
+      "type": "string"
+    },
+    "audit_seq": {
+      "minimum": 1,
+      "title": "Audit Seq",
+      "type": "integer"
+    },
+    "pack_version": {
+      "description": "Evidence pack version this approval signed.",
+      "minimum": 1,
+      "title": "Pack Version",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "rebase",
+    "role",
+    "actor",
+    "decision",
+    "at",
+    "audit_seq",
+    "pack_version"
+  ],
+  "title": "Approval",
+  "type": "object"
+}

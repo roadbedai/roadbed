@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/outcome-in.schema.json",
+  "additionalProperties": false,
+  "description": "POST /v1/outcomes body: a late system-of-record outcome.",
+  "properties": {
+    "interaction_id": {
+      "minLength": 1,
+      "title": "Interaction Id",
+      "type": "string"
+    },
+    "outcome": {
+      "additionalProperties": true,
+      "title": "Outcome",
+      "type": "object"
+    },
+    "source": {
+      "enum": [
+        "system_of_record",
+        "csv"
+      ],
+      "title": "Source",
+      "type": "string"
+    },
+    "observed_at": {
+      "format": "date-time",
+      "title": "Observed At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "interaction_id",
+    "outcome",
+    "source",
+    "observed_at"
+  ],
+  "title": "Outcome (in)",
+  "type": "object"
+}

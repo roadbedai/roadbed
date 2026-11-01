@@ -1,0 +1,10 @@
+{
+  "from": "v12",
+  "to": "snapshot:S-2026-10-15",
+  "kind": "trained_on",
+  "hashes": {
+    "to": "835427a7f97171659d76c6111f06e9fe19b7ef4cb54304b1c6594cb88cb0c120"
+  },
+  "ts": "2026-10-20T08:00:00Z",
+  "actor": "runner"
+}

@@ -13,8 +13,10 @@ from roadbed.contracts import SCHEMA_MODELS, json_schema
 from conftest import EXAMPLE, SPEC_DIR
 
 SCHEMA_DIR = SPEC_DIR / "schemas" / "v0.1"
+CONFORMANCE = SPEC_DIR / "conformance"
 
-# spec file -> example instance(s) in spec/examples/claims-triage
+# Day 0 schemas -> example instance(s) in spec/examples/claims-triage.
+# Every schema also has spec/conformance/valid/<name>/*.json (see test_spec_examples.py for the fixtures).
 EXAMPLES = {
     "roadbed": [("yaml", "roadbed.yaml")],
     "holdout-row": [("jsonl", "data/holdout/H-EXAMPLE/holdout.jsonl")],
@@ -32,7 +34,9 @@ EXAMPLES = {
 
 
 def _instances(name):
-    for kind, rel in EXAMPLES[name]:
+    for f in sorted((CONFORMANCE / "valid" / name).glob("*.json")):
+        yield json.loads(f.read_text())
+    for kind, rel in EXAMPLES.get(name, []):
         p = EXAMPLE / rel
         if kind == "yaml":
             yield json.loads(json.dumps(io.read_yaml(p)))
@@ -48,7 +52,9 @@ def _validator(schema):
 
 
 def test_every_model_has_an_example():
-    assert set(EXAMPLES) == set(SCHEMA_MODELS)
+    assert set(EXAMPLES) <= set(SCHEMA_MODELS)
+    for name in SCHEMA_MODELS:
+        assert next(_instances(name), None) is not None, f"no valid conformance case for {name}"
 
 
 @pytest.mark.parametrize("name", list(SCHEMA_MODELS))
@@ -68,6 +74,7 @@ def test_round_trip(name):
         dumped = obj.model_dump(mode="json", exclude_none=True)
         validator.validate(dumped)  # model output conforms to the spec file
         assert model.model_validate(dumped) == obj
+        assert json.loads(obj.model_dump_json(exclude_none=True)) == dumped  # JSON text round trip
         n += 1
     assert n > 0
 

@@ -1,0 +1,13 @@
+{
+  "spec": "roadbed/v0.1",
+  "rebase": 14,
+  "status": "blocked",
+  "status_text": "blocked by the gate: no sign-off",
+  "required": [
+    "validator",
+    "approver"
+  ],
+  "pack_version": 1,
+  "approvals": [],
+  "synthetic": true
+}

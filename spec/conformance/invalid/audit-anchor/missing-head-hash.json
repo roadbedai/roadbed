@@ -1,0 +1,14 @@
+{
+  "spec": "roadbed/v0.1",
+  "date": "2026-11-01",
+  "head_seq": 1420,
+  "count": 236,
+  "prev_anchor": null,
+  "anchored_at": "2026-11-02T00:00:05Z",
+  "object_lock": {
+    "bucket": "roadbed-audit",
+    "key": "anchors/2026-11-01.json",
+    "version_id": null
+  },
+  "synthetic": true
+}

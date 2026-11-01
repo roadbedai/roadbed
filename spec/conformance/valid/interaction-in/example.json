@@ -1,0 +1,26 @@
+{
+  "interaction_id": "int-7f3a-0001",
+  "model": "claims-triage",
+  "alias": "claims-triage-prod",
+  "version": "v12",
+  "ts": "2026-11-01T10:20:00Z",
+  "input_ref": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "input": {
+    "narrative": "<PERSON_1> reported a rear-end collision on <DATE_1>.",
+    "claimant": "tok_7f3a91c2"
+  },
+  "output": {
+    "route": "standard",
+    "severity": 2
+  },
+  "profile_id": "insurer-default@v1",
+  "hmac_key_id": "acme-hmac-2026-10",
+  "subject_token": "tok_7f3a91c2",
+  "slices": {
+    "line": "bodily_injury",
+    "state": "CA",
+    "channel": "direct"
+  },
+  "latency_ms": 412.0,
+  "synthetic": true
+}

@@ -1,0 +1,382 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/executor-job.schema.json",
+  "$defs": {
+    "BenchSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "bench",
+          "title": "Kind",
+          "type": "string"
+        },
+        "base": {
+          "$ref": "#/$defs/PinnedBase"
+        },
+        "adapter": {
+          "anyOf": [
+            {
+              "description": "Bucket object id: lowercase hex sha256 of the object bytes.",
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Adapter"
+        },
+        "prompts": {
+          "description": "Plan value 500.",
+          "minimum": 1,
+          "title": "Prompts",
+          "type": "integer"
+        },
+        "concurrency": {
+          "description": "Plan value 32.",
+          "minimum": 1,
+          "title": "Concurrency",
+          "type": "integer"
+        },
+        "max_tokens": {
+          "minimum": 1,
+          "title": "Max Tokens",
+          "type": "integer"
+        },
+        "price_per_hour_eur": {
+          "minimum": 0,
+          "title": "Price Per Hour Eur",
+          "type": "number"
+        }
+      },
+      "required": [
+        "kind",
+        "base",
+        "prompts",
+        "concurrency",
+        "max_tokens",
+        "price_per_hour_eur"
+      ],
+      "title": "BenchSpec",
+      "type": "object"
+    },
+    "DatasetRef": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "description": "Snapshot id (S-...) or holdout id (H-...).",
+          "title": "Id",
+          "type": "string"
+        },
+        "merkle_root": {
+          "description": "Merkle root of the sorted row hashes (SPEC.md, hashing).",
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Merkle Root",
+          "type": "string"
+        },
+        "rows": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional. Row count.",
+          "title": "Rows"
+        }
+      },
+      "required": [
+        "id",
+        "merkle_root"
+      ],
+      "title": "DatasetRef",
+      "type": "object"
+    },
+    "EvalSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "eval",
+          "title": "Kind",
+          "type": "string"
+        },
+        "base": {
+          "$ref": "#/$defs/PinnedBase"
+        },
+        "adapter": {
+          "anyOf": [
+            {
+              "description": "Bucket object id: lowercase hex sha256 of the object bytes.",
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Adapter oid; absent or null runs the base model alone.",
+          "title": "Adapter"
+        },
+        "role": {
+          "enum": [
+            "incumbent",
+            "candidate"
+          ],
+          "title": "Role",
+          "type": "string"
+        },
+        "dataset": {
+          "$ref": "#/$defs/DatasetRef",
+          "description": "The sealed holdout."
+        },
+        "output_schema_sha256": {
+          "description": "sha256(JCS(output schema)); used for guided JSON.",
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Output Schema Sha256",
+          "type": "string"
+        },
+        "max_tokens": {
+          "minimum": 1,
+          "title": "Max Tokens",
+          "type": "integer"
+        },
+        "temperature": {
+          "minimum": 0,
+          "title": "Temperature",
+          "type": "number"
+        }
+      },
+      "required": [
+        "kind",
+        "base",
+        "role",
+        "dataset",
+        "output_schema_sha256",
+        "max_tokens",
+        "temperature"
+      ],
+      "title": "EvalSpec",
+      "type": "object"
+    },
+    "HoldoutSealRef": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "description": "Snapshot id (S-...) or holdout id (H-...).",
+          "title": "Id",
+          "type": "string"
+        },
+        "merkle_root": {
+          "description": "Merkle root of the sorted row hashes (SPEC.md, hashing).",
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Merkle Root",
+          "type": "string"
+        },
+        "rows": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional. Row count.",
+          "title": "Rows"
+        },
+        "seal_seq": {
+          "description": "Audit seq of the seal event.",
+          "minimum": 1,
+          "title": "Seal Seq",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "merkle_root",
+        "seal_seq"
+      ],
+      "title": "HoldoutSealRef",
+      "type": "object"
+    },
+    "PinnedBase": {
+      "additionalProperties": false,
+      "properties": {
+        "repo": {
+          "description": "Hugging Face repo id of the base model.",
+          "title": "Repo",
+          "type": "string"
+        },
+        "revision": {
+          "description": "40-hex commit sha.",
+          "pattern": "^[0-9a-f]{40}$",
+          "title": "Revision",
+          "type": "string"
+        }
+      },
+      "required": [
+        "repo",
+        "revision"
+      ],
+      "title": "PinnedBase",
+      "type": "object"
+    },
+    "RecipeRef": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "description": "Recipe path from asset root, e.g. recipes/qwen3/lora-r16-sft@v4.yaml.",
+          "title": "Path",
+          "type": "string"
+        },
+        "sha256": {
+          "description": "sha256 of the recipe file bytes.",
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "title": "RecipeRef",
+      "type": "object"
+    },
+    "TrainSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "train",
+          "title": "Kind",
+          "type": "string"
+        },
+        "base": {
+          "$ref": "#/$defs/PinnedBase"
+        },
+        "recipe": {
+          "$ref": "#/$defs/RecipeRef"
+        },
+        "snapshot": {
+          "$ref": "#/$defs/DatasetRef"
+        },
+        "holdout": {
+          "$ref": "#/$defs/HoldoutSealRef",
+          "description": "The runner refuses to train when seal order or disjointness fails."
+        },
+        "seed": {
+          "title": "Seed",
+          "type": "integer"
+        },
+        "image_digest": {
+          "description": "OCI image digest, sha256:<hex>.",
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Image Digest",
+          "type": "string"
+        },
+        "adapter_name": {
+          "title": "Adapter Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "base",
+        "recipe",
+        "snapshot",
+        "holdout",
+        "seed",
+        "image_digest",
+        "adapter_name"
+      ],
+      "title": "TrainSpec",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "A unit of GPU work. GET /v1/jobs/next returns one.",
+  "properties": {
+    "id": {
+      "minLength": 1,
+      "title": "Id",
+      "type": "string"
+    },
+    "model": {
+      "title": "Model",
+      "type": "string"
+    },
+    "rebase": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Rebase"
+    },
+    "spec": {
+      "discriminator": {
+        "mapping": {
+          "bench": "#/$defs/BenchSpec",
+          "eval": "#/$defs/EvalSpec",
+          "train": "#/$defs/TrainSpec"
+        },
+        "propertyName": "kind"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/TrainSpec"
+        },
+        {
+          "$ref": "#/$defs/EvalSpec"
+        },
+        {
+          "$ref": "#/$defs/BenchSpec"
+        }
+      ],
+      "title": "Spec"
+    },
+    "cost_cap_eur": {
+      "anyOf": [
+        {
+          "exclusiveMinimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Cost Cap Eur"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "requested_by": {
+      "title": "Requested By",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "model",
+    "spec",
+    "created_at",
+    "requested_by"
+  ],
+  "title": "Executor job",
+  "type": "object"
+}

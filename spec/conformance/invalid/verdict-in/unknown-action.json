@@ -1,0 +1,10 @@
+{
+  "interaction_id": "int-7f3a-0001",
+  "action": "delete",
+  "verdict": {
+    "route": "standard",
+    "severity": 3
+  },
+  "reason_code": "severity_low",
+  "ts": "2026-11-01T10:20:00Z"
+}
