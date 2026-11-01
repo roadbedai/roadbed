@@ -201,10 +201,10 @@ def run(asset: Asset, d: Path, n: int, base: BaseRef, emit, contamination: GateC
 
     hold, inc, cand = load_rows(asset, d)
     scores = compare(
-        hold, inc, cand, list(asset.slices.keys), asset.policy,
+        inc, cand, hold, asset.slices, asset.policy,
         scorers=asset.scorers, synthetic=bool(cfg["synthetic"]), model=cfg["model"], rebase=n,
-        holdout=HoldoutDigest(id=cfg["data"]["holdout"]["id"], rows=len(hold), sha256=sha256_file(asset.holdout_file)),
-        predictions=PredictionDigests(**{
+        holdout_digest=HoldoutDigest(id=cfg["data"]["holdout"]["id"], rows=len(hold), sha256=sha256_file(asset.holdout_file)),
+        prediction_digests=PredictionDigests(**{
             k: FileDigest(path=asset.rel(d / PRED_FILES[k]), sha256=sha256_file(d / PRED_FILES[k]))
             for k in ("incumbent", "candidate")
         }),
@@ -218,7 +218,7 @@ def run(asset: Asset, d: Path, n: int, base: BaseRef, emit, contamination: GateC
         emit(f"license {lic.license}: {'allowed' if lic.allowed else 'denied'} by policy")
 
     findings_dir = asset.root / "findings"
-    gate = evaluate(scores, asset.policy, lic, contamination, finding_offset=_finding_offset(findings_dir, n))
+    gate = evaluate(scores, contamination, lic, asset.policy, finding_offset=_finding_offset(findings_dir, n))
     emit(summary_line(scores, asset.policy.margin))
 
     # rebase.yaml records which base was used and when the rebase was created.
