@@ -3,10 +3,18 @@
   "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/gate.schema.json",
   "$defs": {
     "Check": {
-      "additionalProperties": false,
       "properties": {
         "name": {
-          "description": "slice_margin, license, contamination, or stage:<name>.",
+          "description": "Check name. Its failure reason is CHECK_REASON[name] (SPEC.md, Gate names).",
+          "enum": [
+            "slice_margin",
+            "license",
+            "contamination",
+            "seal_order",
+            "stage:shadow",
+            "stage:canary",
+            "stage:bias_tests"
+          ],
           "title": "Name",
           "type": "string"
         },
@@ -22,6 +30,8 @@
           "type": "string"
         },
         "detail": {
+          "description": "Why. A skipped check says why it was skipped.",
+          "minLength": 1,
           "title": "Detail",
           "type": "string"
         }
@@ -32,10 +42,10 @@
         "detail"
       ],
       "title": "Check",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     },
-    "Finding": {
-      "additionalProperties": false,
+    "GateFinding": {
       "properties": {
         "id": {
           "pattern": "^F-\\d{4}$",
@@ -82,11 +92,40 @@
         "ci_high",
         "margin"
       ],
-      "title": "Finding",
-      "type": "object"
+      "title": "GateFinding",
+      "type": "object",
+      "additionalProperties": false
     }
   },
-  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "pass"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "checks": {
+            "items": {
+              "properties": {
+                "status": {
+                  "not": {
+                    "const": "fail"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
   "description": "gate.json written by `roadbed gate`.",
   "properties": {
     "spec": {
@@ -126,7 +165,7 @@
     },
     "findings": {
       "items": {
-        "$ref": "#/$defs/Finding"
+        "$ref": "#/$defs/GateFinding"
       },
       "title": "Findings",
       "type": "array"
@@ -142,5 +181,6 @@
     "findings"
   ],
   "title": "gate.json",
-  "type": "object"
+  "type": "object",
+  "additionalProperties": false
 }

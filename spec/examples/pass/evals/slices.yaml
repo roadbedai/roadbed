@@ -1,0 +1,14 @@
+keys:
+  line:
+  - auto_physical
+  - bodily_injury
+  - property
+  state:
+  - CA
+  - TX
+  - FL
+  channel:
+  - broker
+  - direct
+  - partner
+synthetic: true

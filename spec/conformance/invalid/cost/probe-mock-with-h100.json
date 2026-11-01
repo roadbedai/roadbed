@@ -1,0 +1,33 @@
+{
+  "spec": "roadbed/v0.1",
+  "rebase": 13,
+  "executor": "mock",
+  "gpu": {
+    "name": "NVIDIA H100 80GB HBM3",
+    "count": 1
+  },
+  "price_per_hour_eur": 0.0,
+  "train": {
+    "gpu_hours": 0.0,
+    "eur": 0.0
+  },
+  "predict": {
+    "gpu_hours": 0.0,
+    "eur": 0.0
+  },
+  "bench": {
+    "prompts": 500,
+    "concurrency": 32,
+    "p50_ms": 0.0,
+    "p95_ms": 0.0,
+    "tokens_per_s": 0.0,
+    "eur_per_1k_calls": 0.0
+  },
+  "vllm": {
+    "version": "mock",
+    "flags": []
+  },
+  "total_eur": 0.0,
+  "cap_eur": 25.0,
+  "synthetic": true
+}

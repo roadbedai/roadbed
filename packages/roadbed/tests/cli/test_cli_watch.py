@@ -8,10 +8,9 @@ from types import SimpleNamespace
 import pytest
 from typer.testing import CliRunner
 
+from cli_asset import _cache_dir, asset  # noqa: F401  (pytest fixtures)
 from roadbed.cli import watch as watch_mod
 from roadbed.cli.main import app
-
-from cli_asset import _cache_dir, asset  # noqa: F401  (pytest fixtures)
 
 runner = CliRunner()
 SHA = "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0"

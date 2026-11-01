@@ -3,7 +3,6 @@
   "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/roadbed.schema.json",
   "$defs": {
     "Alias": {
-      "additionalProperties": false,
       "properties": {
         "name": {
           "description": "Serving alias the gate protects.",
@@ -21,10 +20,10 @@
         "version"
       ],
       "title": "Alias",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     },
     "Base": {
-      "additionalProperties": false,
       "properties": {
         "repo": {
           "description": "Hugging Face repo id of the open-weight base model, e.g. Qwen/Qwen3.6-27B.",
@@ -43,23 +42,49 @@
         "revision"
       ],
       "title": "Base",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     },
     "Data": {
-      "additionalProperties": false,
       "properties": {
         "holdout": {
           "$ref": "#/$defs/HoldoutRef"
+        },
+        "verdicts": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional. Prefix (from asset root) of the frozen verdict snapshots, e.g. data/snapshots.",
+          "title": "Verdicts"
+        },
+        "snapshot": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional. Id of the snapshot the next training run uses, e.g. S-2026-11-01.",
+          "title": "Snapshot"
         }
       },
       "required": [
         "holdout"
       ],
       "title": "Data",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     },
     "Evals": {
-      "additionalProperties": false,
       "properties": {
         "scorers": {
           "description": "Path to scorers.yaml.",
@@ -81,6 +106,32 @@
           "minimum": 1,
           "title": "Min N",
           "type": "integer"
+        },
+        "golden": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional. Path to evals/golden.jsonl.",
+          "title": "Golden"
+        },
+        "correction_tests": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional. Path to evals/correction_tests.jsonl.",
+          "title": "Correction Tests"
         }
       },
       "required": [
@@ -90,13 +141,14 @@
         "min_n"
       ],
       "title": "Evals",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     },
     "HoldoutRef": {
-      "additionalProperties": false,
       "properties": {
         "id": {
           "description": "Holdout id, e.g. H-2026-11-01.",
+          "pattern": "^H-[A-Za-z0-9-]{1,64}$",
           "title": "Id",
           "type": "string"
         },
@@ -106,13 +158,14 @@
           "type": "string"
         },
         "sealed_by": {
-          "description": "Person who sealed the holdout.",
+          "description": "User id of the validator who sealed the holdout.",
+          "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
           "title": "Sealed By",
           "type": "string"
         },
         "sealed_at": {
           "description": "When the holdout was sealed (RFC 3339, with zone).",
-          "format": "date-time",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$",
           "title": "Sealed At",
           "type": "string"
         }
@@ -124,10 +177,10 @@
         "sealed_at"
       ],
       "title": "HoldoutRef",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     },
     "Task": {
-      "additionalProperties": false,
       "properties": {
         "type": {
           "const": "structured-classification",
@@ -146,10 +199,10 @@
         "output_schema"
       ],
       "title": "Task",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     }
   },
-  "additionalProperties": false,
   "description": "roadbed.yaml at the asset repo root.",
   "properties": {
     "spec": {
@@ -197,6 +250,32 @@
     },
     "alias": {
       "$ref": "#/$defs/Alias"
+    },
+    "license": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional. Path to the license policy, e.g. policy/license.yaml.",
+      "title": "License"
+    },
+    "lineage": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional. Path to the lineage edge list, e.g. lineage/edges.jsonl.",
+      "title": "Lineage"
     }
   },
   "required": [
@@ -213,5 +292,6 @@
     "alias"
   ],
   "title": "roadbed.yaml",
-  "type": "object"
+  "type": "object",
+  "additionalProperties": false
 }

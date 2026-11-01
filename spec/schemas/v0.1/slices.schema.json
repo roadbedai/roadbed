@@ -1,7 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/slices.schema.json",
-  "additionalProperties": false,
   "description": "evals/slices.yaml. Each value of each key is one slice.",
   "properties": {
     "keys": {
@@ -33,5 +32,6 @@
     "keys"
   ],
   "title": "slices.yaml",
-  "type": "object"
+  "type": "object",
+  "additionalProperties": false
 }

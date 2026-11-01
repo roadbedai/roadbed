@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/outcome-in.schema.json",
+  "additionalProperties": false,
+  "description": "POST /v1/outcomes body: a late system-of-record outcome.",
+  "properties": {
+    "outcome_id": {
+      "description": "Client-made id. Retries with the same id are no-ops.",
+      "maxLength": 128,
+      "minLength": 1,
+      "title": "Outcome Id",
+      "type": "string"
+    },
+    "interaction_id": {
+      "minLength": 1,
+      "title": "Interaction Id",
+      "type": "string"
+    },
+    "outcome": {
+      "additionalProperties": true,
+      "title": "Outcome",
+      "type": "object"
+    },
+    "source": {
+      "enum": [
+        "system_of_record",
+        "csv"
+      ],
+      "title": "Source",
+      "type": "string"
+    },
+    "observed_at": {
+      "description": "UTC timestamp, RFC 3339, seconds precision, Z suffix: YYYY-MM-DDTHH:MM:SSZ. Kept as the stored string.",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$",
+      "title": "Observed At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "outcome_id",
+    "interaction_id",
+    "outcome",
+    "source",
+    "observed_at"
+  ],
+  "title": "Outcome (in)",
+  "type": "object"
+}

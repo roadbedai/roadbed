@@ -1,0 +1,199 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/seal.schema.json",
+  "$defs": {
+    "Stratification": {
+      "properties": {
+        "keys": {
+          "description": "Slice keys the sample is stratified on.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Keys",
+          "type": "array"
+        },
+        "method": {
+          "enum": [
+            "proportional",
+            "equal"
+          ],
+          "title": "Method",
+          "type": "string"
+        },
+        "fraction": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 1,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fraction"
+        }
+      },
+      "required": [
+        "keys",
+        "method"
+      ],
+      "title": "Stratification",
+      "type": "object",
+      "additionalProperties": false
+    }
+  },
+  "dependentRequired": {
+    "merkle_root": [
+      "minhash_oid",
+      "snapshot",
+      "stratification"
+    ],
+    "minhash_oid": [
+      "merkle_root",
+      "snapshot",
+      "stratification"
+    ],
+    "snapshot": [
+      "merkle_root",
+      "minhash_oid",
+      "stratification"
+    ],
+    "stratification": [
+      "merkle_root",
+      "minhash_oid",
+      "snapshot"
+    ]
+  },
+  "description": "data/holdout/<id>/SEAL.json. Written once, by a validator.",
+  "properties": {
+    "id": {
+      "description": "Holdout id, e.g. H-2026-11-01.",
+      "pattern": "^H-[A-Za-z0-9-]{1,64}$",
+      "title": "Id",
+      "type": "string"
+    },
+    "sealed_by": {
+      "description": "User id of the validator who sealed it (SoD-05).",
+      "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+      "title": "Sealed By",
+      "type": "string"
+    },
+    "sealed_at": {
+      "description": "UTC timestamp, RFC 3339, seconds precision, Z suffix: YYYY-MM-DDTHH:MM:SSZ. Kept as the stored string.",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$",
+      "title": "Sealed At",
+      "type": "string"
+    },
+    "audit_seq": {
+      "description": "Audit seq of the seal event. Training must have a larger seq.",
+      "minimum": 1,
+      "title": "Audit Seq",
+      "type": "integer"
+    },
+    "seed": {
+      "description": "Sampling seed.",
+      "minimum": 0,
+      "title": "Seed",
+      "type": "integer"
+    },
+    "rows": {
+      "minimum": 0,
+      "title": "Rows",
+      "type": "integer"
+    },
+    "sha256": {
+      "description": "sha256 of holdout.jsonl bytes.",
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Sha256",
+      "type": "string"
+    },
+    "synthetic": {
+      "title": "Synthetic",
+      "type": "boolean"
+    },
+    "seal_commit": {
+      "anyOf": [
+        {
+          "description": "40-hex commit sha.",
+          "pattern": "^[0-9a-f]{40}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional, informational. verify takes the seal commit from git (the commit that added SEAL.json), never from here.",
+      "title": "Seal Commit"
+    },
+    "stratification": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Stratification"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "merkle_root": {
+      "anyOf": [
+        {
+          "description": "Lowercase hex SHA-256 digest.",
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional. Merkle root of the holdout row hashes.",
+      "title": "Merkle Root"
+    },
+    "minhash_oid": {
+      "anyOf": [
+        {
+          "description": "Bucket object id: lowercase hex sha256 of the object bytes.",
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional. Bucket object with the holdout MinHash signatures.",
+      "title": "Minhash Oid"
+    },
+    "snapshot": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional. Snapshot the rows were drawn from.",
+      "title": "Snapshot"
+    }
+  },
+  "required": [
+    "id",
+    "sealed_by",
+    "sealed_at",
+    "audit_seq",
+    "seed",
+    "rows",
+    "sha256",
+    "synthetic"
+  ],
+  "title": "SEAL.json",
+  "type": "object",
+  "additionalProperties": false
+}

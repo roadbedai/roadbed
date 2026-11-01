@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/interaction-in.schema.json",
+  "additionalProperties": false,
+  "description": "POST /v1/interactions body. Pseudonymised client-side; 422 without profile_id.",
+  "properties": {
+    "interaction_id": {
+      "minLength": 1,
+      "title": "Interaction Id",
+      "type": "string"
+    },
+    "model": {
+      "title": "Model",
+      "type": "string"
+    },
+    "alias": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Alias"
+    },
+    "version": {
+      "title": "Version",
+      "type": "string"
+    },
+    "ts": {
+      "description": "UTC timestamp, RFC 3339, seconds precision, Z suffix: YYYY-MM-DDTHH:MM:SSZ. Kept as the stored string.",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$",
+      "title": "Ts",
+      "type": "string"
+    },
+    "input_ref": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Input Ref",
+      "type": "string"
+    },
+    "input": {
+      "additionalProperties": true,
+      "description": "Pseudonymised input (tokens and placeholders such as <PERSON_1>).",
+      "title": "Input",
+      "type": "object"
+    },
+    "output": {
+      "additionalProperties": true,
+      "title": "Output",
+      "type": "object"
+    },
+    "profile_id": {
+      "description": "Pseudonymisation profile applied by the SDK.",
+      "minLength": 1,
+      "title": "Profile Id",
+      "type": "string"
+    },
+    "hmac_key_id": {
+      "minLength": 1,
+      "title": "Hmac Key Id",
+      "type": "string"
+    },
+    "subject_token": {
+      "anyOf": [
+        {
+          "description": "HMAC subject token.",
+          "pattern": "^tok_[0-9a-f]{8,64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Subject Token"
+    },
+    "slices": {
+      "anyOf": [
+        {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Slices"
+    },
+    "latency_ms": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Latency Ms"
+    },
+    "synthetic": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Synthetic"
+    }
+  },
+  "required": [
+    "interaction_id",
+    "model",
+    "version",
+    "ts",
+    "input_ref",
+    "input",
+    "output",
+    "profile_id",
+    "hmac_key_id"
+  ],
+  "title": "Interaction (in)",
+  "type": "object"
+}

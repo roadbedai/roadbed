@@ -1,0 +1,35 @@
+{
+  "spec": "roadbed/v0.1",
+  "rebase": 14,
+  "status": "pass",
+  "holdout": {
+    "id": "H-2026-11-01",
+    "merkle_root": "72ec9582a0d6116e6dd8f99e2fb63a7b46ce43acc1fa7d634def2a594d21f350",
+    "rows": 60
+  },
+  "train": {
+    "id": "S-2026-11-01",
+    "merkle_root": "2990864b9166593013ee5f4d3a26f36b6c8e5ee2e69a3a45328d0cd8603713c2",
+    "rows": 80
+  },
+  "exact": {
+    "shared": 0,
+    "row_hashes": []
+  },
+  "near": {
+    "method": "jaccard",
+    "num_perm": 128,
+    "threshold": 0.8,
+    "max_jaccard": 0.02381,
+    "pairs": []
+  },
+  "seal_order": {
+    "seal_commit": "3bbbdea4fce10498449f93ae3f8a1fec1e8cd0ee",
+    "train_commit": "246ac7a6781a9e8798447d21087fd88012774339",
+    "audit_seq": true,
+    "timestamp": true,
+    "git_ancestor": true,
+    "ok": true
+  },
+  "synthetic": true
+}

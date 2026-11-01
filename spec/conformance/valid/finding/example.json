@@ -1,0 +1,9 @@
+{
+  "id": "F-0001",
+  "rebase": 11,
+  "kind": "slice_below_margin",
+  "status": "resolved",
+  "placeholder": true,
+  "note": "Reserved id for a finding of an earlier rebase that is not in this fixture.",
+  "synthetic": true
+}

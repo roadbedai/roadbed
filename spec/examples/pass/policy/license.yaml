@@ -1,0 +1,8 @@
+allow:
+- apache-2.0
+- mit
+review:
+- gemma
+- llama*
+default: deny
+synthetic: true

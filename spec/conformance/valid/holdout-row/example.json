@@ -1,0 +1,14 @@
+{
+  "id": "clm-000001",
+  "slices": {
+    "line": "bodily_injury",
+    "state": "CA",
+    "channel": "broker"
+  },
+  "input_ref": "sha256:acebf734b370bd8a3273387ed77f2d03209bff415dcbf7d91ca0ecfe08039e14",
+  "expected": {
+    "route": "fast_track",
+    "severity": 1
+  },
+  "row_hash": "8774b85e6deaac7817defe06959300f4450092aacb2845acbd65eea6453b6bbc"
+}

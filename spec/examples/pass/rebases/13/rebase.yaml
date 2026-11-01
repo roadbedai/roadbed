@@ -1,0 +1,26 @@
+rebase: 13
+model: claims-triage
+from:
+  version: v12
+  base: Qwen/Qwen3.6-4B
+to:
+  version: v13
+  base: Qwen/Qwen3.8-4B
+base:
+  repo: Qwen/Qwen3.8-4B
+  revision: 1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0
+  license: apache-2.0
+created_at: '2026-11-01T10:14:00Z'
+trigger: watch
+materiality: material
+mode: from-predictions
+note: fixture predictions; executor mock, no training in this run
+state: awaiting_signoff
+requested_by: dana
+holdout: H-2026-11-01
+snapshot: S-2026-11-01
+recipe: recipes/qwen3/lora-r16-sft@v4.yaml
+pr:
+  number: 13
+  url: https://github.com/roadbedai/demo-acme-claims/pull/13
+synthetic: true

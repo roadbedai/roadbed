@@ -1,0 +1,276 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/cost.schema.json",
+  "$defs": {
+    "Bench": {
+      "properties": {
+        "prompts": {
+          "minimum": 1,
+          "title": "Prompts",
+          "type": "integer"
+        },
+        "concurrency": {
+          "minimum": 1,
+          "title": "Concurrency",
+          "type": "integer"
+        },
+        "p50_ms": {
+          "minimum": 0,
+          "title": "P50 Ms",
+          "type": "number"
+        },
+        "p95_ms": {
+          "minimum": 0,
+          "title": "P95 Ms",
+          "type": "number"
+        },
+        "tokens_per_s": {
+          "minimum": 0,
+          "title": "Tokens Per S",
+          "type": "number"
+        },
+        "eur_per_1k_calls": {
+          "minimum": 0,
+          "title": "Eur Per 1K Calls",
+          "type": "number"
+        }
+      },
+      "required": [
+        "prompts",
+        "concurrency",
+        "p50_ms",
+        "p95_ms",
+        "tokens_per_s",
+        "eur_per_1k_calls"
+      ],
+      "title": "Bench",
+      "type": "object",
+      "additionalProperties": false
+    },
+    "ExecutorName": {
+      "description": "Who ran a job. mock and replay never produce demo numbers.",
+      "enum": [
+        "runner",
+        "mock",
+        "replay",
+        "hf-jobs",
+        "together"
+      ],
+      "title": "ExecutorName",
+      "type": "string"
+    },
+    "Gpu": {
+      "properties": {
+        "name": {
+          "description": "e.g. NVIDIA H100 80GB HBM3; 'none' for the mock executor.",
+          "title": "Name",
+          "type": "string"
+        },
+        "count": {
+          "minimum": 0,
+          "title": "Count",
+          "type": "integer"
+        },
+        "driver": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Driver"
+        }
+      },
+      "required": [
+        "name",
+        "count"
+      ],
+      "title": "Gpu",
+      "type": "object",
+      "additionalProperties": false
+    },
+    "PhaseCost": {
+      "properties": {
+        "gpu_hours": {
+          "minimum": 0,
+          "title": "Gpu Hours",
+          "type": "number"
+        },
+        "eur": {
+          "minimum": 0,
+          "title": "Eur",
+          "type": "number"
+        }
+      },
+      "required": [
+        "gpu_hours",
+        "eur"
+      ],
+      "title": "PhaseCost",
+      "type": "object",
+      "additionalProperties": false
+    },
+    "Vllm": {
+      "properties": {
+        "version": {
+          "title": "Version",
+          "type": "string"
+        },
+        "flags": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Flags",
+          "type": "array"
+        }
+      },
+      "required": [
+        "version",
+        "flags"
+      ],
+      "title": "Vllm",
+      "type": "object",
+      "additionalProperties": false
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "executor": {
+            "enum": [
+              "mock",
+              "replay"
+            ]
+          }
+        },
+        "required": [
+          "executor"
+        ]
+      },
+      "then": {
+        "properties": {
+          "gpu": {
+            "properties": {
+              "name": {
+                "const": "none"
+              },
+              "count": {
+                "const": 0
+              }
+            }
+          },
+          "price_per_hour_eur": {
+            "maximum": 0
+          },
+          "train": {
+            "properties": {
+              "gpu_hours": {
+                "maximum": 0
+              },
+              "eur": {
+                "maximum": 0
+              }
+            }
+          },
+          "predict": {
+            "properties": {
+              "gpu_hours": {
+                "maximum": 0
+              },
+              "eur": {
+                "maximum": 0
+              }
+            }
+          },
+          "bench": {
+            "properties": {
+              "eur_per_1k_calls": {
+                "maximum": 0
+              }
+            }
+          },
+          "total_eur": {
+            "maximum": 0
+          }
+        }
+      }
+    }
+  ],
+  "description": "rebases/<n>/cost.json.",
+  "properties": {
+    "spec": {
+      "const": "roadbed/v0.1",
+      "description": "Spec version of this file.",
+      "title": "Spec",
+      "type": "string"
+    },
+    "rebase": {
+      "title": "Rebase",
+      "type": "integer"
+    },
+    "executor": {
+      "$ref": "#/$defs/ExecutorName"
+    },
+    "gpu": {
+      "$ref": "#/$defs/Gpu"
+    },
+    "price_per_hour_eur": {
+      "minimum": 0,
+      "title": "Price Per Hour Eur",
+      "type": "number"
+    },
+    "train": {
+      "$ref": "#/$defs/PhaseCost"
+    },
+    "predict": {
+      "$ref": "#/$defs/PhaseCost"
+    },
+    "bench": {
+      "$ref": "#/$defs/Bench"
+    },
+    "vllm": {
+      "$ref": "#/$defs/Vllm"
+    },
+    "total_eur": {
+      "minimum": 0,
+      "title": "Total Eur",
+      "type": "number"
+    },
+    "cap_eur": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Cap Eur"
+    },
+    "synthetic": {
+      "title": "Synthetic",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "spec",
+    "rebase",
+    "executor",
+    "gpu",
+    "price_per_hour_eur",
+    "train",
+    "predict",
+    "bench",
+    "vllm",
+    "total_eur",
+    "synthetic"
+  ],
+  "title": "cost.json",
+  "type": "object",
+  "additionalProperties": false
+}

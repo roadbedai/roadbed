@@ -1,0 +1,18 @@
+{
+  "spec": "roadbed/v0.1",
+  "generation": 7,
+  "aliases": {
+    "claims-triage-prod": {
+      "upstream": "http://vllm:8000/v1",
+      "adapter": "claims-triage-v12",
+      "version": "v12",
+      "canary": {
+        "weight": 0.1,
+        "salt": "c13",
+        "adapter": "claims-triage-v13",
+        "version": "v13"
+      },
+      "shadow": null
+    }
+  }
+}

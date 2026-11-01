@@ -1,0 +1,23 @@
+{
+  "spec": "roadbed/v0.1",
+  "id": "S-2026-11-01",
+  "created_at": "2026-11-01T09:30:00Z",
+  "rows": 80,
+  "schema_sha256": "a1231223ed5d35d3f54cce0a67db2e01ce3f97589d7d069be3c3f4d0ab00d113",
+  "merkle_root": "2990864b9166593013ee5f4d3a26f36b6c8e5ee2e69a3a45328d0cd8603713c2",
+  "parts": [
+    {
+      "oid": "cfcba667407b0d414590a3a566bbd5f8d77c1316ac34abb20556ff38d5328bc3",
+      "rows": 80,
+      "size": 32724,
+      "path": "data/snapshots/2026-11-01/part-0000.jsonl"
+    }
+  ],
+  "label_rules": "label_rules@v1",
+  "pseudonymisation": {
+    "profile": "insurer-default@v1",
+    "hmac_key_id": "acme-hmac-2026-10"
+  },
+  "parent": "S-2026-10-31",
+  "synthetic": true
+}

@@ -11,7 +11,7 @@ from typing import Any
 
 import jsonschema
 
-from roadbed.cli.asset import MANIFEST, PRED_FILES, Asset, load_rows, read_meta, seal_time
+from roadbed.cli.asset import MANIFEST, PRED_FILES, Asset, bound_files, load_rows, read_meta, seal_time
 from roadbed.contracts import HoldoutDigest, PredictionDigests, json_schema
 from roadbed.hashing import sha256_file
 from roadbed.stats import compare
@@ -38,6 +38,7 @@ def _hashes(asset: Asset, d: Path) -> Check:
     if not m.is_file():
         return Check("V-MANIFEST-MISSING", "hashes OK", False, f"{asset.rel(m)} not found")
     count = 0
+    listed: set[str] = set()
     for lineno, line in enumerate(m.read_text(encoding="utf-8").splitlines(), 1):
         if not line.strip():
             continue
@@ -50,6 +51,13 @@ def _hashes(asset: Asset, d: Path) -> Check:
         if sha256_file(f) != digest:
             return Check("V-HASH-MISMATCH", "hashes OK", False, f"{rel} does not match {MANIFEST}")
         count += 1
+        listed.add(rel)
+    # A rebase with a receipt binds the seal, the snapshot manifest and the recipe (SPEC.md, Manifests).
+    # A Day 0 rebase has no receipt; its manifest needs only what it lists.
+    if (d / "receipt.json").is_file():
+        missing = [asset.rel(f) for f in bound_files(asset) if asset.rel(f) not in listed]
+        if missing:
+            return Check("V-MANIFEST-INCOMPLETE", "hashes OK", False, f"{MANIFEST} does not list {', '.join(missing)}")
     return Check("V-HASH-MISMATCH", "hashes OK", True, f"{count} files")
 
 
@@ -58,7 +66,7 @@ def _schemas(d: Path) -> Check:
         f = d / name
         try:
             data = json.loads(f.read_text(encoding="utf-8"))
-            jsonschema.Draft202012Validator(json_schema(schema)).validate(data)
+            jsonschema.Draft202012Validator(json_schema(schema, reader=True)).validate(data)  # readers ignore unknown fields
         except FileNotFoundError:
             return Check("V-SCHEMA-INVALID", "schemas OK", False, f"{name} not found")
         except (json.JSONDecodeError, jsonschema.ValidationError) as e:

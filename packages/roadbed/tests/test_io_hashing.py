@@ -5,11 +5,10 @@ import hashlib
 import jsonschema
 import pytest
 
+from conftest import EXAMPLE, SCORERS
 from roadbed import io
 from roadbed.hashing import sha256_canonical, sha256_file
 from roadbed.scoring import load_scorers, score_row
-
-from conftest import EXAMPLE, SCORERS
 
 
 def test_jsonl_round_trip(tmp_path):

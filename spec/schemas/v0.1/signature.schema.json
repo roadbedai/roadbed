@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/signature.schema.json",
+  "description": "receipt.sig and MANIFEST.sig: one ed25519 signature.",
+  "properties": {
+    "alg": {
+      "const": "ed25519",
+      "title": "Alg",
+      "type": "string"
+    },
+    "keyid": {
+      "description": "sha256 of the raw 32-byte public key.",
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Keyid",
+      "type": "string"
+    },
+    "key": {
+      "description": "Public key path from asset root, e.g. policy/keys/receipt.pub.",
+      "title": "Key",
+      "type": "string"
+    },
+    "signed": {
+      "description": "Path of the signed file from asset root.",
+      "title": "Signed",
+      "type": "string"
+    },
+    "payload": {
+      "description": "jcs: the JCS bytes of the signed JSON file; raw: its bytes.",
+      "enum": [
+        "jcs",
+        "raw"
+      ],
+      "title": "Payload",
+      "type": "string"
+    },
+    "sig": {
+      "description": "Base64 (RFC 4648, padded) 64-byte signature.",
+      "pattern": "^[A-Za-z0-9+/]{86}==$",
+      "title": "Sig",
+      "type": "string"
+    }
+  },
+  "required": [
+    "alg",
+    "keyid",
+    "key",
+    "signed",
+    "payload",
+    "sig"
+  ],
+  "title": "Signature (.sig)",
+  "type": "object",
+  "additionalProperties": false
+}

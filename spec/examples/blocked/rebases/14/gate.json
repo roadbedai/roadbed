@@ -1,0 +1,51 @@
+{
+  "spec": "roadbed/v0.1",
+  "synthetic": true,
+  "rebase": 14,
+  "status": "blocked",
+  "policy_sha256": "db986e9ba495bd71ec735d81cf60fef8ad4711e8b62c7a217484b514492f3452",
+  "checks": [
+    {
+      "name": "slice_margin",
+      "status": "fail",
+      "detail": "1 of 9 slices below -2.0 margin (line=bodily_injury -20.0); 8 flagged low-n"
+    },
+    {
+      "name": "license",
+      "status": "pass",
+      "detail": "apache-2.0 allowed by policy/license.yaml"
+    },
+    {
+      "name": "contamination",
+      "status": "pass",
+      "detail": "0 shared row ids between train manifest and holdout"
+    },
+    {
+      "name": "stage:shadow",
+      "status": "skipped",
+      "detail": "stub: not run in prototype"
+    },
+    {
+      "name": "stage:canary",
+      "status": "skipped",
+      "detail": "stub: not run in prototype"
+    },
+    {
+      "name": "stage:bias_tests",
+      "status": "skipped",
+      "detail": "stub: not run in prototype"
+    }
+  ],
+  "findings": [
+    {
+      "id": "F-0001",
+      "rebase": 14,
+      "slice": "line=bodily_injury",
+      "n": 30,
+      "delta": -20.0,
+      "ci_low": -32.0,
+      "ci_high": -8.0,
+      "margin": -2.0
+    }
+  ]
+}

@@ -2,8 +2,68 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/gate-policy.schema.json",
   "$defs": {
+    "ContaminationPolicy": {
+      "properties": {
+        "minhash_threshold": {
+          "description": "Near-duplicate when MinHash Jaccard >= this. Plan value 0.8.",
+          "exclusiveMinimum": 0,
+          "maximum": 1,
+          "title": "Minhash Threshold",
+          "type": "number"
+        },
+        "num_perm": {
+          "description": "MinHash permutations.",
+          "minimum": 16,
+          "title": "Num Perm",
+          "type": "integer"
+        },
+        "shingle": {
+          "description": "Word shingle size.",
+          "minimum": 1,
+          "title": "Shingle",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "minhash_threshold",
+        "num_perm",
+        "shingle"
+      ],
+      "title": "ContaminationPolicy",
+      "type": "object",
+      "additionalProperties": false
+    },
+    "CostCap": {
+      "properties": {
+        "eur": {
+          "description": "Abort the rebase when its cost reaches this many euros.",
+          "exclusiveMinimum": 0,
+          "title": "Eur",
+          "type": "number"
+        },
+        "gpu_hours": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional. Abort at this many GPU-hours.",
+          "title": "Gpu Hours"
+        }
+      },
+      "required": [
+        "eur"
+      ],
+      "title": "CostCap",
+      "type": "object",
+      "additionalProperties": false
+    },
     "Stage": {
-      "additionalProperties": false,
       "properties": {
         "stub": {
           "description": "True when the stage is a placeholder and does not run.",
@@ -15,10 +75,10 @@
         "stub"
       ],
       "title": "Stage",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     },
     "Stages": {
-      "additionalProperties": false,
       "properties": {
         "shadow": {
           "$ref": "#/$defs/Stage"
@@ -36,10 +96,10 @@
         "bias_tests"
       ],
       "title": "Stages",
-      "type": "object"
+      "type": "object",
+      "additionalProperties": false
     }
   },
-  "additionalProperties": false,
   "description": "policy/gate.yaml.",
   "properties": {
     "margin": {
@@ -88,6 +148,30 @@
     "stages": {
       "$ref": "#/$defs/Stages"
     },
+    "cost_cap": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CostCap"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional. Cost cap per rebase."
+    },
+    "contamination": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ContaminationPolicy"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional. Near-duplicate settings."
+    },
     "synthetic": {
       "anyOf": [
         {
@@ -112,5 +196,6 @@
     "stages"
   ],
   "title": "gate.yaml (policy)",
-  "type": "object"
+  "type": "object",
+  "additionalProperties": false
 }

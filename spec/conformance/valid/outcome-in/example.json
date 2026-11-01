@@ -1,0 +1,10 @@
+{
+  "outcome_id": "oc-7f3a-0001",
+  "interaction_id": "int-7f3a-0001",
+  "outcome": {
+    "paid": true,
+    "litigated": false
+  },
+  "source": "system_of_record",
+  "observed_at": "2026-12-01T00:00:00Z"
+}

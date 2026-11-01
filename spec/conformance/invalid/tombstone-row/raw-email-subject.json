@@ -1,0 +1,9 @@
+{
+  "subject_token": "jane@example.com",
+  "requested_at": "2026-10-31T16:00:00Z",
+  "requested_by": "admin-ops",
+  "reason": "gdpr_art17",
+  "audit_seq": 1180,
+  "rows_removed": 2,
+  "snapshot": "S-2026-11-01"
+}

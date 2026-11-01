@@ -1,0 +1,7 @@
+type: weighted_field_exact_match
+fields:
+- field: route
+  weight: 0.6
+- field: severity
+  weight: 0.4
+synthetic: true

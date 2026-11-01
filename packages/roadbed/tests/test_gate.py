@@ -4,12 +4,11 @@ import re
 
 import pytest
 
+from conftest import SCORERS, holdout_row, make_policy, pred, wrong_route
 from roadbed.contracts import LicensePolicy
 from roadbed.gate import check_contamination, decide_license, evaluate
 from roadbed.hashing import sha256_canonical
 from roadbed.stats import compare
-
-from conftest import SCORERS, holdout_row, make_policy, pred, wrong_route
 
 LINES = ["auto_physical", "bodily_injury", "property", "liability", "workers_comp"]
 STATES = ["CA", "TX", "FL", "NY", "PA", "IL"]

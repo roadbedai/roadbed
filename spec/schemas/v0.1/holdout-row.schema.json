@@ -1,7 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/holdout-row.schema.json",
-  "additionalProperties": false,
   "description": "One line of data/holdout/<id>/holdout.jsonl.",
   "properties": {
     "id": {
@@ -29,6 +28,21 @@
       "description": "Reviewer verdict. Must validate against task.output_schema.",
       "title": "Expected",
       "type": "object"
+    },
+    "row_hash": {
+      "anyOf": [
+        {
+          "description": "Lowercase hex SHA-256 digest.",
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional. Row hash of the source verdict row (see SPEC.md, hashing). When absent, sha256(JCS(row)).",
+      "title": "Row Hash"
     }
   },
   "required": [
@@ -38,5 +52,6 @@
     "expected"
   ],
   "title": "Holdout row",
-  "type": "object"
+  "type": "object",
+  "additionalProperties": false
 }

@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/lock.schema.json",
+  "$defs": {
+    "LockFile": {
+      "properties": {
+        "path": {
+          "description": "Tracked path from asset root, '/' separated.",
+          "title": "Path",
+          "type": "string"
+        },
+        "sha256": {
+          "description": "Lowercase hex SHA-256 digest.",
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "size": {
+          "description": "Bytes.",
+          "minimum": 0,
+          "title": "Size",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "size"
+      ],
+      "title": "LockFile",
+      "type": "object",
+      "additionalProperties": false
+    },
+    "LockObject": {
+      "properties": {
+        "oid": {
+          "description": "Bucket object id: lowercase hex sha256 of the object bytes.",
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Oid",
+          "type": "string"
+        },
+        "size": {
+          "minimum": 0,
+          "title": "Size",
+          "type": "integer"
+        },
+        "ref": {
+          "description": "Tracked path that names this object (a pointer file or a manifest).",
+          "title": "Ref",
+          "type": "string"
+        }
+      },
+      "required": [
+        "oid",
+        "size",
+        "ref"
+      ],
+      "title": "LockObject",
+      "type": "object",
+      "additionalProperties": false
+    }
+  },
+  "description": "roadbed.lock: every tracked path and every bucket object, sorted by path.",
+  "properties": {
+    "spec": {
+      "const": "roadbed/v0.1",
+      "description": "Spec version of this file.",
+      "title": "Spec",
+      "type": "string"
+    },
+    "files": {
+      "description": "Every tracked file except roadbed.lock, sorted by path (bytewise).",
+      "items": {
+        "$ref": "#/$defs/LockFile"
+      },
+      "title": "Files",
+      "type": "array"
+    },
+    "objects": {
+      "description": "Every bucket object the tree names, sorted by oid.",
+      "items": {
+        "$ref": "#/$defs/LockObject"
+      },
+      "title": "Objects",
+      "type": "array"
+    },
+    "synthetic": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Synthetic"
+    }
+  },
+  "required": [
+    "spec",
+    "files",
+    "objects"
+  ],
+  "title": "roadbed.lock",
+  "type": "object",
+  "additionalProperties": false
+}

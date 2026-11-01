@@ -17,7 +17,7 @@ from roadbed.contracts import json_schema
 def _yaml() -> YAML:
     y = YAML(typ="safe", pure=True)
     y.default_flow_style = False
-    y.sort_base_mapping_type_on_output = False
+    y.sort_base_mapping_type_on_output = False  # type: ignore[assignment]  # ruamel's stub types it as None
     return y
 
 
@@ -66,7 +66,7 @@ def load_asset(root: str | Path) -> dict[str, Any]:
     # YAML may parse an unquoted timestamp as datetime; JSON Schema expects a string.
     data = json.loads(json.dumps(data, default=_iso))
     validator = jsonschema.Draft202012Validator(
-        json_schema("roadbed"), format_checker=jsonschema.Draft202012Validator.FORMAT_CHECKER
+        json_schema("roadbed", reader=True), format_checker=jsonschema.Draft202012Validator.FORMAT_CHECKER
     )
     validator.validate(data)
     return data

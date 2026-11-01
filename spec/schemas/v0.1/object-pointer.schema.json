@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/object-pointer.schema.json",
+  "description": "<path>.ptr: stands in git for a file over 1 MB that lives in the bucket.",
+  "properties": {
+    "spec": {
+      "const": "roadbed/v0.1",
+      "description": "Spec version of this file.",
+      "title": "Spec",
+      "type": "string"
+    },
+    "oid": {
+      "description": "Bucket object id: lowercase hex sha256 of the object bytes.",
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Oid",
+      "type": "string"
+    },
+    "size": {
+      "description": "Bytes. Only files over 1 MB become pointers.",
+      "exclusiveMinimum": 1000000,
+      "title": "Size",
+      "type": "integer"
+    },
+    "media_type": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Media Type"
+    }
+  },
+  "required": [
+    "spec",
+    "oid",
+    "size"
+  ],
+  "title": "Object pointer",
+  "type": "object",
+  "additionalProperties": false
+}

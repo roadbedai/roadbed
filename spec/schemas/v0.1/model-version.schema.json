@@ -1,0 +1,198 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/model-version.schema.json",
+  "$defs": {
+    "Adapter": {
+      "properties": {
+        "oid": {
+          "description": "Bucket object id: lowercase hex sha256 of the object bytes.",
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Oid",
+          "type": "string"
+        },
+        "size": {
+          "minimum": 0,
+          "title": "Size",
+          "type": "integer"
+        },
+        "format": {
+          "const": "peft-lora",
+          "title": "Format",
+          "type": "string"
+        }
+      },
+      "required": [
+        "oid",
+        "size",
+        "format"
+      ],
+      "title": "Adapter",
+      "type": "object",
+      "additionalProperties": false
+    },
+    "DatasetRef": {
+      "properties": {
+        "id": {
+          "description": "Snapshot id (S-...) or holdout id (H-...).",
+          "pattern": "^[SH]-[A-Za-z0-9-]{1,64}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "merkle_root": {
+          "description": "Merkle root of the sorted row hashes (SPEC.md, hashing).",
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Merkle Root",
+          "type": "string"
+        },
+        "rows": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional. Row count.",
+          "title": "Rows"
+        }
+      },
+      "required": [
+        "id",
+        "merkle_root"
+      ],
+      "title": "DatasetRef",
+      "type": "object",
+      "additionalProperties": false
+    },
+    "PinnedBase": {
+      "properties": {
+        "repo": {
+          "description": "Hugging Face repo id of the base model.",
+          "title": "Repo",
+          "type": "string"
+        },
+        "revision": {
+          "description": "40-hex commit sha.",
+          "pattern": "^[0-9a-f]{40}$",
+          "title": "Revision",
+          "type": "string"
+        }
+      },
+      "required": [
+        "repo",
+        "revision"
+      ],
+      "title": "PinnedBase",
+      "type": "object",
+      "additionalProperties": false
+    },
+    "RecipeRef": {
+      "properties": {
+        "path": {
+          "description": "Recipe path from asset root, e.g. recipes/qwen3/lora-r16-sft@v4.yaml.",
+          "title": "Path",
+          "type": "string"
+        },
+        "sha256": {
+          "description": "sha256 of the recipe file bytes.",
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "title": "RecipeRef",
+      "type": "object",
+      "additionalProperties": false
+    }
+  },
+  "description": "versions/vN/model.json.",
+  "properties": {
+    "spec": {
+      "const": "roadbed/v0.1",
+      "description": "Spec version of this file.",
+      "title": "Spec",
+      "type": "string"
+    },
+    "model": {
+      "title": "Model",
+      "type": "string"
+    },
+    "version": {
+      "pattern": "^v\\d+$",
+      "title": "Version",
+      "type": "string"
+    },
+    "base": {
+      "$ref": "#/$defs/PinnedBase"
+    },
+    "license": {
+      "description": "Lowercase SPDX id of the base license.",
+      "title": "License",
+      "type": "string"
+    },
+    "adapter": {
+      "$ref": "#/$defs/Adapter"
+    },
+    "recipe": {
+      "$ref": "#/$defs/RecipeRef"
+    },
+    "snapshot": {
+      "$ref": "#/$defs/DatasetRef"
+    },
+    "holdout": {
+      "$ref": "#/$defs/DatasetRef"
+    },
+    "created_at": {
+      "description": "UTC timestamp, RFC 3339, seconds precision, Z suffix: YYYY-MM-DDTHH:MM:SSZ. Kept as the stored string.",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$",
+      "title": "Created At",
+      "type": "string"
+    },
+    "receipt": {
+      "description": "Path of the training receipt.json.",
+      "title": "Receipt",
+      "type": "string"
+    },
+    "rebase": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Rebase that produced this version, if any.",
+      "title": "Rebase"
+    },
+    "synthetic": {
+      "title": "Synthetic",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "spec",
+    "model",
+    "version",
+    "base",
+    "license",
+    "adapter",
+    "recipe",
+    "snapshot",
+    "holdout",
+    "created_at",
+    "receipt",
+    "synthetic"
+  ],
+  "title": "model.json",
+  "type": "object",
+  "additionalProperties": false
+}

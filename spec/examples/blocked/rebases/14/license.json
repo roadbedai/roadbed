@@ -1,0 +1,15 @@
+{
+  "spec": "roadbed/v0.1",
+  "rebase": 14,
+  "base": {
+    "repo": "Qwen/Qwen3.8-4B",
+    "revision": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0"
+  },
+  "license": "apache-2.0",
+  "source": "cardData",
+  "decision": "allow",
+  "policy": "policy/license.yaml",
+  "policy_sha256": "1074efbae008522a295b4e99e11c11fca3388e80d40fc947fc2d8a1680f63ed5",
+  "decided_at": "2026-11-01T10:31:30Z",
+  "synthetic": true
+}

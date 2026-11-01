@@ -7,29 +7,29 @@ from collections.abc import Iterable
 from roadbed.contracts import (
     SPEC,
     Check,
-    Contamination,
-    Finding,
+    GateContaminationInput,
+    GateFinding,
+    GateLicenseInput,
     GatePolicy,
     GateResult,
-    LicenseDecision,
     LicensePolicy,
     Scores,
 )
 from roadbed.hashing import sha256_canonical
 
 
-def decide_license(license_id: str, policy: LicensePolicy, source: str = "policy/license.yaml") -> LicenseDecision:
+def decide_license(license_id: str, policy: LicensePolicy, source: str = "policy/license.yaml") -> GateLicenseInput:
     lic = license_id.strip().lower()
-    return LicenseDecision(license=lic, allowed=lic in {a.lower() for a in policy.allow}, source=source)
+    return GateLicenseInput(license=lic, allowed=lic in {a.lower() for a in policy.allow}, source=source)
 
 
 def check_contamination(
     train_ids: Iterable[str] | None, holdout_ids: Iterable[str], train_manifest: str | None = None
-) -> Contamination | None:
+) -> GateContaminationInput | None:
     """Shared ids between a train manifest and the holdout. None when there is no train manifest."""
     if train_ids is None:
         return None
-    return Contamination(train_manifest=train_manifest, shared_ids=sorted(set(train_ids) & set(holdout_ids)))
+    return GateContaminationInput(train_manifest=train_manifest, shared_ids=sorted(set(train_ids) & set(holdout_ids)))
 
 
 def _fmt(x: float) -> str:
@@ -39,8 +39,8 @@ def _fmt(x: float) -> str:
 def evaluate(
     scores: Scores,
     policy: GatePolicy,
-    license_decision: LicenseDecision | None = None,
-    contamination: Contamination | None = None,
+    license_decision: GateLicenseInput | None = None,
+    contamination: GateContaminationInput | None = None,
     *,
     finding_offset: int = 0,
 ) -> GateResult:
@@ -95,7 +95,7 @@ def evaluate(
             checks.append(Check(name=f"stage:{name}", status="skipped", detail="stub: not run in prototype"))
 
     findings = [
-        Finding(
+        GateFinding(
             id=f"F-{finding_offset + i:04d}",
             rebase=scores.rebase,
             slice=f"{s.key}={s.value}",

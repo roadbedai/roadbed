@@ -1,0 +1,62 @@
+{
+  "id": "job-rebase-13-train",
+  "model": "claims-triage",
+  "rebase": 13,
+  "spec": {
+    "kind": "train",
+    "base": {
+      "repo": "Qwen/Qwen3.8-4B",
+      "revision": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0"
+    },
+    "recipe": {
+      "path": "recipes/qwen3/lora-r16-sft@v4.yaml",
+      "sha256": "d6dd266cbd01cf3f7352611f36415ed9785c24e3ace9d1cb39ab994942ec9cc8"
+    },
+    "snapshot": {
+      "id": "S-2026-11-01",
+      "merkle_root": "2990864b9166593013ee5f4d3a26f36b6c8e5ee2e69a3a45328d0cd8603713c2",
+      "rows": 80,
+      "manifest": {
+        "oid": "7919744e3e6e8ecd4da73f796bc1bedc5786f4a9160baa37ac5468279867914a",
+        "size": 676
+      },
+      "parts": [
+        {
+          "oid": "cfcba667407b0d414590a3a566bbd5f8d77c1316ac34abb20556ff38d5328bc3",
+          "size": 32724
+        }
+      ]
+    },
+    "holdout": {
+      "id": "H-2026-11-01",
+      "merkle_root": "72ec9582a0d6116e6dd8f99e2fb63a7b46ce43acc1fa7d634def2a594d21f350",
+      "rows": 60,
+      "seal_seq": 1204,
+      "sealed_at": "2026-11-01T09:02:00Z",
+      "seal_commit": "dd401870bd807f82614d7a95326c72ecb1b2c62c",
+      "row_hashes": {
+        "oid": "e7bf8f817eb32a594e94550479a21e0a3c5d55cbfaa3ff7c38699dfdfda11b7d",
+        "size": 3900
+      },
+      "minhash": {
+        "oid": "cc6d151b0927d136e2554dbae256893a92e9b1dad123fe50f240e8706fa06e44",
+        "size": 1
+      }
+    },
+    "seed": 20261101,
+    "image_digest": "sha256:78e4867e2399b4460a21db5944f52e0eca9ac4cca7a460a7664a1b99d637752b",
+    "adapter_name": "claims-triage-v13",
+    "outputs": [
+      "adapter",
+      "receipt"
+    ]
+  },
+  "storage": {
+    "endpoint": "http://minio:9000",
+    "bucket": "acme-claims",
+    "credentials": "runner-bucket-rw"
+  },
+  "cost_cap_eur": 25.0,
+  "created_at": "2026-11-01T10:20:00Z",
+  "requested_by": "dana"
+}

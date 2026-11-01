@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/correction-test-row.schema.json",
+  "description": "One line of evals/correction_tests.jsonl: one per reviewer fix.",
+  "properties": {
+    "id": {
+      "pattern": "^CT-\\d{4,}$",
+      "title": "Id",
+      "type": "string"
+    },
+    "interaction_id": {
+      "title": "Interaction Id",
+      "type": "string"
+    },
+    "input_ref": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Input Ref",
+      "type": "string"
+    },
+    "slices": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Slices",
+      "type": "object"
+    },
+    "model_version": {
+      "description": "Version that produced the wrong output.",
+      "title": "Model Version",
+      "type": "string"
+    },
+    "model_output": {
+      "additionalProperties": true,
+      "title": "Model Output",
+      "type": "object"
+    },
+    "expected": {
+      "additionalProperties": true,
+      "description": "Reviewer fix.",
+      "title": "Expected",
+      "type": "object"
+    },
+    "reason_code": {
+      "title": "Reason Code",
+      "type": "string"
+    },
+    "created_by": {
+      "description": "User or service id (lowercase, digits, _ and -). Never an email address or a name.",
+      "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+      "title": "Created By",
+      "type": "string"
+    },
+    "created_at": {
+      "description": "UTC timestamp, RFC 3339, seconds precision, Z suffix: YYYY-MM-DDTHH:MM:SSZ. Kept as the stored string.",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$",
+      "title": "Created At",
+      "type": "string"
+    },
+    "row_hash": {
+      "anyOf": [
+        {
+          "description": "Lowercase hex SHA-256 digest.",
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Row Hash"
+    }
+  },
+  "required": [
+    "id",
+    "interaction_id",
+    "input_ref",
+    "slices",
+    "model_version",
+    "model_output",
+    "expected",
+    "reason_code",
+    "created_by",
+    "created_at"
+  ],
+  "title": "Correction test row",
+  "type": "object",
+  "additionalProperties": false
+}
