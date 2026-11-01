@@ -1,0 +1,19 @@
+started rebase #13  claims-triage → Qwen/Qwen3.8-4B @1d4bf0f2ff60
+10:14:00  detected  new base Qwen/Qwen3.8-4B @1d4bf0f2ff60
+10:15:00  license  apache-2.0 allow by policy
+10:16:00  seal_check  seal seq 1204 < training seq 1377
+10:17:00  training  executor mock
+10:18:00  predicting  60 holdout rows
+10:19:00  benchmarking  0.0 EUR
+10:20:00  gating  gate pass
+10:21:00  evidence  pack v1
+10:22:00  pr_opened  PR #13
+10:23:00  awaiting_signoff
+MOCK executor: no training or inference ran; numbers are from fixture predictions
+SYNTHETIC data
+scored on 60 holdout cases
++10.0 (CI +5.0 to +16.0)
+0 of 9 slices below margin
+8 slices flagged low-n (they never block)
+
+opened rebase #13 → awaiting MRM sign-off

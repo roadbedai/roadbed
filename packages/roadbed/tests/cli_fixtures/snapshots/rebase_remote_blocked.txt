@@ -1,0 +1,18 @@
+started rebase #14  claims-triage → Qwen/Qwen3.8-4B @1d4bf0f2ff60
+10:31:00  detected  new base Qwen/Qwen3.8-4B @1d4bf0f2ff60
+10:32:00  license  apache-2.0 allow by policy
+10:33:00  seal_check  seal seq 1204 < training seq 1391
+10:34:00  training  executor mock
+10:35:00  predicting  60 holdout rows
+10:36:00  benchmarking  0.0 EUR
+10:37:00  gating  gate blocked
+10:38:00  evidence  pack v1
+10:39:00  blocked  F-0001 logged; alias unchanged
+MOCK executor: no training or inference ran; numbers are from fixture predictions
+SYNTHETIC data
+scored on 60 holdout cases
+−5.0 (CI −13.0 to +3.0)
+1 of 9 slices below margin
+8 slices flagged low-n (they never block)
+
+blocked: line=bodily_injury −20.0 below −2.0 margin · F-0001 logged

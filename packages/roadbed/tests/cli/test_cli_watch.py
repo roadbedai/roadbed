@@ -57,7 +57,7 @@ def test_watch_bad_policy_fails(asset: Path, monkeypatch):
     monkeypatch.chdir(asset)
     (asset / "policy/license.yaml").write_text("allow: [apache-2.0]\nallow_everything: true\n")
     r = runner.invoke(app, ["watch", "--base", GLOB])
-    assert r.exit_code == 1 and "policy/license.yaml" in r.output
+    assert r.exit_code == 2 and "policy/license.yaml" in r.output
 
 
 def test_watch_outside_asset_prints_license_only(tmp_path: Path, monkeypatch):
@@ -73,10 +73,10 @@ def test_watch_no_match_exits_2(tmp_path: Path, monkeypatch):
     assert r.exit_code == 2
 
 
-def test_watch_bad_glob_exits_1(tmp_path: Path, monkeypatch):
+def test_watch_bad_glob_exits_2(tmp_path: Path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     r = runner.invoke(app, ["watch", "--base", "Qwen/../x"])
-    assert r.exit_code == 1 and "base glob" in r.output
+    assert r.exit_code == 2 and "base glob" in r.output
 
 
 def test_watch_offline_uses_cache(tmp_path: Path, monkeypatch):
@@ -90,7 +90,7 @@ def test_watch_offline_uses_cache(tmp_path: Path, monkeypatch):
 def test_watch_offline_without_cache_fails(tmp_path: Path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     r = runner.invoke(app, ["watch", "--base", GLOB, "--offline"])
-    assert r.exit_code == 1 and "no cached Hub listing" in r.output
+    assert r.exit_code == 3 and "no cached Hub listing"  # W21: Hub unreachable is a remote error in r.output
 
 
 def test_age():
