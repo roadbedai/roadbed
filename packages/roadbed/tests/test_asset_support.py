@@ -17,6 +17,8 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any
 
+import yaml
+
 from roadbed.asset import ObjectStore, build_lock, sign_file, write_lock, write_signature
 from roadbed.asset.files import parse_manifest
 from roadbed.asset.overlap import minhash, minhash_object, shingles
@@ -107,14 +109,34 @@ def _rehash(root: Path, text: str) -> str:
     return "".join(out)
 
 
+def _rebind_config(root: Path, receipts: list[Path]) -> None:
+    """Re-hash the five config files into each receipt that has predicate.config. lock_sha256 stays: it names the
+    lock the job started from, which a later relock does not change."""
+    cfg = yaml.safe_load((root / "roadbed.yaml").read_text())
+    paths = {"roadbed_yaml_sha256": "roadbed.yaml", "slices_sha256": cfg["evals"]["slices"],
+             "scorers_sha256": cfg["evals"]["scorers"], "gate_policy_sha256": cfg["gate"],
+             "seal_sha256": f"{str(cfg['data']['holdout']['path']).rstrip('/')}/SEAL.json"}
+    for p in receipts:
+        doc = json.loads(p.read_text())
+        config = doc["predicate"].get("config")
+        if not config:
+            continue
+        new = {**config, **{k: sha256_file(root / rel) for k, rel in paths.items() if k in config}}
+        if new != config:
+            doc["predicate"]["config"] = new
+            p.write_text(json.dumps(doc, indent=2) + "\n")
+
+
 def reseal(root: Path, n: int, *, chain: bool = False, commit: str | None = None, store: ObjectStore | None = None,
-           sign: bool = True, relock: bool = True) -> None:
+           sign: bool = True, relock: bool = True, rebind: bool = True) -> None:
     """Make a tampered asset self-consistent again, as an attacker who holds the signing keys would: re-chain and
-    re-sign the receipts, re-hash the rebase manifest, re-hash and re-sign the evidence manifest, rewrite the lock.
+    re-bind the receipt config digests, re-sign the receipts, re-hash the rebase manifest, re-hash and re-sign the evidence manifest, rewrite the lock.
     With commit, also commit the result (git clones)."""
     b = builder()
     rkey, ekey = b.test_key("receipt"), b.test_key("evidence")
     receipts = sorted(root.glob("versions/*/receipt.json")) + sorted(root.glob("rebases/*/receipt.json"))
+    if rebind:
+        _rebind_config(root, receipts)
     if chain:
         docs = sorted(((json.loads(p.read_text()), p) for p in receipts), key=lambda x: x[0]["predicate"]["started_at"])
         prev = None

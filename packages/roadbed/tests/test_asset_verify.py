@@ -18,6 +18,8 @@ from typer.testing import CliRunner
 from roadbed.asset import build_lock, read_doc, row_hash, verify, write_lock
 from roadbed.asset.hashing import jcs_sha256
 from roadbed.asset.overlap import minhash_object, parse_minhash_object
+from roadbed.asset.verify import _config, _Ctx
+from roadbed.cli.asset import open_asset
 from roadbed.cli.main import app
 from roadbed.contracts import GatePolicy
 from test_asset_support import EXAMPLES, REBASE, bucket, builder, clone, copy, edit_json, git, reseal
@@ -46,11 +48,13 @@ def _failed(root: Path, n: int = 13, **kw):
 
 @pytest.mark.parametrize("asset", ["pass", "blocked"])
 def test_passes_in_place(asset):
-    """In the spec repo the fixtures have no git history of their own and no bucket: those checks are skipped."""
+    """In the spec repo the fixtures have no git history of their own and no bucket: those checks are skipped. The
+    working tree lock lists the receipt, so it is not the lock the job started from: config.lock_sha256 is skipped."""
     r = verify(EXAMPLES / asset / f"rebases/{REBASE[asset]}")
     assert r.ok and r.full
     skipped = sorted(c.label for c in r.checks if c.ok is None)
-    assert skipped == ["bucket objects re-hashed: skipped", "seal precedes training: git ancestry: skipped",
+    assert skipped == ["bucket objects re-hashed: skipped", "receipt binds its config: skipped",
+                       "seal precedes training: git ancestry: skipped",
                        "train and holdout disjoint: near (Jaccard < 0.8): skipped"]
 
 
@@ -601,3 +605,99 @@ def test_named_object_missing_from_objects(tmp_path, store):
     assert last.code == "V-OBJECT-MISSING" and last.ok is None and adapter[:12] in last.detail
     f = _failed(root, objects=store, strict=True, trusted_keyids=KEYS)
     assert f.code == "V-OBJECT-MISSING" and "--strict" in f.detail
+
+
+# ---------------------------------------------------------------- W01c: receipt config binding
+
+CONFIG_FILES = {"roadbed.yaml": "roadbed_yaml_sha256", "evals/slices.yaml": "slices_sha256",
+                "evals/scorers.yaml": "scorers_sha256", GATE: "gate_policy_sha256", f"{HOLD}/SEAL.json": "seal_sha256"}
+
+
+def _config_check(r):
+    return next(c for c in r.checks if c.label.startswith("receipt binds its config"))
+
+
+@pytest.mark.parametrize("asset", ["pass", "blocked"])
+def test_config_binds_files_and_start_lock_in_git(asset, tmp_path, store):
+    """Bundle clone: the five files match the working tree and the commit that added the receipt, and lock_sha256
+    is the lock in that commit (not the later one in the working tree)."""
+    root = clone(asset, tmp_path / asset)
+    r = verify(root / f"rebases/{REBASE[asset]}", objects=store)
+    assert r.ok, r.failed
+    c = _config_check(r)
+    assert c.ok is True and c.detail.startswith("5 files and roadbed.lock from the commit that added")
+
+
+@pytest.mark.parametrize("rel", list(CONFIG_FILES))
+def test_config_file_tampered(tmp_path, rel):
+    """The attacker changes one config file and relocks (manifests and lock consistent), but cannot re-sign a
+    receipt whose config still names the old bytes."""
+    root = copy("pass", tmp_path / "a")
+    f = root / rel
+    if rel.endswith(".json"):
+        f.write_text(json.dumps(json.loads(f.read_text()), indent=4) + "\n")  # same values, other bytes
+    else:
+        f.write_text(f.read_text() + "# tampered\n")
+    reseal(root, 13, rebind=False)
+    f_ = _failed(root)
+    assert f_.code == "V-HASH-MISMATCH" and rel in f_.detail and CONFIG_FILES[rel] in f_.detail
+
+
+def test_config_margin_relock_refused(tmp_path):
+    """evals.margin loosened in roadbed.yaml plus a relock: refused by config.roadbed_yaml_sha256."""
+    root = copy("pass", tmp_path / "a")
+    y = root / "roadbed.yaml"
+    y.write_text(y.read_text().replace("margin: -2.0", "margin: -50.0"))
+    reseal(root, 13, rebind=False)
+    f = _failed(root)
+    assert f.code == "V-HASH-MISMATCH" and "roadbed.yaml" in f.detail
+
+
+def test_config_committed_tamper_refused(tmp_path, store):
+    """A committed edit of a config file after the receipt: the working tree no longer matches the receipt."""
+    root = clone("pass", tmp_path / "a")
+    s = root / "evals/scorers.yaml"
+    s.write_text(s.read_text() + "# tampered\n")
+    reseal(root, 13, sign=False, rebind=False, commit="tune scorers")
+    f = _failed(root, objects=store)
+    assert f.code == "V-HASH-MISMATCH" and "evals/scorers.yaml" in f.detail
+
+
+def test_config_start_lock_tampered_in_history(tmp_path, store):
+    """Rewrite the commit that added the receipt with a different roadbed.lock; the tip tree is unchanged."""
+    root = clone("pass", tmp_path / "a")
+    tip = git(root, "rev-parse", "HEAD")
+    train = git(root, "log", "--diff-filter=A", "--format=%H", "--", "rebases/13/receipt.json")
+    git(root, "reset", "-q", "--hard", train)
+    lock = root / "roadbed.lock"
+    lock.write_text(lock.read_text() + "\n")
+    git(root, "commit", "-q", "-a", "--amend", "--no-edit")
+    git(root, "checkout", "-q", tip, "--", ".")
+    git(root, "commit", "-q", "-m", "outputs")
+    f = _failed(root, objects=store)
+    assert f.code == "V-HASH-MISMATCH" and "roadbed.lock" in f.detail and "lock_sha256" in f.detail
+
+
+def test_receipt_without_config_still_verifies(tmp_path):
+    """Compatibility: config is optional."""
+    root = copy("pass", tmp_path / "a")
+    edit_json(root / "rebases/13/receipt.json", lambda d: d["predicate"].__delitem__("config"))
+    reseal(root, 13)
+    r = verify(root / "rebases/13")
+    assert r.ok, r.failed
+    c = _config_check(r)
+    assert c.ok is True and "no config" in c.detail
+
+
+def test_config_start_lock_without_history(tmp_path):
+    """No git history, and the working tree lock does not list the receipt: it is still the start lock and is
+    checked. A wrong lock_sha256 then fails."""
+    root = copy("pass", tmp_path / "a")
+    edit_json(root / "rebases/13/receipt.json", lambda d: d["predicate"]["config"].update(lock_sha256="0" * 64))
+    reseal(root, 13)
+    lock = root / "roadbed.lock"
+    doc = json.loads(lock.read_text())
+    doc["files"] = [e for e in doc["files"] if not e["path"].startswith("rebases/13/")]
+    lock.write_text(json.dumps(doc, indent=2) + "\n")
+    c = _config(_Ctx(open_asset(root), root / "rebases/13", 13, None, False, None))
+    assert c.ok is False and c.code == "V-HASH-MISMATCH" and "lock_sha256" in c.detail
