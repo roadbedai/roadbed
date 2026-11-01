@@ -1207,6 +1207,7 @@ name = "roadbed"
 version = "0.0.1"
 source = { editable = "packages/roadbed" }
 dependencies = [
+    { name = "cryptography" },
     { name = "httpx" },
     { name = "huggingface-hub" },
     { name = "jsonschema" },
@@ -1227,6 +1228,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "cryptography", specifier = ">=43" },
     { name = "httpx" },
     { name = "huggingface-hub" },
     { name = "jsonschema" },
