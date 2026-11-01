@@ -1,0 +1,37 @@
+name: labels-evals
+
+on:
+  pull_request:
+    paths:
+      - "packages/roadbed/src/roadbed/labels/**"
+      - "packages/roadbed/src/roadbed/evals/**"
+      - "packages/roadbed/src/roadbed/cli/evals.py"
+      - "packages/roadbed/tests/test_labels_*.py"
+      - "packages/roadbed/tests/test_evals_*.py"
+      - "packages/roadbed/tests/fixtures/acme-2k/**"
+      - ".github/workflows/labels-evals.yml"
+  push:
+    branches: [main]
+    paths:
+      - "packages/roadbed/src/roadbed/labels/**"
+      - "packages/roadbed/src/roadbed/evals/**"
+      - "packages/roadbed/tests/test_labels_*.py"
+      - "packages/roadbed/tests/test_evals_*.py"
+
+permissions:
+  contents: read
+
+jobs:
+  labels-evals:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - name: Lint (ruff)
+        run: uv run ruff check packages/roadbed/src/roadbed/labels packages/roadbed/src/roadbed/evals packages/roadbed/src/roadbed/cli/evals.py packages/roadbed/tests
+      - name: Type check (mypy)
+        run: uv run mypy
+      - name: Label resolver and eval synthesis tests
+        run: uv run pytest -q packages/roadbed/tests/test_labels_resolve.py packages/roadbed/tests/test_evals_build.py packages/roadbed/tests/test_evals_leakage.py packages/roadbed/tests/test_evals_cli.py
