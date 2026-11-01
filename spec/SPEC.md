@@ -207,7 +207,7 @@ The SDK pseudonymises before ingest. Ingest without a pseudonymisation profile i
 
 Each event has `seq` (from 1), `prev_hash` (the `hash` of seq − 1, 64 zeros for seq 1) and `hash = sha256(JCS(event without "hash"))`.
 A denied event names its `rule`: `SoD-01` to `SoD-05`, or `RBAC` for a deny by the role matrix.
-`object.type` matches `^[a-z][a-z_]{0,63}$`. `object.id` is an id, token or hash: `^[A-Za-z0-9:_./+=-]{1,256}$`. Payload integers and numbers stay within ±9007199254740991 (2^53 − 1), so every JSON reader holds them exactly.
+`object.type` matches `^[a-z][a-z_]{0,63}$`. `object.id` is an id, token or hash, or a lone `*` for a collection (list routes): `^(\*|[A-Za-z0-9:_./+=-]{1,256})$`. It has no `@`, so it never holds an email address. Payload integers and numbers stay within ±9007199254740991 (2^53 − 1), so every JSON reader holds them exactly.
 A daily anchor (`audit/anchors/<date>.json`) records the head seq and hash. A copy goes to the Object Lock bucket. Vectors: `conformance/vectors/audit-chain.jsonl`.
 
 ## Scoring and gate

@@ -58,8 +58,8 @@ info:
   x-roadbed-spec:
     version: roadbed/v0.1
     source: roadbedai/roadbed spec/schemas/v0.1
-    commit: e4d429738a3f40562d9e06355b001dd40302899d
-    schemas_sha256: bbde6ffeb00bb85c494cb5aff59ad885e2b84e3ee58cbb11313bacbaf2a05e62
+    commit: 8b293c3474111056af7d3d014517c90cef8f7ae3
+    schemas_sha256: c7e62b3c361d80ca5698054557ac029da59049638a2026ec0245de33844298c7
 servers:
 - url: /
 tags:
@@ -2538,9 +2538,9 @@ components:
           title: Type
           type: string
         id:
-          description: An id, token or hash. No spaces.
+          description: An id, token or hash. No spaces, no '@'. A lone '*' is a collection (list routes).
           maxLength: 256
-          pattern: ^[A-Za-z0-9:_./+=-]{1,256}$
+          pattern: ^(\*|[A-Za-z0-9:_./+=-]{1,256})$
           title: Id
           type: string
       required:

@@ -1174,7 +1174,10 @@ class LineageEdge(_Aliased):
 
 class AuditObject(_Model):
     type: str = Field(pattern=r"^[a-z][a-z_]{0,63}$", description="e.g. rebase, holdout, alias, subject.")
-    id: str = Field(pattern=r"^[A-Za-z0-9:_./+=-]{1,256}$", max_length=256, description="An id, token or hash. No spaces.")
+    id: str = Field(
+        pattern=r"^(\*|[A-Za-z0-9:_./+=-]{1,256})$", max_length=256,
+        description="An id, token or hash. No spaces, no '@'. A lone '*' is a collection (list routes).",
+    )
 
 
 AuditRule = Literal["SoD-01", "SoD-02", "SoD-03", "SoD-04", "SoD-05", "RBAC"]

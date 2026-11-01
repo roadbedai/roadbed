@@ -1,0 +1,18 @@
+{
+  "seq": 1377,
+  "ts": "2026-11-01T10:20:00Z",
+  "actor": "dana",
+  "role": "developer",
+  "action": "rebase.approve",
+  "object": {
+    "type": "rebase",
+    "id": "jane.doe@acme.example"
+  },
+  "outcome": "denied",
+  "rule": "SoD-02",
+  "payload": {
+    "rebase": 13
+  },
+  "prev_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+}

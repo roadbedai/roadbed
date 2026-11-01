@@ -81,6 +81,8 @@ A case whose only fault is an unknown field fails the published (closed) schema;
 | `invalid/audit-event/object-type-upper.json` | `audit-event.schema.json` | object.type is ^[a-z][a-z_]{0,63}$ (W01c) |
 | `invalid/audit-event/object-id-space.json` | `audit-event.schema.json` | object.id has no spaces (W01c) |
 | `invalid/audit-event/object-id-long.json` | `audit-event.schema.json` | object.id is at most 256 characters (W01c) |
+| `invalid/audit-event/object-id-email.json` | `audit-event.schema.json` | object.id has no '@': never an email address (W01c) |
+| `invalid/audit-event/object-id-star-prefix.json` | `audit-event.schema.json` | '*' is the whole id or absent (W01c) |
 | `invalid/audit-event/payload-int-unsafe.json` | `audit-event.schema.json` | payload integers stay within +-(2^53-1) (W01c) |
 | `invalid/audit-event/payload-number-unsafe.json` | `audit-event.schema.json` | payload numbers stay within +-(2^53-1) (W01c) |
 | `invalid/approval/unknown-decision.json` | `approval.schema.json` | decision is an enum |
@@ -133,6 +135,7 @@ More valid cases (besides `valid/<schema>/example.json`):
 | `valid/receipt/partial-config.json` | `receipt.schema.json` | each config digest is optional (W01c) |
 | `valid/audit-event/payload-safe-bounds.json` | `audit-event.schema.json` | payload numbers up to 2^53-1 in size are valid (W01c) |
 | `valid/audit-event/object-hash-id.json` | `audit-event.schema.json` | object ids are ids, tokens or hashes (W01c) |
+| `valid/audit-event/object-collection.json` | `audit-event.schema.json` | a lone '*' names a collection, as authz writes for list routes (W01c) |
 | `valid/cost/bench-cap-null.json` | `cost.schema.json` | a bench job's cost.json has cap_eur null; the control plane sets it from policy/gate.yaml (W01c) |
 | `valid/interaction-in/id-128.json` | `interaction-in.schema.json` | interaction_id may be 128 characters (W01c) |
 | `valid/job-lease/first-receipt.json` | `job-lease.schema.json` | the first receipt of an asset has prev_receipt null |

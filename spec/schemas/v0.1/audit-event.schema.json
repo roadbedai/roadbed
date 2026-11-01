@@ -11,9 +11,9 @@
           "type": "string"
         },
         "id": {
-          "description": "An id, token or hash. No spaces.",
+          "description": "An id, token or hash. No spaces, no '@'. A lone '*' is a collection (list routes).",
           "maxLength": 256,
-          "pattern": "^[A-Za-z0-9:_./+=-]{1,256}$",
+          "pattern": "^(\\*|[A-Za-z0-9:_./+=-]{1,256})$",
           "title": "Id",
           "type": "string"
         }
