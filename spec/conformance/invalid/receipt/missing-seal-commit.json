@@ -1,0 +1,73 @@
+{
+  "_type": "https://in-toto.io/Statement/v1",
+  "subject": [
+    {
+      "name": "oid:b38f5b1fb1abc567f20938bca10fcd23484b976c7ed13d301ad7d53782a0900e",
+      "digest": {
+        "sha256": "b38f5b1fb1abc567f20938bca10fcd23484b976c7ed13d301ad7d53782a0900e"
+      }
+    },
+    {
+      "name": "rebases/13/predictions.incumbent.jsonl",
+      "digest": {
+        "sha256": "413d137b571ca526c6d1a25b8f0fcea0067f5acf23a031c04b7e2924493f0488"
+      }
+    },
+    {
+      "name": "rebases/13/predictions.candidate.jsonl",
+      "digest": {
+        "sha256": "760d45a21d77ef925584c671a2be66ac44ebcea6c4a446cf6e1590fee1987e54"
+      }
+    }
+  ],
+  "predicateType": "https://roadbed.dev/run/v1",
+  "predicate": {
+    "job": {
+      "id": "job-rebase-13",
+      "kind": "rebase"
+    },
+    "model": "claims-triage",
+    "rebase": 13,
+    "base": {
+      "repo": "Qwen/Qwen3.8-4B",
+      "revision": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0"
+    },
+    "recipe": {
+      "path": "recipes/qwen3/lora-r16-sft@v4.yaml",
+      "sha256": "d6dd266cbd01cf3f7352611f36415ed9785c24e3ace9d1cb39ab994942ec9cc8"
+    },
+    "snapshot": {
+      "id": "S-2026-11-01",
+      "merkle_root": "2990864b9166593013ee5f4d3a26f36b6c8e5ee2e69a3a45328d0cd8603713c2",
+      "rows": 80
+    },
+    "holdout": {
+      "id": "H-2026-11-01",
+      "merkle_root": "72ec9582a0d6116e6dd8f99e2fb63a7b46ce43acc1fa7d634def2a594d21f350",
+      "rows": 60,
+      "seal_seq": 1204,
+      "sealed_at": "2026-11-01T09:02:00Z"
+    },
+    "image_digest": "sha256:78e4867e2399b4460a21db5944f52e0eca9ac4cca7a460a7664a1b99d637752b",
+    "uv_lock_sha256": "530fe078b35eb3ef0580b27b9b0c7788f7e11beff1febb1a87233c5e49560b56",
+    "gpu": {
+      "name": "none",
+      "count": 0
+    },
+    "seed": 20261101,
+    "started_at": "2026-11-01T10:20:00Z",
+    "ended_at": "2026-11-01T10:20:07Z",
+    "audit_seq": 1377,
+    "prev_receipt": "ee525882581e3fb6ac68123817dc30fd5560fa650823d88e09fc5246d5ad80a2",
+    "cost": {
+      "gpu_hours": 0.0,
+      "price_per_hour_eur": 0.0,
+      "eur": 0.0
+    },
+    "executor": {
+      "name": "mock",
+      "version": "0.1.0"
+    },
+    "synthetic": true
+  }
+}

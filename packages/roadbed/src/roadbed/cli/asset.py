@@ -106,6 +106,33 @@ def read_meta(d: Path) -> dict[str, Any] | None:
     return read_yaml(f) if f.is_file() else None
 
 
+def seal_file(asset: Asset) -> Path | None:
+    for name in SEAL_NAMES:
+        f = asset.holdout_dir / name
+        if f.is_file():
+            return f
+    return None
+
+
+def bound_files(asset: Asset) -> list[Path]:
+    """Files a rebase MANIFEST must also list (SPEC.md, Manifests): the seal, the training snapshot manifest, the recipe.
+
+    Only files that exist are returned. The snapshot S-<date> lives in <data.verdicts>/<date>/MANIFEST.json.
+    """
+    out = []
+    if (f := seal_file(asset)) is not None:
+        out.append(f)
+    data = asset.cfg["data"]
+    if data.get("verdicts") and data.get("snapshot"):
+        f = asset.root / data["verdicts"] / data["snapshot"].removeprefix("S-") / "MANIFEST.json"
+        if f.is_file():
+            out.append(f)
+    f = asset.root / asset.cfg["recipe"]
+    if f.is_file():
+        out.append(f)
+    return out
+
+
 def seal_time(asset: Asset) -> Any:
     """sealed_at from a SEAL file in the holdout directory, else from roadbed.yaml."""
     for name in SEAL_NAMES:

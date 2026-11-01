@@ -25,7 +25,7 @@ Rebase #14 moves `claims-triage` for Acme Mutual (SYNTHETIC) from `Qwen/Qwen3.6-
 |---|---|---|
 | slice_margin | fail | 1 of 9 slices below -2.0 margin (line=bodily_injury -20.0); 8 flagged low-n |
 | license | pass | apache-2.0 allowed by policy/license.yaml |
-| contamination | skipped | train manifest absent: skipped |
+| contamination | pass | 0 shared row ids between train manifest and holdout |
 | stage:shadow | skipped | stub: not run in prototype |
 | stage:canary | skipped | stub: not run in prototype |
 | stage:bias_tests | skipped | stub: not run in prototype |
@@ -34,6 +34,6 @@ Rebase #14 moves `claims-triage` for Acme Mutual (SYNTHETIC) from `Qwen/Qwen3.6-
 
 - F-0001: line=bodily_injury −20.0 (CI −32.0 to −8.0, n=30) below −2.0 margin
 
-Policy sha256 `4df02b116b2bdddd9be8b0c6c0c79d690fd7d0990d78b6ab093ccddea13a8321` · seed 20261101 · 10,000 bootstrap resamples. Run `roadbed verify rebases/14` to recompute every number.
+Policy sha256 `db986e9ba495bd71ec735d81cf60fef8ad4711e8b62c7a217484b514492f3452` · seed 20261101 · 10,000 bootstrap resamples. Run `roadbed verify rebases/14` to recompute every number.
 
 blocked: line=bodily_injury −20.0 below −2.0 margin · F-0001 logged

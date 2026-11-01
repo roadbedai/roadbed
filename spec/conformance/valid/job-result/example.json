@@ -48,14 +48,16 @@
       },
       "snapshot": {
         "id": "S-2026-11-01",
-        "merkle_root": "4910a01e05c3c8dc8b6061d413271e711351d84429ca67a6f1efa79d1b0d80bd",
+        "merkle_root": "2990864b9166593013ee5f4d3a26f36b6c8e5ee2e69a3a45328d0cd8603713c2",
         "rows": 80
       },
       "holdout": {
         "id": "H-2026-11-01",
-        "merkle_root": "9e9da6bdcc1ec867ae2d75f27fed8a6bc489f9191a405c04419754176ea6c15e",
+        "merkle_root": "72ec9582a0d6116e6dd8f99e2fb63a7b46ce43acc1fa7d634def2a594d21f350",
         "rows": 60,
-        "seal_seq": 1204
+        "seal_seq": 1204,
+        "sealed_at": "2026-11-01T09:02:00Z",
+        "seal_commit": "dd401870bd807f82614d7a95326c72ecb1b2c62c"
       },
       "image_digest": "sha256:78e4867e2399b4460a21db5944f52e0eca9ac4cca7a460a7664a1b99d637752b",
       "uv_lock_sha256": "530fe078b35eb3ef0580b27b9b0c7788f7e11beff1febb1a87233c5e49560b56",
@@ -67,7 +69,7 @@
       "started_at": "2026-11-01T10:20:00Z",
       "ended_at": "2026-11-01T10:20:07Z",
       "audit_seq": 1377,
-      "prev_receipt": "cb818b21399a26f4a78efb99ff103435682056a4f4002721448dfe62cb477b1d",
+      "prev_receipt": "ee525882581e3fb6ac68123817dc30fd5560fa650823d88e09fc5246d5ad80a2",
       "cost": {
         "gpu_hours": 0.0,
         "price_per_hour_eur": 0.0,
@@ -86,7 +88,7 @@
     "key": "policy/keys/receipt.pub",
     "signed": "rebases/13/receipt.json",
     "payload": "jcs",
-    "sig": "56XlaaNEDIHqq6x5bVM2kQKTEIwIzawZ8pVXxXa/1PAxJL2bCiE1giCe9+tBz4kSlbntzueoPM1HSpf2Wl8pBQ=="
+    "sig": "aq4bzSEZzNAwLu/wieo8RA3HXrGN8LrrwkfSyQPdtTrw4Tim7rdc5opC4zKkKHh4N+3Nmclm1PFDVF6zcqDfBA=="
   },
   "metrics": {
     "train_loss": 0.41

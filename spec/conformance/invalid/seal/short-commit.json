@@ -5,9 +5,8 @@
   "audit_seq": 1204,
   "seed": 20261101,
   "rows": 60,
-  "sha256": "63dbab48e50e2766e5fb7e425ab62d175c0b9cc851854e17eedb6c8190b728c7",
+  "sha256": "752d5a6c04b207baedbd4d258a1c29ea3977b5fccff05a979b71ad04ac595d01",
   "synthetic": true,
-  "seal_commit": "5e41c0a",
   "stratification": {
     "keys": [
       "line",
@@ -17,7 +16,8 @@
     "method": "proportional",
     "fraction": 0.4
   },
-  "merkle_root": "9e9da6bdcc1ec867ae2d75f27fed8a6bc489f9191a405c04419754176ea6c15e",
-  "minhash_oid": "72903b9da293dbffd5f5fb12fea349525281dd38c7df4d4421ef3e51858561be",
-  "snapshot": "S-2026-10-31"
+  "merkle_root": "72ec9582a0d6116e6dd8f99e2fb63a7b46ce43acc1fa7d634def2a594d21f350",
+  "minhash_oid": "cc6d151b0927d136e2554dbae256893a92e9b1dad123fe50f240e8706fa06e44",
+  "snapshot": "S-2026-10-31",
+  "seal_commit": "5e41c0a"
 }

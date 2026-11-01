@@ -1,6 +1,6 @@
 {
   "interaction_id": "int-t-0000",
-  "input_ref": "sha256:b80f624e4a36a68a325373f44edb36d6e726b1277096fde0795a49590f9b0653",
+  "input_ref": "sha256:fe5750fddcc6a21bb7f51604fab4e7be1e6e9ae38f511c82b0ec2f433220675b",
   "output": {
     "route": "standard",
     "severity": 1
@@ -11,7 +11,7 @@
   },
   "reason_code": "route_wrong",
   "outcome": null,
-  "ts": "2026-10-01T08:00:00Z",
+  "ts": "2026-10-02T08:00:00Z",
   "slices": {
     "line": "bodily_injury",
     "state": "CA",

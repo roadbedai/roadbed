@@ -1,9 +1,13 @@
 {
   "rebase": 13,
-  "role": "validator",
   "actor": "vik",
+  "role": "validator",
   "decision": "validated_with_findings",
-  "comment": "low-n slices noted",
+  "reason_code": "low_n_slices",
+  "refs": [
+    "rebase:13",
+    "audit:1402"
+  ],
   "at": "2026-11-01T11:05:00Z",
   "audit_seq": 1402,
   "pack_version": 1

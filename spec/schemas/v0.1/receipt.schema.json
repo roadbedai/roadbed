@@ -139,16 +139,30 @@
           "title": "Rows"
         },
         "seal_seq": {
-          "description": "Audit seq of the seal event.",
+          "description": "Audit seq of the seal event (SEAL.json audit_seq).",
           "minimum": 1,
           "title": "Seal Seq",
           "type": "integer"
+        },
+        "sealed_at": {
+          "description": "SEAL.json sealed_at.",
+          "format": "date-time",
+          "title": "Sealed At",
+          "type": "string"
+        },
+        "seal_commit": {
+          "description": "Asset repo commit that added SEAL.json (git log --diff-filter=A).",
+          "pattern": "^[0-9a-f]{40}$",
+          "title": "Seal Commit",
+          "type": "string"
         }
       },
       "required": [
         "id",
         "merkle_root",
-        "seal_seq"
+        "seal_seq",
+        "sealed_at",
+        "seal_commit"
       ],
       "title": "HoldoutSealRef",
       "type": "object"
@@ -251,6 +265,51 @@
     },
     "RunPredicate": {
       "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "executor": {
+                "properties": {
+                  "name": {
+                    "enum": [
+                      "mock",
+                      "replay"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "gpu": {
+                "properties": {
+                  "name": {
+                    "const": "none"
+                  },
+                  "count": {
+                    "const": 0
+                  }
+                }
+              },
+              "cost": {
+                "properties": {
+                  "gpu_hours": {
+                    "maximum": 0
+                  },
+                  "price_per_hour_eur": {
+                    "maximum": 0
+                  },
+                  "eur": {
+                    "maximum": 0
+                  }
+                }
+              }
+            }
+          }
+        }
+      ],
       "properties": {
         "job": {
           "$ref": "#/$defs/JobRef"
@@ -285,7 +344,7 @@
         },
         "holdout": {
           "$ref": "#/$defs/HoldoutSealRef",
-          "description": "Sealed holdout id, Merkle root and seal seq."
+          "description": "Sealed holdout: id, Merkle root, seal seq, sealed_at and seal commit."
         },
         "image_digest": {
           "description": "OCI image digest, sha256:<hex>.",

@@ -24,6 +24,30 @@
     }
   },
   "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "outcome": {
+            "const": "denied"
+          }
+        },
+        "required": [
+          "outcome"
+        ]
+      },
+      "then": {
+        "properties": {
+          "rule": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "rule"
+        ]
+      }
+    }
+  ],
   "description": "One audit event. Also one line of GET /v1/audit/export.jsonl.",
   "properties": {
     "seq": {
@@ -37,6 +61,8 @@
       "type": "string"
     },
     "actor": {
+      "description": "User or service id (lowercase, digits, _ and -). Never an email address or a name.",
+      "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
       "title": "Actor",
       "type": "string"
     },
@@ -87,7 +113,8 @@
             "SoD-02",
             "SoD-03",
             "SoD-04",
-            "SoD-05"
+            "SoD-05",
+            "RBAC"
           ],
           "type": "string"
         },
@@ -96,30 +123,51 @@
         }
       ],
       "default": null,
-      "description": "SoD rule id when outcome is denied by SoD.",
+      "description": "Required when outcome is denied: the SoD rule, or RBAC for a role-matrix deny.",
       "title": "Rule"
     },
     "payload": {
-      "additionalProperties": {
-        "anyOf": [
-          {
-            "type": "string"
-          },
-          {
-            "type": "integer"
-          },
-          {
-            "type": "number"
-          },
-          {
-            "type": "boolean"
-          },
-          {
-            "type": "null"
-          }
-        ]
+      "additionalProperties": false,
+      "description": "Ids, tokens, hashes and numbers only. Strings have no spaces and at most 256 characters. Free-text keys (note, comment, text, ...) are rejected.",
+      "patternProperties": {
+        "^[a-z_]{1,64}$": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "pattern": "^[A-Za-z0-9:_./+=-]{1,256}$",
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
       },
-      "description": "Ids, tokens, hashes and aggregates only. No free text, no personal data.",
+      "propertyNames": {
+        "not": {
+          "enum": [
+            "note",
+            "comment",
+            "text",
+            "message",
+            "description",
+            "detail",
+            "reason",
+            "name",
+            "email",
+            "phone"
+          ]
+        }
+      },
       "title": "Payload",
       "type": "object"
     },

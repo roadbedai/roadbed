@@ -1,0 +1,32 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - name: Tests (includes the schema drift and fixture drift tests)
+        run: uv run pytest -q
+      - name: Schema drift (regenerate, then require no diff)
+        run: |
+          uv run python -c "from roadbed.contracts import export_schemas; export_schemas('spec/schemas/v0.1')"
+          git diff --exit-code -- spec/schemas
+      - name: Fixture and conformance drift (rebuild, then require no diff)
+        run: |
+          uv run python spec/tools/build_examples.py
+          uv run python spec/tools/build_conformance.py
+          git diff --exit-code -- spec/examples/pass spec/examples/blocked spec/conformance
+          for a in pass blocked; do
+            test "$(git bundle list-heads spec/examples/$a.bundle)" = "$(git show HEAD:spec/examples/$a.bundle > /tmp/$a.bundle && git bundle list-heads /tmp/$a.bundle)"
+          done

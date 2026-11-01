@@ -67,7 +67,11 @@
       "additionalProperties": false,
       "properties": {
         "method": {
-          "const": "minhash",
+          "description": "minhash estimate, or exact jaccard for small sets.",
+          "enum": [
+            "minhash",
+            "jaccard"
+          ],
           "title": "Method",
           "type": "string"
         },
@@ -136,77 +140,74 @@
     },
     "SealOrder": {
       "additionalProperties": false,
-      "properties": {
-        "seal_seq": {
-          "title": "Seal Seq",
-          "type": "integer"
-        },
-        "train_seq": {
-          "title": "Train Seq",
-          "type": "integer"
-        },
-        "sealed_at": {
-          "format": "date-time",
-          "title": "Sealed At",
-          "type": "string"
-        },
-        "train_started_at": {
-          "format": "date-time",
-          "title": "Train Started At",
-          "type": "string"
-        },
-        "seal_commit": {
-          "anyOf": [
-            {
-              "description": "40-hex commit sha.",
-              "pattern": "^[0-9a-f]{40}$",
-              "type": "string"
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "ok": {
+                "const": true
+              }
             },
-            {
-              "type": "null"
+            "required": [
+              "ok"
+            ]
+          },
+          "then": {
+            "properties": {
+              "audit_seq": {
+                "const": true
+              },
+              "timestamp": {
+                "const": true
+              },
+              "git_ancestor": {
+                "const": true
+              }
             }
-          ],
-          "default": null,
-          "title": "Seal Commit"
+          }
+        }
+      ],
+      "description": "The three legs of 'seal precedes training'. The inputs live in SEAL.json, the receipt and git; verify recomputes.",
+      "properties": {
+        "seal_commit": {
+          "description": "Commit that added SEAL.json: git log --diff-filter=A --format=%H -- <SEAL.json>.",
+          "pattern": "^[0-9a-f]{40}$",
+          "title": "Seal Commit",
+          "type": "string"
         },
         "train_commit": {
-          "anyOf": [
-            {
-              "description": "40-hex commit sha.",
-              "pattern": "^[0-9a-f]{40}$",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Train Commit"
+          "description": "Commit that added the training receipt.json.",
+          "pattern": "^[0-9a-f]{40}$",
+          "title": "Train Commit",
+          "type": "string"
+        },
+        "audit_seq": {
+          "description": "SEAL.json audit_seq < receipt predicate.audit_seq.",
+          "title": "Audit Seq",
+          "type": "boolean"
+        },
+        "timestamp": {
+          "description": "SEAL.json sealed_at < receipt predicate.started_at.",
+          "title": "Timestamp",
+          "type": "boolean"
         },
         "git_ancestor": {
-          "anyOf": [
-            {
-              "type": "boolean"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "seal_commit is an ancestor of train_commit; null when unknown.",
-          "title": "Git Ancestor"
+          "description": "seal_commit is an ancestor of train_commit.",
+          "title": "Git Ancestor",
+          "type": "boolean"
         },
         "ok": {
-          "description": "seal_seq < train_seq and sealed_at < train_started_at and git_ancestor is not false.",
+          "description": "All three legs are true.",
           "title": "Ok",
           "type": "boolean"
         }
       },
       "required": [
-        "seal_seq",
-        "train_seq",
-        "sealed_at",
-        "train_started_at",
+        "seal_commit",
+        "train_commit",
+        "audit_seq",
+        "timestamp",
+        "git_ancestor",
         "ok"
       ],
       "title": "SealOrder",
@@ -214,6 +215,48 @@
     }
   },
   "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "pass"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "exact": {
+            "properties": {
+              "shared": {
+                "const": 0
+              },
+              "row_hashes": {
+                "maxItems": 0
+              }
+            }
+          },
+          "near": {
+            "properties": {
+              "pairs": {
+                "maxItems": 0
+              }
+            }
+          },
+          "seal_order": {
+            "properties": {
+              "ok": {
+                "const": true
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
   "description": "rebases/<n>/contamination.json.",
   "properties": {
     "spec": {

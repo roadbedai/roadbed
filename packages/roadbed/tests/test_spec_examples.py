@@ -7,6 +7,7 @@ import fnmatch
 import importlib.util
 import json
 import shutil
+import subprocess
 from pathlib import Path
 
 import jsonschema
@@ -207,7 +208,9 @@ def test_manifests_are_correct(asset):
     listed = {e["path"] for e in _manifest(root / f"rebases/{n}/MANIFEST.sha256")["entries"]}
     rebase_files = {f"rebases/{n}/{f}" for f in _files(root / f"rebases/{n}")
                     if f != "MANIFEST.sha256" and not f.startswith("evidence/")}
-    assert listed == rebase_files | {"data/holdout/H-2026-11-01/holdout.jsonl"}
+    bound = {"data/holdout/H-2026-11-01/holdout.jsonl", "data/holdout/H-2026-11-01/SEAL.json",
+             "data/snapshots/2026-11-01/MANIFEST.json", "recipes/qwen3/lora-r16-sft@v4.yaml"}
+    assert listed == rebase_files | bound
 
 
 @pytest.mark.parametrize("asset", list(ASSETS))
@@ -257,23 +260,64 @@ def test_tampered_receipt_fails_signature(asset, tmp_path):
         _verify_sig(root, f"rebases/{ASSETS[asset]}/receipt.sig")
 
 
+def _clone(asset: str, tmp_path: Path) -> Path:
+    dest = tmp_path / f"{asset}-git"
+    subprocess.run(["git", "clone", "-q", str(EXAMPLES / f"{asset}.bundle"), str(dest)], check=True)
+    return dest
+
+
+def _git(repo: Path, *args: str) -> str:
+    return subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True, text=True).stdout.strip()
+
+
 @pytest.mark.parametrize("asset", list(ASSETS))
-def test_receipt_chain_and_seal_order(asset):
+def test_bundle_head_is_the_fixture(asset, tmp_path):
+    repo = _clone(asset, tmp_path)
+    assert [f for f in _files(repo) if not f.startswith(".git/")] == _files(EXAMPLES / asset)
+    for f in _files(EXAMPLES / asset):
+        assert (repo / f).read_bytes() == (EXAMPLES / asset / f).read_bytes(), f
+
+
+@pytest.mark.parametrize("asset", list(ASSETS))
+def test_receipt_chain_and_seal_order_from_git(asset, tmp_path):
+    """Recompute the three seal legs from SEAL.json, the receipt and git; never from contamination.json."""
     root, n = EXAMPLES / asset, ASSETS[asset]
+    repo = _clone(asset, tmp_path)
     v12 = json.loads((root / "versions/v12/receipt.json").read_text())
     rec = json.loads((root / f"rebases/{n}/receipt.json").read_text())
     seal = json.loads((root / "data/holdout/H-2026-11-01/SEAL.json").read_text())
-    meta = io.read_yaml(root / f"rebases/{n}/rebase.yaml")
     p = rec["predicate"]
     assert p["prev_receipt"] == sha256_canonical(v12)
     assert v12["predicate"]["prev_receipt"] is None
     assert {p["executor"]["name"], v12["predicate"]["executor"]["name"]} == {"mock"}
-    # seal precedes training: audit seq, timestamp, and the recorded git ancestry
-    assert seal["audit_seq"] == p["holdout"]["seal_seq"] < p["audit_seq"]
-    assert seal["sealed_at"] < meta["created_at"] < p["started_at"] < p["ended_at"]
+
+    seal_commit = _git(repo, "log", "--diff-filter=A", "--format=%H", "--", "data/holdout/H-2026-11-01/SEAL.json")
+    train_commit = _git(repo, "log", "--diff-filter=A", "--format=%H", "--", f"rebases/{n}/receipt.json")
+    old_seal_commit = _git(repo, "log", "--diff-filter=A", "--format=%H", "--", "data/holdout/H-2026-10-01/SEAL.json")
+    assert len(seal_commit) == len(train_commit) == 40 and seal_commit != train_commit
+    ancestor = subprocess.run(["git", "merge-base", "--is-ancestor", seal_commit, train_commit], cwd=repo).returncode == 0
+    legs = {"audit_seq": seal["audit_seq"] < p["audit_seq"], "timestamp": seal["sealed_at"] < p["started_at"],
+            "git_ancestor": ancestor}
+    assert all(legs.values())
+    # the receipt binds the seal
+    h = p["holdout"]
+    assert (h["seal_seq"], h["sealed_at"], h["merkle_root"], h["seal_commit"]) == (
+        seal["audit_seq"], seal["sealed_at"], seal["merkle_root"], seal_commit)
+    assert v12["predicate"]["holdout"]["seal_commit"] == old_seal_commit
+    # contamination.json reports the same legs and commits
     c = json.loads((root / f"rebases/{n}/contamination.json").read_text())
-    assert c["seal_order"]["ok"] and c["seal_order"]["git_ancestor"] is True
-    assert c["seal_order"]["train_seq"] == p["audit_seq"]
+    assert c["seal_order"] == {"seal_commit": seal_commit, "train_commit": train_commit, **legs, "ok": True}
+
+
+@pytest.mark.parametrize("asset", list(ASSETS))
+def test_gate_contamination_matches_report(asset):
+    root, n = EXAMPLES / asset, ASSETS[asset]
+    gate = json.loads((root / f"rebases/{n}/gate.json").read_text())
+    report = json.loads((root / f"rebases/{n}/contamination.json").read_text())
+    check = next(c for c in gate["checks"] if c["name"] == "contamination")
+    assert check["status"] == report["status"] == "pass"
+    assert report["exact"]["shared"] == 0 and not report["near"]["pairs"]
+    assert report["near"]["max_jaccard"] < report["near"]["threshold"]
 
 
 @pytest.mark.parametrize("asset", list(ASSETS))
@@ -342,6 +386,9 @@ def test_examples_are_up_to_date(tmp_path):
             assert (tmp_path / "examples" / asset / f).read_bytes() == (EXAMPLES / asset / f).read_bytes(), (
                 f"{asset}/{f} is stale: run `uv run python spec/tools/build_examples.py`"
             )
+        heads = [subprocess.run(["git", "bundle", "list-heads", str(b)], capture_output=True, text=True, check=True).stdout
+                 for b in (tmp_path / "examples" / f"{asset}.bundle", EXAMPLES / f"{asset}.bundle")]
+        assert heads[0] == heads[1], f"{asset}.bundle is stale"
     for f in _files(CONFORMANCE / "vectors"):
         assert (tmp_path / "vectors" / f).read_bytes() == (CONFORMANCE / "vectors" / f).read_bytes()
 
@@ -364,6 +411,29 @@ def test_roadbed_verify_exits_4_on_tamper(asset, tmp_path):
     r = runner.invoke(app, ["verify", str(root / f"rebases/{ASSETS[asset]}")])
     assert r.exit_code == 4, r.output
     assert "V-HASH-MISMATCH" in r.output
+
+
+def test_verify_requires_bound_files_when_a_receipt_exists(tmp_path):
+    root = tmp_path / "pass"
+    shutil.copytree(EXAMPLES / "pass", root)
+    m = root / "rebases/13/MANIFEST.sha256"
+    m.write_text("".join(ln + "\n" for ln in m.read_text().splitlines() if "SEAL.json" not in ln))
+    r = runner.invoke(app, ["verify", str(root / "rebases/13")])
+    assert r.exit_code == 4 and "V-MANIFEST-INCOMPLETE" in r.output and "SEAL.json" in r.output, r.output
+
+
+def test_verify_accepts_day0_manifest_without_receipt(tmp_path):
+    """Day 0 rule: a rebase without receipt.json needs only the files its MANIFEST lists."""
+    root = tmp_path / "pass"
+    shutil.copytree(EXAMPLES / "pass", root)
+    d = root / "rebases/13"
+    (d / "receipt.json").unlink()
+    (d / "receipt.sig").unlink()
+    keep = [ln for ln in (d / "MANIFEST.sha256").read_text().splitlines()
+            if not any(x in ln for x in ("receipt.", "SEAL.json", "snapshots/", "recipes/"))]
+    (d / "MANIFEST.sha256").write_text("\n".join(keep) + "\n")
+    r = runner.invoke(app, ["verify", str(d)])
+    assert r.exit_code == 0, r.output
 
 
 # ---------------------------------------------------------------- Executor protocol

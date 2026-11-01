@@ -64,6 +64,7 @@
     "subject_token": {
       "anyOf": [
         {
+          "description": "HMAC subject token.",
           "pattern": "^tok_[0-9a-f]{8,64}$",
           "type": "string"
         },

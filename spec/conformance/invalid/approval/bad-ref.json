@@ -1,0 +1,13 @@
+{
+  "rebase": 13,
+  "actor": "vik",
+  "role": "validator",
+  "decision": "validated_with_findings",
+  "reason_code": "low_n_slices",
+  "refs": [
+    "call Jane"
+  ],
+  "at": "2026-11-01T11:05:00Z",
+  "audit_seq": 1402,
+  "pack_version": 1
+}

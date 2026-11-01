@@ -43,7 +43,7 @@ class Base(_Strict):
 class HoldoutRef(_Strict):
     id: str = Field(description="Holdout id, e.g. H-2026-11-01.")
     path: str = Field(description="Directory (from asset root) that holds holdout.jsonl.")
-    sealed_by: str = Field(description="Person who sealed the holdout.")
+    sealed_by: ActorId = Field(description="User id of the validator who sealed the holdout.")
     sealed_at: AwareDatetime = Field(description="When the holdout was sealed (RFC 3339, with zone).")
 
 
@@ -270,7 +270,7 @@ class Check(_Strict):
     status: Literal["pass", "fail", "warn", "skipped"] = Field(
         description="fail blocks; warn is a failure whose reason is not in block_on; skipped did not run."
     )
-    detail: str
+    detail: str = Field(min_length=1, description="Why. A skipped check says why it was skipped.")
 
 
 class Finding(_Strict):
@@ -287,7 +287,10 @@ class Finding(_Strict):
 class GateResult(_Strict):
     """gate.json written by `roadbed gate`."""
 
-    model_config = ConfigDict(extra="forbid", title="gate.json")
+    model_config = ConfigDict(extra="forbid", title="gate.json", json_schema_extra={"allOf": [{
+        "if": {"properties": {"status": {"const": "pass"}}, "required": ["status"]},
+        "then": {"properties": {"checks": {"items": {"properties": {"status": {"not": {"const": "fail"}}}}}}},
+    }]})
 
     spec: SpecVersion
     synthetic: bool
@@ -296,6 +299,12 @@ class GateResult(_Strict):
     policy_sha256: Sha256Hex = Field(description="sha256 of the RFC 8785 canonical JSON of the policy.")
     checks: list[Check]
     findings: list[Finding]
+
+    @model_validator(mode="after")
+    def _pass_has_no_failed_check(self) -> GateResult:
+        if self.status == "pass" and any(c.status == "fail" for c in self.checks):
+            raise ValueError("a passing gate has no failed check")
+        return self
 
 
 # ---------------------------------------------------------------- gate inputs (not files)
@@ -319,6 +328,18 @@ ImageDigest = Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$", description
 Revision = Annotated[str, Field(pattern=r"^[0-9a-f]{40}$", description="40-hex commit sha.")]
 Role = Literal["developer", "validator", "approver", "admin", "auditor"]
 SodRule = Literal["SoD-01", "SoD-02", "SoD-03", "SoD-04", "SoD-05"]
+ActorId = Annotated[str, Field(
+    pattern=r"^[a-z0-9][a-z0-9_-]{0,63}$",
+    description="User or service id (lowercase, digits, _ and -). Never an email address or a name.",
+)]
+SubjectToken = Annotated[str, Field(pattern=r"^tok_[0-9a-f]{8,64}$", description="HMAC subject token.")]
+_EXECUTOR_NO_GPU = {
+    "if": {"properties": {"executor": {"properties": {"name": {"enum": ["mock", "replay"]}}}}},
+    "then": {"properties": {
+        "gpu": {"properties": {"name": {"const": "none"}, "count": {"const": 0}}},
+        "cost": {"properties": {"gpu_hours": {"maximum": 0}, "price_per_hour_eur": {"maximum": 0}, "eur": {"maximum": 0}}},
+    }},
+}
 
 
 class _Aliased(_Strict):
@@ -344,7 +365,9 @@ class DatasetRef(_Strict):
 
 
 class HoldoutSealRef(DatasetRef):
-    seal_seq: int = Field(ge=1, description="Audit seq of the seal event.")
+    seal_seq: int = Field(ge=1, description="Audit seq of the seal event (SEAL.json audit_seq).")
+    sealed_at: AwareDatetime = Field(description="SEAL.json sealed_at.")
+    seal_commit: Revision = Field(description="Asset repo commit that added SEAL.json (git log --diff-filter=A).")
 
 
 # ---------------------------------------------------------------- roadbed.lock
@@ -445,21 +468,38 @@ class Stratification(_Strict):
 class Seal(_Strict):
     """data/holdout/<id>/SEAL.json. Written once, by a validator."""
 
-    model_config = ConfigDict(extra="forbid", title="SEAL.json")
+    model_config = ConfigDict(
+        extra="forbid",
+        title="SEAL.json",
+        json_schema_extra={"dependentRequired": {
+            k: [x for x in ("merkle_root", "minhash_oid", "snapshot", "stratification") if x != k]
+            for k in ("merkle_root", "minhash_oid", "snapshot", "stratification")
+        }},
+    )
 
     id: str = Field(description="Holdout id, e.g. H-2026-11-01.")
-    sealed_by: str = Field(description="User id of the validator who sealed it (SoD-05).")
+    sealed_by: ActorId = Field(description="User id of the validator who sealed it (SoD-05).")
     sealed_at: AwareDatetime
     audit_seq: int = Field(ge=1, description="Audit seq of the seal event. Training must have a larger seq.")
     seed: int = Field(ge=0, description="Sampling seed.")
     rows: int = Field(ge=0)
     sha256: Sha256Hex = Field(description="sha256 of holdout.jsonl bytes.")
     synthetic: bool
-    seal_commit: Revision | None = Field(default=None, description="Optional. Asset repo commit that added this seal.")
+    seal_commit: Revision | None = Field(
+        default=None,
+        description="Optional, informational. verify takes the seal commit from git (the commit that added SEAL.json), never from here.",
+    )
     stratification: Stratification | None = None
     merkle_root: Sha256Hex | None = Field(default=None, description="Optional. Merkle root of the holdout row hashes.")
     minhash_oid: Oid | None = Field(default=None, description="Optional. Bucket object with the holdout MinHash signatures.")
     snapshot: str | None = Field(default=None, description="Optional. Snapshot the rows were drawn from.")
+
+    @model_validator(mode="after")
+    def _full_or_day0(self) -> Seal:
+        group = (self.merkle_root, self.minhash_oid, self.snapshot, self.stratification)
+        if any(v is not None for v in group) and any(v is None for v in group):
+            raise ValueError("merkle_root, minhash_oid, snapshot and stratification come together (a Day 0 seal has none)")
+        return self
 
 
 # ---------------------------------------------------------------- data/tombstones.jsonl
@@ -470,9 +510,9 @@ class TombstoneRow(_Strict):
 
     model_config = ConfigDict(extra="forbid", title="Tombstone row")
 
-    subject_token: str = Field(pattern=r"^tok_[0-9a-f]{8,64}$", description="HMAC subject token, never the raw identifier.")
+    subject_token: SubjectToken
     requested_at: AwareDatetime
-    requested_by: str
+    requested_by: ActorId
     reason: Literal["gdpr_art17", "retention", "other"]
     audit_seq: int = Field(ge=1)
     rows_removed: int = Field(ge=0)
@@ -507,7 +547,7 @@ class CorrectionTestRow(_Strict):
     model_output: dict[str, Any]
     expected: dict[str, Any] = Field(description="Reviewer fix.")
     reason_code: str
-    created_by: str
+    created_by: ActorId
     created_at: AwareDatetime
     row_hash: Sha256Hex | None = None
 
@@ -578,13 +618,15 @@ class ExecutorRef(_Strict):
 
 
 class RunPredicate(_Strict):
+    model_config = ConfigDict(extra="forbid", json_schema_extra={"allOf": [_EXECUTOR_NO_GPU]})
+
     job: JobRef
     model: str
     rebase: int | None = None
     base: PinnedBase = Field(description="Base model repo and exact revision sha.")
     recipe: RecipeRef = Field(description="Recipe path and file hash.")
     snapshot: DatasetRef = Field(description="Training snapshot id and Merkle root.")
-    holdout: HoldoutSealRef = Field(description="Sealed holdout id, Merkle root and seal seq.")
+    holdout: HoldoutSealRef = Field(description="Sealed holdout: id, Merkle root, seal seq, sealed_at and seal commit.")
     image_digest: ImageDigest
     uv_lock_sha256: Sha256Hex = Field(description="sha256 of the runner uv.lock bytes.")
     gpu: Gpu
@@ -596,6 +638,14 @@ class RunPredicate(_Strict):
     cost: RunCost
     executor: ExecutorRef
     synthetic: bool | None = None
+
+    @model_validator(mode="after")
+    def _mock_has_no_gpu(self) -> RunPredicate:
+        if self.executor.name in ("mock", "replay") and (
+            self.gpu.name != "none" or self.gpu.count or self.cost.gpu_hours or self.cost.price_per_hour_eur or self.cost.eur
+        ):
+            raise ValueError("a mock or replay run has gpu 'none' and zero cost")
+        return self
 
 
 class Receipt(_Aliased):
@@ -696,7 +746,7 @@ class RebaseMeta(_Aliased):
     mode: Literal["from-predictions", "train"] | None = None
     note: str | None = None
     state: RebaseState | None = None
-    requested_by: str | None = None
+    requested_by: ActorId | None = None
     holdout: str | None = Field(default=None, description="Holdout id.")
     snapshot: str | None = Field(default=None, description="Training snapshot id.")
     recipe: str | None = Field(default=None, description="Recipe path.")
@@ -718,7 +768,7 @@ class NearPair(_Strict):
 
 
 class NearOverlap(_Strict):
-    method: Literal["minhash"]
+    method: Literal["minhash", "jaccard"] = Field(description="minhash estimate, or exact jaccard for small sets.")
     num_perm: int
     threshold: float
     max_jaccard: float = Field(ge=0, le=1)
@@ -726,20 +776,38 @@ class NearOverlap(_Strict):
 
 
 class SealOrder(_Strict):
-    seal_seq: int
-    train_seq: int
-    sealed_at: AwareDatetime
-    train_started_at: AwareDatetime
-    seal_commit: Revision | None = None
-    train_commit: Revision | None = None
-    git_ancestor: bool | None = Field(default=None, description="seal_commit is an ancestor of train_commit; null when unknown.")
-    ok: bool = Field(description="seal_seq < train_seq and sealed_at < train_started_at and git_ancestor is not false.")
+    """The three legs of 'seal precedes training'. The inputs live in SEAL.json, the receipt and git; verify recomputes."""
+
+    model_config = ConfigDict(extra="forbid", json_schema_extra={"allOf": [{
+        "if": {"properties": {"ok": {"const": True}}, "required": ["ok"]},
+        "then": {"properties": {"audit_seq": {"const": True}, "timestamp": {"const": True}, "git_ancestor": {"const": True}}},
+    }]})
+
+    seal_commit: Revision = Field(description="Commit that added SEAL.json: git log --diff-filter=A --format=%H -- <SEAL.json>.")
+    train_commit: Revision = Field(description="Commit that added the training receipt.json.")
+    audit_seq: bool = Field(description="SEAL.json audit_seq < receipt predicate.audit_seq.")
+    timestamp: bool = Field(description="SEAL.json sealed_at < receipt predicate.started_at.")
+    git_ancestor: bool = Field(description="seal_commit is an ancestor of train_commit.")
+    ok: bool = Field(description="All three legs are true.")
+
+    @model_validator(mode="after")
+    def _ok_is_all_legs(self) -> SealOrder:
+        if self.ok != (self.audit_seq and self.timestamp and self.git_ancestor):
+            raise ValueError("ok must equal audit_seq and timestamp and git_ancestor")
+        return self
 
 
 class ContaminationReport(_Strict):
     """rebases/<n>/contamination.json."""
 
-    model_config = ConfigDict(extra="forbid", title="contamination.json")
+    model_config = ConfigDict(extra="forbid", title="contamination.json", json_schema_extra={"allOf": [{
+        "if": {"properties": {"status": {"const": "pass"}}, "required": ["status"]},
+        "then": {"properties": {
+            "exact": {"properties": {"shared": {"const": 0}, "row_hashes": {"maxItems": 0}}},
+            "near": {"properties": {"pairs": {"maxItems": 0}}},
+            "seal_order": {"properties": {"ok": {"const": True}}},
+        }},
+    }]})
 
     spec: SpecVersion
     rebase: int
@@ -750,6 +818,13 @@ class ContaminationReport(_Strict):
     near: NearOverlap
     seal_order: SealOrder
     synthetic: bool
+
+    @model_validator(mode="after")
+    def _pass_means_clean(self) -> ContaminationReport:
+        clean = self.exact.shared == 0 and not self.exact.row_hashes and not self.near.pairs and self.seal_order.ok
+        if self.status == "pass" and not clean:
+            raise ValueError("status pass needs no shared rows, no near pairs and a seal order that holds")
+        return self
 
 
 # ---------------------------------------------------------------- rebases/<n>/cost.json
@@ -777,7 +852,17 @@ class Vllm(_Strict):
 class CostReport(_Strict):
     """rebases/<n>/cost.json."""
 
-    model_config = ConfigDict(extra="forbid", title="cost.json")
+    model_config = ConfigDict(extra="forbid", title="cost.json", json_schema_extra={"allOf": [{
+        "if": {"properties": {"executor": {"enum": ["mock", "replay"]}}, "required": ["executor"]},
+        "then": {"properties": {
+            "gpu": {"properties": {"name": {"const": "none"}, "count": {"const": 0}}},
+            "price_per_hour_eur": {"maximum": 0},
+            "train": {"properties": {"gpu_hours": {"maximum": 0}, "eur": {"maximum": 0}}},
+            "predict": {"properties": {"gpu_hours": {"maximum": 0}, "eur": {"maximum": 0}}},
+            "bench": {"properties": {"eur_per_1k_calls": {"maximum": 0}}},
+            "total_eur": {"maximum": 0},
+        }},
+    }]})
 
     spec: SpecVersion
     rebase: int
@@ -791,6 +876,14 @@ class CostReport(_Strict):
     total_eur: float = Field(ge=0)
     cap_eur: float | None = None
     synthetic: bool
+
+    @model_validator(mode="after")
+    def _mock_has_no_cost(self) -> CostReport:
+        costs = (self.price_per_hour_eur, self.train.gpu_hours, self.train.eur, self.predict.gpu_hours,
+                 self.predict.eur, self.bench.eur_per_1k_calls, self.total_eur)
+        if self.executor in ("mock", "replay") and (self.gpu.name != "none" or self.gpu.count or any(costs)):
+            raise ValueError("a mock or replay run has gpu 'none' and zero cost")
+        return self
 
 
 # ---------------------------------------------------------------- rebases/<n>/license.json
@@ -816,19 +909,32 @@ class LicenseDecisionRecord(_Strict):
 # ---------------------------------------------------------------- approvals
 
 
-class Approval(_Strict):
+ApprovalReason = Literal[
+    "no_findings", "findings_noted", "low_n_slices", "slice_regression", "license_review",
+    "contamination_risk", "cost_over_cap", "other",
+]
+ApprovalRef = Annotated[str, Field(
+    pattern=r"^(F-\d{4}|CT-\d{4,}|audit:\d+|rebase:\d+)$", description="A finding, correction test, audit seq or rebase id."
+)]
+
+
+class ApprovalEntry(_Strict):
+    role: Literal["validator", "approver"]
+    decision: Literal["validated", "validated_with_findings", "approved", "rejected"]
+    reason_code: ApprovalReason
+    refs: list[ApprovalRef] = Field(default_factory=list, description="Ids the decision rests on. No free text.")
+    at: AwareDatetime
+    audit_seq: int = Field(ge=1)
+    pack_version: int = Field(ge=1, description="Evidence pack version this approval signed.")
+
+
+class Approval(ApprovalEntry):
     """One sign-off. Also the response of POST /v1/rebases/{n}/approvals."""
 
     model_config = ConfigDict(extra="forbid", title="Approval")
 
     rebase: int
-    role: Literal["validator", "approver"]
-    actor: str
-    decision: Literal["validated", "validated_with_findings", "approved", "rejected"]
-    comment: str | None = None
-    at: AwareDatetime
-    audit_seq: int = Field(ge=1)
-    pack_version: int = Field(ge=1, description="Evidence pack version this approval signed.")
+    actor: ActorId
 
 
 class Approvals(_Strict):
@@ -842,7 +948,10 @@ class Approvals(_Strict):
     status_text: str = Field(description="Display text, e.g. 'awaiting MRM sign-off'.")
     required: list[Literal["validator", "approver"]]
     pack_version: int = Field(ge=1, description="Each approval writes a new signed pack version.")
-    approvals: list[Approval]
+    approvals: dict[ActorId, ApprovalEntry] = Field(
+        description="Keyed by actor id, so one actor holds one role: validator and approver differ (SoD-03).",
+        json_schema_extra={"additionalProperties": False},
+    )
     synthetic: bool
 
 
@@ -873,6 +982,9 @@ class FindingRecord(_Strict):
 # ---------------------------------------------------------------- lineage/edges.jsonl
 
 
+_NODE = r"^((snapshot|holdout|version|rebase|recipe|base):[A-Za-z0-9._/@+-]{1,128}|subject:tok_[0-9a-f]{8,64})$"
+
+
 class LineageEdge(_Aliased):
     """One line of lineage/edges.jsonl. Append-only."""
 
@@ -880,12 +992,12 @@ class LineageEdge(_Aliased):
         extra="forbid", serialize_by_alias=True, validate_by_name=True, validate_by_alias=True, title="Lineage edge"
     )
 
-    from_: str = Field(alias="from", pattern=r"^(snapshot|holdout|version|rebase|subject|recipe|base):\S+$")
-    to: str = Field(pattern=r"^(snapshot|holdout|version|rebase|subject|recipe|base):\S+$")
+    from_: str = Field(alias="from", pattern=_NODE)
+    to: str = Field(pattern=_NODE)
     kind: Literal["sealed_from", "trained_on", "evaluated_on", "rebased_from", "produced", "promoted_to", "erased_from"]
     hashes: dict[str, Sha256Hex] = Field(description="Digests of the nodes, keyed 'from' and 'to' where known.")
     ts: AwareDatetime
-    actor: str
+    actor: ActorId
 
 
 # ---------------------------------------------------------------- audit
@@ -896,24 +1008,47 @@ class AuditObject(_Strict):
     id: str
 
 
+AuditRule = Literal["SoD-01", "SoD-02", "SoD-03", "SoD-04", "SoD-05", "RBAC"]
+PayloadKey = Annotated[str, Field(pattern=r"^[a-z_]{1,64}$")]
+PayloadText = Annotated[str, Field(pattern=r"^[A-Za-z0-9:_./+=-]{1,256}$", max_length=256)]
+FREE_TEXT_KEYS = ("note", "comment", "text", "message", "description", "detail", "reason", "name", "email", "phone")
+
+
 class AuditEvent(_Strict):
     """One audit event. Also one line of GET /v1/audit/export.jsonl."""
 
-    model_config = ConfigDict(extra="forbid", title="Audit event")
+    model_config = ConfigDict(extra="forbid", title="Audit event", json_schema_extra={
+        "allOf": [{
+            "if": {"properties": {"outcome": {"const": "denied"}}, "required": ["outcome"]},
+            "then": {"required": ["rule"], "properties": {"rule": {"type": "string"}}},
+        }],
+    })
 
     seq: int = Field(ge=1)
     ts: AwareDatetime
-    actor: str
+    actor: ActorId
     role: Role | Literal["system", "runner"]
     action: str = Field(pattern=r"^[a-z_]+(\.[a-z_]+)+$", description="e.g. holdout.seal, rebase.approve.")
     object: AuditObject
     outcome: Literal["allowed", "denied"]
-    rule: SodRule | None = Field(default=None, description="SoD rule id when outcome is denied by SoD.")
-    payload: dict[str, str | int | float | bool | None] = Field(
-        description="Ids, tokens, hashes and aggregates only. No free text, no personal data."
+    rule: AuditRule | None = Field(
+        default=None, description="Required when outcome is denied: the SoD rule, or RBAC for a role-matrix deny."
+    )
+    payload: dict[PayloadKey, PayloadText | int | float | bool | None] = Field(
+        description="Ids, tokens, hashes and numbers only. Strings have no spaces and at most 256 characters. "
+        "Free-text keys (note, comment, text, ...) are rejected.",
+        json_schema_extra={"propertyNames": {"not": {"enum": list(FREE_TEXT_KEYS)}}, "additionalProperties": False},
     )
     prev_hash: Sha256Hex = Field(description="hash of seq-1; 64 zeros for seq 1.")
     hash: Sha256Hex = Field(description="sha256(JCS(event without 'hash')).")
+
+    @model_validator(mode="after")
+    def _denied_has_rule(self) -> AuditEvent:
+        if self.outcome == "denied" and self.rule is None:
+            raise ValueError("a denied event names its rule")
+        if set(self.payload) & set(FREE_TEXT_KEYS):
+            raise ValueError(f"free-text payload keys are not allowed: {sorted(set(self.payload) & set(FREE_TEXT_KEYS))}")
+        return self
 
 
 class ObjectLock(_Strict):
@@ -1000,7 +1135,7 @@ class ExecutorJob(_Strict):
     spec: Annotated[TrainSpec | EvalSpec | BenchSpec, Field(discriminator="kind")]
     cost_cap_eur: float | None = Field(default=None, gt=0)
     created_at: AwareDatetime
-    requested_by: str
+    requested_by: ActorId
 
 
 class JobStatus(_Strict):
@@ -1029,7 +1164,8 @@ class JobResult(_Strict):
         title="Job result",
         json_schema_extra={"allOf": [{
             "if": {"properties": {"state": {"const": "succeeded"}}, "required": ["state"]},
-            "then": {"required": ["receipt"], "properties": {"receipt": {"type": "object"}}},
+            "then": {"required": ["receipt", "receipt_sig"],
+                     "properties": {"receipt": {"type": "object"}, "receipt_sig": {"type": "object"}}},
         }]},
     )
 
@@ -1044,8 +1180,8 @@ class JobResult(_Strict):
 
     @model_validator(mode="after")
     def _receipt_when_succeeded(self) -> JobResult:
-        if self.state == "succeeded" and self.receipt is None:
-            raise ValueError("receipt is required when state is succeeded")
+        if self.state == "succeeded" and (self.receipt is None or self.receipt_sig is None):
+            raise ValueError("receipt and receipt_sig are required when state is succeeded")
         return self
 
 
@@ -1122,7 +1258,7 @@ class InteractionIn(_Strict):
     output: dict[str, Any]
     profile_id: str = Field(min_length=1, description="Pseudonymisation profile applied by the SDK.")
     hmac_key_id: str = Field(min_length=1)
-    subject_token: str | None = Field(default=None, pattern=r"^tok_[0-9a-f]{8,64}$")
+    subject_token: SubjectToken | None = None
     slices: dict[str, str] | None = None
     latency_ms: float | None = Field(default=None, ge=0)
     synthetic: bool | None = None

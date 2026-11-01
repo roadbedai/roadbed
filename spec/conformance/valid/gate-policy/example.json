@@ -27,7 +27,7 @@
   "contamination": {
     "minhash_threshold": 0.8,
     "num_perm": 128,
-    "shingle": 5
+    "shingle": 3
   },
   "synthetic": true
 }

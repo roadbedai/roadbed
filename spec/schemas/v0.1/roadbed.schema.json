@@ -158,7 +158,8 @@
           "type": "string"
         },
         "sealed_by": {
-          "description": "Person who sealed the holdout.",
+          "description": "User id of the validator who sealed the holdout.",
+          "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
           "title": "Sealed By",
           "type": "string"
         },

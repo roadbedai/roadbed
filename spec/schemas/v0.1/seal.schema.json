@@ -45,6 +45,28 @@
     }
   },
   "additionalProperties": false,
+  "dependentRequired": {
+    "merkle_root": [
+      "minhash_oid",
+      "snapshot",
+      "stratification"
+    ],
+    "minhash_oid": [
+      "merkle_root",
+      "snapshot",
+      "stratification"
+    ],
+    "snapshot": [
+      "merkle_root",
+      "minhash_oid",
+      "stratification"
+    ],
+    "stratification": [
+      "merkle_root",
+      "minhash_oid",
+      "snapshot"
+    ]
+  },
   "description": "data/holdout/<id>/SEAL.json. Written once, by a validator.",
   "properties": {
     "id": {
@@ -54,6 +76,7 @@
     },
     "sealed_by": {
       "description": "User id of the validator who sealed it (SoD-05).",
+      "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
       "title": "Sealed By",
       "type": "string"
     },
@@ -101,7 +124,7 @@
         }
       ],
       "default": null,
-      "description": "Optional. Asset repo commit that added this seal.",
+      "description": "Optional, informational. verify takes the seal commit from git (the commit that added SEAL.json), never from here.",
       "title": "Seal Commit"
     },
     "stratification": {

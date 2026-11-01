@@ -4,12 +4,12 @@
   "status": "pass",
   "holdout": {
     "id": "H-2026-11-01",
-    "merkle_root": "9e9da6bdcc1ec867ae2d75f27fed8a6bc489f9191a405c04419754176ea6c15e",
+    "merkle_root": "72ec9582a0d6116e6dd8f99e2fb63a7b46ce43acc1fa7d634def2a594d21f350",
     "rows": 60
   },
   "train": {
     "id": "S-2026-11-01",
-    "merkle_root": "4910a01e05c3c8dc8b6061d413271e711351d84429ca67a6f1efa79d1b0d80bd",
+    "merkle_root": "2990864b9166593013ee5f4d3a26f36b6c8e5ee2e69a3a45328d0cd8603713c2",
     "rows": 80
   },
   "exact": {
@@ -17,19 +17,17 @@
     "row_hashes": []
   },
   "near": {
-    "method": "minhash",
+    "method": "jaccard",
     "num_perm": 128,
     "threshold": 0.8,
-    "max_jaccard": 0.0,
+    "max_jaccard": 0.02381,
     "pairs": []
   },
   "seal_order": {
-    "seal_seq": 1204,
-    "train_seq": 1391,
-    "sealed_at": "2026-11-01T09:02:00Z",
-    "train_started_at": "2026-11-01T10:36:00Z",
-    "seal_commit": "5e41c0aa7d0f2b0e3c6a1f9d8b7c6a5e4d3c2b1a",
-    "train_commit": "9c0ffee1d2c3b4a5968778695a4b3c2d1e0f9a8b",
+    "seal_commit": "3bbbdea4fce10498449f93ae3f8a1fec1e8cd0ee",
+    "train_commit": "246ac7a6781a9e8798447d21087fd88012774339",
+    "audit_seq": true,
+    "timestamp": true,
     "git_ancestor": true,
     "ok": true
   },

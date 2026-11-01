@@ -17,11 +17,12 @@ from roadbed.cli.asset import (
     REBASE_META,
     Asset,
     AssetError,
+    bound_files,
     load_rows,
     read_meta,
 )
 from roadbed.cli.output import MINUS, plain, signed
-from roadbed.contracts import FileDigest, GateResult, HoldoutDigest, PredictionDigests, Scores
+from roadbed.contracts import Contamination, FileDigest, GateResult, HoldoutDigest, PredictionDigests, Scores
 from roadbed.gate import decide_license, evaluate
 from roadbed.hashing import sha256_file
 from roadbed.io import read_yaml, write_yaml
@@ -184,13 +185,15 @@ def write_manifest(asset: Asset, d: Path) -> Path:
         p for p in d.rglob("*") if p.is_file() and p.name != MANIFEST and "evidence" not in p.relative_to(d).parts
     )
     files.append(asset.holdout_file)
+    files.extend(bound_files(asset))
     lines = [f"{sha256_file(p)}  {asset.rel(p)}" for p in sorted(files, key=lambda p: asset.rel(p))]
     m = d / MANIFEST
     m.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return m
 
 
-def run(asset: Asset, d: Path, n: int, base: BaseRef, emit) -> RebaseResult:
+def run(asset: Asset, d: Path, n: int, base: BaseRef, emit, contamination: Contamination | None = None) -> RebaseResult:
+    """contamination: overlap between the training snapshot and the holdout; None means no train manifest (skipped)."""
     cfg = asset.cfg
     meta = read_meta(d)
     emit(f"new base: {base.repo}")
@@ -215,7 +218,7 @@ def run(asset: Asset, d: Path, n: int, base: BaseRef, emit) -> RebaseResult:
         emit(f"license {lic.license}: {'allowed' if lic.allowed else 'denied'} by policy")
 
     findings_dir = asset.root / "findings"
-    gate = evaluate(scores, asset.policy, lic, None, finding_offset=_finding_offset(findings_dir, n))
+    gate = evaluate(scores, asset.policy, lic, contamination, finding_offset=_finding_offset(findings_dir, n))
     emit(summary_line(scores, asset.policy.margin))
 
     # rebase.yaml records which base was used and when the rebase was created.

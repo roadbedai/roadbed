@@ -18,10 +18,14 @@ Each invalid case is the valid case with one change.
 | `invalid/license-policy/bad-default.json` | `license-policy.schema.json` | default must be deny or review |
 | `invalid/scores/bad-holdout-digest.json` | `scores.schema.json` | holdout.sha256 must be 64 lowercase hex |
 | `invalid/gate/unknown-status.json` | `gate.schema.json` | status must be pass or blocked |
+| `invalid/gate/pass-with-failed-check.json` | `gate.schema.json` | a passing gate has no failed check |
+| `invalid/gate/skipped-without-reason.json` | `gate.schema.json` | every check, skipped or not, says why |
 | `invalid/lock/negative-size.json` | `lock.schema.json` | files[].size must be >= 0 |
 | `invalid/object-pointer/small-file.json` | `object-pointer.schema.json` | pointers exist only for files over 1 MB |
 | `invalid/snapshot-manifest/missing-pseudonymisation.json` | `snapshot-manifest.schema.json` | pseudonymisation (profile, hmac_key_id) is required |
 | `invalid/snapshot-row/missing-row-hash.json` | `snapshot-row.schema.json` | row_hash is required on snapshot rows |
+| `invalid/seal/probe-w01-fields-partial.json` | `seal.schema.json` | merkle_root, minhash_oid, snapshot and stratification come together (verifier probe) |
+| `invalid/seal/probe-sealed-by-email.json` | `seal.schema.json` | sealed_by is a user id, never an email address (verifier probe) |
 | `invalid/seal/missing-audit-seq.json` | `seal.schema.json` | audit_seq is required (seal ordering) |
 | `invalid/seal/short-commit.json` | `seal.schema.json` | seal_commit must be a 40-hex commit |
 | `invalid/tombstone-row/raw-email-subject.json` | `tombstone-row.schema.json` | subject_token must be an HMAC token tok_<hex>, never a raw identifier |
@@ -29,25 +33,43 @@ Each invalid case is the valid case with one change.
 | `invalid/correction-test-row/bad-id.json` | `correction-test-row.schema.json` | id must match CT-NNNN |
 | `invalid/recipe/full-finetune.json` | `recipe.schema.json` | method must be lora or qlora |
 | `invalid/model-version/version-name.json` | `model-version.schema.json` | version must match vN |
+| `invalid/receipt/probe-mock-with-gpu-and-cost.json` | `receipt.schema.json` | a mock or replay receipt has gpu 'none' and zero cost (verifier probe) |
+| `invalid/receipt/missing-seal-commit.json` | `receipt.schema.json` | predicate.holdout carries seal_commit and sealed_at |
 | `invalid/receipt/missing-executor.json` | `receipt.schema.json` | predicate.executor is required |
 | `invalid/receipt/wrong-predicate-type.json` | `receipt.schema.json` | predicateType must be https://roadbed.dev/run/v1 |
 | `invalid/receipt/unknown-executor.json` | `receipt.schema.json` | executor.name must be runner, mock, replay, hf-jobs or together |
 | `invalid/signature/rsa.json` | `signature.schema.json` | alg must be ed25519 |
 | `invalid/rebase/unknown-state.json` | `rebase.schema.json` | state must be a rebase state of the orchestrator |
 | `invalid/contamination/missing-seal-order.json` | `contamination.schema.json` | seal_order is required |
+| `invalid/contamination/probe-pass-with-shared-rows.json` | `contamination.schema.json` | status pass needs shared 0; git_ancestor is a required boolean; the seal commit comes from git (verifier probe) |
+| `invalid/contamination/probe-self-declared-seq.json` | `contamination.schema.json` | seal_order holds no copied numbers; verify reads them from SEAL.json and the receipt (verifier probe) |
+| `invalid/contamination/ok-with-false-leg.json` | `contamination.schema.json` | ok true needs all three legs true |
 | `invalid/cost/negative-total.json` | `cost.schema.json` | total_eur must be >= 0 |
+| `invalid/cost/probe-mock-with-h100.json` | `cost.schema.json` | a mock or replay cost.json has gpu 'none' and zero cost (verifier probe) |
 | `invalid/license-decision/decision-maybe.json` | `license-decision.schema.json` | decision must be allow, review or deny |
+| `invalid/approvals/probe-comment-free-text.json` | `approvals.schema.json` | no free-text comment: reason_code and refs only (verifier probe) |
+| `invalid/approvals/probe-same-actor-two-roles.json` | `approvals.schema.json` | approvals is keyed by actor id, so one actor cannot be validator and approver (SoD-03, verifier probe) |
+| `invalid/approvals/email-actor-key.json` | `approvals.schema.json` | approval keys are user ids, never email addresses |
 | `invalid/approvals/self-approve-role.json` | `approvals.schema.json` | approvals[].role must be validator or approver |
 | `invalid/finding/bad-id.json` | `finding.schema.json` | id must match F-NNNN |
 | `invalid/lineage-edge/untyped-node.json` | `lineage-edge.schema.json` | from must be <type>:<id> |
+| `invalid/lineage-edge/probe-person-name-actor.json` | `lineage-edge.schema.json` | actor is a user id (verifier probe) |
+| `invalid/lineage-edge/probe-raw-email-subject.json` | `lineage-edge.schema.json` | a subject node is subject:tok_<hex> (verifier probe) |
 | `invalid/audit-anchor/missing-head-hash.json` | `audit-anchor.schema.json` | head_hash is required |
 | `invalid/evidence-manifest/empty.json` | `evidence-manifest.schema.json` | a MANIFEST has at least one entry |
+| `invalid/audit-event/probe-email-actor-free-text.json` | `audit-event.schema.json` | actor is a user id; payload strings have no spaces and no free-text keys (verifier probe) |
+| `invalid/audit-event/probe-denied-without-rule.json` | `audit-event.schema.json` | a denied event names its rule (verifier probe) |
+| `invalid/audit-event/free-text-key.json` | `audit-event.schema.json` | free-text payload keys are rejected |
 | `invalid/audit-event/free-text-payload.json` | `audit-event.schema.json` | payload values must be scalars (ids, hashes, aggregates) |
 | `invalid/audit-event/unknown-rule.json` | `audit-event.schema.json` | rule must be SoD-01 to SoD-05 |
 | `invalid/approval/unknown-decision.json` | `approval.schema.json` | decision is an enum |
+| `invalid/approval/free-text-comment.json` | `approval.schema.json` | no free-text comment |
+| `invalid/approval/bad-ref.json` | `approval.schema.json` | refs are finding, correction-test, audit or rebase ids |
 | `invalid/executor-job/unknown-kind.json` | `executor-job.schema.json` | spec.kind must be train, eval or bench |
 | `invalid/job-status/progress-over-one.json` | `job-status.schema.json` | progress must be in [0, 1] |
 | `invalid/job-result/succeeded-without-receipt.json` | `job-result.schema.json` | receipt is required when state is succeeded |
+| `invalid/job-result/probe-succeeded-sig-null.json` | `job-result.schema.json` | receipt_sig is required when state is succeeded (verifier probe) |
+| `invalid/job-result/probe-succeeded-sig-absent.json` | `job-result.schema.json` | receipt_sig is required when state is succeeded (verifier probe) |
 | `invalid/alias-config/canary-weight.json` | `alias-config.schema.json` | canary.weight must be in [0, 1] |
 | `invalid/interaction-in/no-profile.json` | `interaction-in.schema.json` | profile_id is required: ingest without it is a 422 |
 | `invalid/verdict-in/fix-without-verdict.json` | `verdict-in.schema.json` | a fix must carry verdict and reason_code |

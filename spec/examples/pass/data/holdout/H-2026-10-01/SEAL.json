@@ -1,0 +1,22 @@
+{
+  "id": "H-2026-10-01",
+  "sealed_by": "vik",
+  "sealed_at": "2026-10-01T09:00:00Z",
+  "audit_seq": 640,
+  "seed": 20261101,
+  "rows": 60,
+  "sha256": "a20d6b1a5d5ca66a5a1ea85b337db9a62da9dd6d230484f02ca59520b5da778b",
+  "synthetic": true,
+  "stratification": {
+    "keys": [
+      "line",
+      "state",
+      "channel"
+    ],
+    "method": "proportional",
+    "fraction": 0.4
+  },
+  "merkle_root": "98030f684c59ccbddb8441351c9bc6efae98701c9c1aa87026ab6d642e4addcf",
+  "minhash_oid": "31361358c0d60e7d90edcb604f6bcef9e95bd2a83e6dca1b63ddbdb3abe79c18",
+  "snapshot": "S-2026-09-30"
+}

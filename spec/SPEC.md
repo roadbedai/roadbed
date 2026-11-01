@@ -8,6 +8,7 @@ One asset repo governs one model.
 
 The JSON Schemas (Draft 2020-12) are in `schemas/v0.1/`. They are generated from the Pydantic models in `roadbed.contracts` by `export_schemas`, and a test keeps them in sync.
 Two complete SYNTHETIC fixture assets are in `examples/pass/` (rebase 13, gate pass, awaiting sign-off) and `examples/blocked/` (rebase 14, gate blocked, finding F-0001).
+Their git histories are `examples/pass.bundle` and `examples/blocked.bundle` (`git clone examples/pass.bundle`), so the seal order can be checked with git.
 The Day 0 example `examples/claims-triage/` stays as the minimal asset.
 Valid and invalid cases for every schema, and hashing test vectors, are in `conformance/`.
 
@@ -49,7 +50,7 @@ A contract change is a pull request to this directory that the founder approves.
 | `policy/keys/<name>.pub` | (PEM) | ed25519 public key, SubjectPublicKeyInfo PEM. `receipt.pub` verifies receipts; `evidence.pub` verifies evidence manifests. |
 | `data/snapshots/<date>/MANIFEST.json` | `snapshot-manifest` | One frozen training snapshot: id `S-<date>`, rows, schema hash, Merkle root, parts, label rules, pseudonymisation profile and HMAC key id, parent. |
 | snapshot part (`part-NNNN.jsonl` or a bucket object) | `snapshot-row` | One resolved verdict row per line, with its row hash. Training reads these. |
-| `data/holdout/<id>/SEAL.json` | `seal` | The seal. Written once, by a validator. |
+| `data/holdout/<id>/SEAL.json` | `seal` | The seal. Written once, by a validator. `merkle_root`, `minhash_oid`, `snapshot` and `stratification` come together: all present (a full seal) or all absent (a Day 0 seal, which supports no disjointness check). |
 | `data/holdout/<id>/holdout.jsonl` | `holdout-row` | Sealed holdout: id, slice values, input content address, reviewer verdict, row hash. No raw input. |
 | `data/tombstones.jsonl` | `tombstone-row` | Erasure requests, by HMAC subject token. |
 | `evals/golden.jsonl` | `golden-row` | Golden set rows. |
@@ -101,7 +102,8 @@ These sentences are the frozen rules. The sections below make them exact.
 
 A `MANIFEST.sha256` is text: one line per file, `<sha256>  <path>` (two spaces), paths from the asset root, sorted, newline-terminated.
 
-- `rebases/N/MANIFEST.sha256` lists every file under `rebases/N/` except itself and the `evidence/` directory, plus the holdout file.
+- `rebases/N/MANIFEST.sha256` lists every file under `rebases/N/` except itself and the `evidence/` directory, plus the holdout file, plus the bound files: the holdout `SEAL.json`, the training snapshot `MANIFEST.json` (`<data.verdicts>/<date>/MANIFEST.json` for snapshot `S-<date>`) and the recipe file. So the signed evidence manifest covers the seal.
+- **Day 0 rule.** A rebase without `receipt.json` (spec v0.1, Day 0) needs only the files its manifest lists. A rebase with `receipt.json` must list every bound file that exists, or verify fails with `V-MANIFEST-INCOMPLETE`.
 - `rebases/N/evidence/MANIFEST.sha256` lists every file under `evidence/` except the manifest and its signature, plus `rebases/N/MANIFEST.sha256`. So it covers the whole rebase. Each new approval writes a new `approvals.json`, a new evidence manifest and a new signature (a new pack version). The rebase manifest does not change.
 
 ## Signatures and receipts
@@ -109,8 +111,10 @@ A `MANIFEST.sha256` is text: one line per file, `<sha256>  <path>` (two spaces),
 - **Keys.** ed25519. A key file is SubjectPublicKeyInfo PEM under `policy/keys/`. The key id is the lowercase hex SHA-256 of the raw 32-byte public key.
 - **Signature file** (`*.sig`, schema `signature`). JSON: `alg` (`ed25519`), `keyid`, `key` (the key path), `signed` (the signed file path), `payload`, `sig` (base64, padded). `payload: jcs` signs the JCS bytes of the signed JSON file; receipts use it. `payload: raw` signs the file bytes; manifests use it.
 - **Receipt** (`receipt.json`). An in-toto Statement v1: `_type` `https://in-toto.io/Statement/v1`, `subject` (repo paths, or `oid:<hex>` for bucket objects, with sha256 digests), `predicateType` `https://roadbed.dev/run/v1`, and `predicate`.
-- **Predicate fields.** job (id, kind), model, rebase, base (repo and revision sha), recipe (path and sha256), snapshot (id and Merkle root), holdout (id, Merkle root, seal seq), image digest, uv.lock sha256, gpu, seed, started_at, ended_at, audit_seq (job start), prev_receipt, cost, executor.
+- **Predicate fields.** job (id, kind), model, rebase, base (repo and revision sha), recipe (path and sha256), snapshot (id and Merkle root), holdout (id, Merkle root, seal seq, sealed_at, seal commit), image digest, uv.lock sha256, gpu, seed, started_at, ended_at, audit_seq (job start), prev_receipt, cost, executor.
 - **Executor.** `executor` is required. Its `name` is one of `runner`, `mock`, `replay`, `hf-jobs`, `together`. Mock and replay output always says so. A demo number never comes from a receipt whose executor is `mock`.
+- **No GPU for mock.** When the executor is `mock` or `replay`, `gpu.name` is `none`, `gpu.count` is 0 and every cost number is 0, in the receipt and in `cost.json`.
+- **Job results.** A `JobResult` with state `succeeded` carries both `receipt` and `receipt_sig`.
 - **Chain.** `prev_receipt` is `sha256(JCS(previous receipt.json))` of the previous receipt in this asset, by `started_at`. The first receipt has none (absent or null).
 
 ## Seal precedes training
@@ -119,11 +123,15 @@ A rebase is valid only if all of these hold:
 
 1. **Audit seq.** `SEAL.json.audit_seq` < the training receipt's `predicate.audit_seq`.
 2. **Timestamp.** `SEAL.json.sealed_at` < `predicate.started_at`.
-3. **Git ancestry.** `SEAL.json.seal_commit` is an ancestor of the commit that holds the training receipt.
+3. **Git ancestry.** The seal commit is an ancestor of the train commit, and they differ. The seal commit is the commit that added `SEAL.json`: `git log --diff-filter=A --format=%H -- data/holdout/<id>/SEAL.json`. The train commit is the commit that added the training `receipt.json`, found the same way. Both come from git, never from a stored field. `SEAL.json.seal_commit` is informational only; a file cannot name the commit that adds it.
 4. **No exact overlap.** The training snapshot and the holdout share no row hash.
-5. **No near overlap.** No pair of a training row and a holdout row has MinHash Jaccard ≥ 0.8 (`policy/gate.yaml` `contamination.minhash_threshold`; the holdout signatures are the object `SEAL.json.minhash_oid`).
+5. **No near overlap.** No pair of a training row and a holdout row has MinHash Jaccard ≥ 0.8 (`policy/gate.yaml` `contamination.minhash_threshold`; the holdout signatures are the object `SEAL.json.minhash_oid`). Small sets may use exact Jaccard (`near.method: jaccard`).
 
-`contamination.json` records each check. Only a validator seals or reads holdout rows (SoD-05), and the sealer cannot request the run (SoD-01).
+The receipt binds the seal: `predicate.holdout` repeats `seal_seq`, `sealed_at`, `merkle_root` and the seal commit, and verify compares them with `SEAL.json` and git.
+
+`contamination.json` reports the result. Its `seal_order` holds the two commits and one boolean per leg (`audit_seq`, `timestamp`, `git_ancestor`), plus `ok`. It copies no seqs or times: verify reads those from `SEAL.json` and the receipt and recomputes every leg. `ok` is true only when all three legs are true. `status: pass` needs `exact.shared` 0, no near pairs and `seal_order.ok`. The gate's `contamination` check has the same status as `contamination.json`.
+
+Only a validator seals or reads holdout rows (SoD-05), and the sealer cannot request the run (SoD-01).
 
 ## Lineage
 
@@ -136,11 +144,19 @@ A rebase is valid only if all of these hold:
 
 ## Personal data
 
-Audit events, lineage, receipts and evidence hold ids, HMAC tokens (`tok_<hex>`), hashes and aggregates. They never hold personal data. Audit payload values are scalars. The SDK pseudonymises before ingest. Ingest without a pseudonymisation profile id is rejected (422).
+Audit events, lineage, receipts and evidence hold ids, HMAC tokens (`tok_<hex>`), hashes and aggregates. They never hold personal data. The schemas enforce it:
+
+- **Actor ids.** Every actor, sealer, requester and approver field is a user or service id: `^[a-z0-9][a-z0-9_-]{0,63}$`. No email address, no name.
+- **Subjects.** A lineage subject node is `subject:tok_<hex>`. Other nodes are `<type>:<id>`.
+- **Audit payload.** Keys match `^[a-z_]{1,64}$`. Values are numbers, booleans, null, or strings matching `^[A-Za-z0-9:_./+=-]{1,256}$` (no spaces). Free-text keys (`note`, `comment`, `text`, `message`, `description`, `detail`, `reason`, `name`, `email`, `phone`) are rejected.
+- **Approvals.** An approval has a `reason_code` (enum) and `refs` (finding, correction-test, audit or rebase ids). It has no free-text comment.
+
+The SDK pseudonymises before ingest. Ingest without a pseudonymisation profile id is rejected (422).
 
 ## Audit chain
 
 Each event has `seq` (from 1), `prev_hash` (the `hash` of seq − 1, 64 zeros for seq 1) and `hash = sha256(JCS(event without "hash"))`.
+A denied event names its `rule`: `SoD-01` to `SoD-05`, or `RBAC` for a deny by the role matrix.
 A daily anchor (`audit/anchors/<date>.json`) records the head seq and hash. A copy goes to the Object Lock bucket. Vectors: `conformance/vectors/audit-chain.jsonl`.
 
 ## Scoring and gate
@@ -150,7 +166,7 @@ A daily anchor (`audit/anchors/<date>.json`) records the head seq and hash. A co
 3. CI = percentile bootstrap of the mean paired difference, `n_boot` resamples, level `ci`. The RNG seed is `[seed, crc32("<key>=<value>")]`, or `[seed, crc32("overall")]`.
 4. A slice with `n < min_n` is `low_n`. A low-n slice never blocks.
 5. A slice is `below_margin` when `delta < margin` and it is not low-n.
-6. A failed check blocks when its reason is in `block_on`. Otherwise its status is `warn`.
+6. A failed check blocks when its reason is in `block_on`. Otherwise its status is `warn`. A gate with status `pass` has no failed check. Every check has a non-empty `detail`; a skipped check says why.
 7. `policy_sha256` is the SHA-256 of the RFC 8785 canonical JSON of the policy, null fields left out.
 8. Synthetic data: `synthetic: true` in `roadbed.yaml`, `scores.json`, `gate.json` and every other file that has the field, and a `SYNTHETIC.md` in any directory of synthetic JSONL.
 
@@ -159,7 +175,12 @@ A daily anchor (`audit/anchors/<date>.json`) records the head seq and hash. A co
 `roadbed verify rebases/N` checks integrity, not the gate outcome. A blocked rebase still verifies. Exit 0 means every check passed. Exit 4 names the first failed check (`V-...`).
 
 Day 0 checks: the rebase `MANIFEST.sha256` hashes, the `scores.json` and `gate.json` schemas, `scores.json` recomputed from the two prediction files with the stored seed, and the seal time before the rebase time.
-W02 adds: the lock, schemas of every file, signatures, the receipt chain, seal order (all three ways), and disjointness. The planned codes are `V-HASH-MISMATCH`, `V-SEAL-ORDER` and `V-HOLDOUT-OVERLAP`.
+W01 adds `V-MANIFEST-INCOMPLETE` for a rebase with a receipt whose manifest misses a bound file (see Manifests).
+W02 adds: the lock, schemas of every file, signatures, the receipt chain, seal order (all three ways, ancestry from git), and disjointness. The planned codes are `V-HASH-MISMATCH`, `V-SEAL-ORDER` and `V-HOLDOUT-OVERLAP`.
+
+## Sign-off
+
+`evidence/approvals.json` keys `approvals` by actor id. One actor holds one role, so the validator and the approver differ (SoD-03) by construction. SoD-02 (the requester does not approve) needs `rebase.yaml` too, so the control plane (W11) and verify check it.
 
 ## Executor protocol
 
@@ -171,10 +192,11 @@ Implementations: `runner` on the GPU box, `mock`, `replay`. `hf-jobs` and `toget
 
 Every Day 0 file stays valid. W01 adds fields as optional only. It adds new schemas for files Day 0 did not validate.
 `policy_sha256` is computed with null fields left out, so the new optional policy fields do not change Day 0 hashes.
-The rebase `MANIFEST.sha256` now leaves out `evidence/`; Day 0 rebases have no `evidence/`, so their manifests are unchanged.
+The rebase `MANIFEST.sha256` now leaves out `evidence/` and adds the bound files. Day 0 rebases have no `evidence/` and no receipt, so their manifests stay valid under the Day 0 rule, and `roadbed verify` prints the same bytes for them as on Day 0.
+New constraints (actor id pattern, the seal field group, the gate pass rule) accept every Day 0 file.
 
 ## Tools
 
-- `uv run python spec/tools/build_examples.py` rebuilds `examples/pass`, `examples/blocked` and `conformance/vectors`. The output is deterministic, and a test fails when the checked-in files are stale. The signing keys are derived from public strings: they are test keys, never use them for a real receipt.
+- `uv run python spec/tools/build_examples.py` rebuilds `examples/pass`, `examples/blocked`, their `.bundle` git histories and `conformance/vectors`. It needs `git`. The output is deterministic, and a test fails when the checked-in files are stale. The signing keys are derived from public strings: they are test keys, never use them for a real receipt.
 - `uv run python spec/tools/build_conformance.py` rebuilds `conformance/valid`, `conformance/invalid` and `conformance/README.md`.
 - `uv run python -c "from roadbed.contracts import export_schemas; export_schemas('spec/schemas/v0.1')"` regenerates the schemas.

@@ -1,0 +1,10 @@
+{
+  "from": "version:v12",
+  "to": "subject:jane.doe@acme.example",
+  "kind": "trained_on",
+  "hashes": {
+    "to": "568512eb9694c4461e83bef638e02eb29d745832b1e771b16d46881a74d79414"
+  },
+  "ts": "2026-10-20T08:00:00Z",
+  "actor": "runner"
+}

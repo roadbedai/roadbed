@@ -193,16 +193,30 @@
           "title": "Rows"
         },
         "seal_seq": {
-          "description": "Audit seq of the seal event.",
+          "description": "Audit seq of the seal event (SEAL.json audit_seq).",
           "minimum": 1,
           "title": "Seal Seq",
           "type": "integer"
+        },
+        "sealed_at": {
+          "description": "SEAL.json sealed_at.",
+          "format": "date-time",
+          "title": "Sealed At",
+          "type": "string"
+        },
+        "seal_commit": {
+          "description": "Asset repo commit that added SEAL.json (git log --diff-filter=A).",
+          "pattern": "^[0-9a-f]{40}$",
+          "title": "Seal Commit",
+          "type": "string"
         }
       },
       "required": [
         "id",
         "merkle_root",
-        "seal_seq"
+        "seal_seq",
+        "sealed_at",
+        "seal_commit"
       ],
       "title": "HoldoutSealRef",
       "type": "object"
@@ -366,6 +380,8 @@
       "type": "string"
     },
     "requested_by": {
+      "description": "User or service id (lowercase, digits, _ and -). Never an email address or a name.",
+      "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
       "title": "Requested By",
       "type": "string"
     }
