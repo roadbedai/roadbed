@@ -1,0 +1,45 @@
+name: roadbed-stats
+
+# W03 stats and gate engine. The main ci workflow runs every fast test; this one also runs the
+# tests marked slow (bootstrap coverage), so no statistical claim is deselected in CI.
+on:
+  pull_request:
+    paths:
+      - "packages/roadbed/src/roadbed/stats.py"
+      - "packages/roadbed/src/roadbed/gate.py"
+      - "packages/roadbed/src/roadbed/scoring.py"
+      - "packages/roadbed/src/roadbed/contamination.py"
+      - "packages/roadbed/tests/test_stats.py"
+      - "packages/roadbed/tests/test_gate.py"
+      - "packages/roadbed/tests/test_scoring.py"
+      - "packages/roadbed/tests/test_contamination.py"
+      - "packages/roadbed/tests/test_fixture_reproduction.py"
+      - "spec/METHOD.md"
+      - "spec/examples/**"
+      - ".github/workflows/roadbed-stats.yml"
+  push:
+    branches: [main]
+    paths:
+      - "packages/roadbed/src/roadbed/stats.py"
+      - "packages/roadbed/src/roadbed/gate.py"
+      - "packages/roadbed/src/roadbed/scoring.py"
+      - "packages/roadbed/src/roadbed/contamination.py"
+      - "spec/examples/**"
+
+permissions:
+  contents: read
+
+jobs:
+  stats:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - name: Stats, gate, contamination and fixture reproduction (fast and slow)
+        run: |
+          uv run pytest -q -m "slow or not slow" \
+            packages/roadbed/tests/test_stats.py packages/roadbed/tests/test_gate.py \
+            packages/roadbed/tests/test_scoring.py packages/roadbed/tests/test_contamination.py \
+            packages/roadbed/tests/test_fixture_reproduction.py
