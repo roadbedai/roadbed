@@ -281,6 +281,19 @@ def write_snapshot(root: Path, sid: str, created: str, rows: list[dict[str, Any]
 # ---------------------------------------------------------------- one asset
 
 
+def write_lock(root: Path, objects: list[dict[str, Any]]) -> None:
+    """roadbed.lock: every file but the lock itself, plus the bucket objects."""
+    files = sorted((p for p in root.rglob("*") if p.is_file() and p.name != "roadbed.lock" and ".git" not in p.relative_to(root).parts),
+                   key=lambda p: p.relative_to(root).as_posix().encode())
+    write_json(root / "roadbed.lock", {
+        "spec": SPEC,
+        "files": [{"path": p.relative_to(root).as_posix(), "sha256": sha256_file(p), "size": p.stat().st_size}
+                  for p in files],
+        "objects": sorted(objects, key=lambda o: o["oid"]),
+        "synthetic": True,
+    })
+
+
 def build_asset(root: Path, n: int, blocked: bool) -> None:
     for p in (root, root.with_suffix(".bundle")):
         if p.is_dir():
@@ -421,6 +434,22 @@ def build_asset(root: Path, n: int, blocked: bool) -> None:
          "synthetic": True}
         for i, r in enumerate(fixes)
     ])
+    base_objects = [
+        {"oid": v12_adapter, "size": 66_060_288, "ref": "versions/v12/model.json"},
+        {"oid": old_man["parts"][0]["oid"], "size": old_man["parts"][0]["size"],
+         "ref": f"data/snapshots/{OLD_SNAPSHOT_ID.removeprefix('S-')}/MANIFEST.json"},
+        {"oid": old_seal["minhash_oid"], "size": MINHASH_SIZES[old_seal["minhash_oid"]], "ref": f"data/holdout/{OLD_HOLDOUT_ID}/SEAL.json"},
+        {"oid": seal["minhash_oid"], "size": MINHASH_SIZES[seal["minhash_oid"]], "ref": f"data/holdout/{HOLDOUT_ID}/SEAL.json"},
+    ]
+    write_lock(root, base_objects)  # W01c: the lock the rebase job starts from; the receipt binds it
+    config = {
+        "roadbed_yaml_sha256": sha256_file(root / "roadbed.yaml"),
+        "slices_sha256": sha256_file(root / "evals/slices.yaml"),
+        "scorers_sha256": sha256_file(root / "evals/scorers.yaml"),
+        "gate_policy_sha256": sha256_file(root / "policy/gate.yaml"),
+        "seal_sha256": sha256_file(root / f"data/holdout/{HOLDOUT_ID}/SEAL.json"),
+        "lock_sha256": sha256_file(root / "roadbed.lock"),
+    }
     d = root / "rebases" / str(n)
     rel = f"rebases/{n}"
     write_yaml(d / "rebase.yaml", {
@@ -463,7 +492,7 @@ def build_asset(root: Path, n: int, blocked: bool) -> None:
             "seed": 20261101, "started_at": started, "ended_at": ended, "audit_seq": train_seq,
             "prev_receipt": jcs_sha256(v12_receipt),
             "cost": {"gpu_hours": 0.0, "price_per_hour_eur": 0.0, "eur": 0.0},
-            "executor": {"name": "mock", "version": "0.1.0"}, "synthetic": True,
+            "executor": {"name": "mock", "version": "0.1.0"}, "synthetic": True, "config": config,
         },
     }
     write_json(d / "receipt.json", receipt)
@@ -579,22 +608,11 @@ def build_asset(root: Path, n: int, blocked: bool) -> None:
         "synthetic": True,
     })
 
-    files = sorted((p for p in root.rglob("*") if p.is_file() and p.name != "roadbed.lock" and ".git" not in p.relative_to(root).parts),
-                   key=lambda p: p.relative_to(root).as_posix().encode())
-    write_json(root / "roadbed.lock", {
-        "spec": SPEC,
-        "files": [{"path": p.relative_to(root).as_posix(), "sha256": sha256_file(p), "size": p.stat().st_size}
-                  for p in files],
-        "objects": sorted([
-            {"oid": v12_adapter, "size": 66_060_288, "ref": "versions/v12/model.json"},
-            {"oid": cand_adapter, "size": 66_060_288, "ref": f"{rel}/receipt.json"},
-            {"oid": old_man["parts"][0]["oid"], "size": old_man["parts"][0]["size"],
-             "ref": f"data/snapshots/{OLD_SNAPSHOT_ID.removeprefix('S-')}/MANIFEST.json"},
-            {"oid": old_seal["minhash_oid"], "size": MINHASH_SIZES[old_seal["minhash_oid"]], "ref": f"data/holdout/{OLD_HOLDOUT_ID}/SEAL.json"},
-            {"oid": seal["minhash_oid"], "size": MINHASH_SIZES[seal["minhash_oid"]], "ref": f"data/holdout/{HOLDOUT_ID}/SEAL.json"},
-        ], key=lambda o: o["oid"]),
-        "synthetic": True,
-    })
+    for rel_cfg, digest in (("roadbed.yaml", config["roadbed_yaml_sha256"]), ("evals/slices.yaml", config["slices_sha256"]),
+                            ("evals/scorers.yaml", config["scorers_sha256"]), ("policy/gate.yaml", config["gate_policy_sha256"]),
+                            (f"data/holdout/{HOLDOUT_ID}/SEAL.json", config["seal_sha256"])):
+        assert sha256_file(root / rel_cfg) == digest, f"{rel_cfg} changed after the receipt bound it"
+    write_lock(root, [*base_objects, {"oid": cand_adapter, "size": 66_060_288, "ref": f"{rel}/receipt.json"}])
     repo.commit(f"rebase {n}: outputs and evidence", "2026-11-01T11:06:00Z" if not blocked else "2026-11-01T10:40:00Z")
     assert c0
     repo.git("-c", "pack.threads=1", "bundle", "create", "-q", str(root.with_suffix(".bundle")), "HEAD", "main")

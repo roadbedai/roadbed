@@ -14,7 +14,7 @@
     "key": "policy/keys/receipt.pub",
     "signed": "rebases/13/receipt.json",
     "payload": "jcs",
-    "sig": "fWrTrrZMm6PxO282hTMNPeTWGJ6mXOVsLQJDBhB5/nmhATiWdnOLGAtTwnPfFi04Y2nqDrbgGCbdTYmjIfn7Bw=="
+    "sig": "Mm21czYons3X+h14bfAmecOvGyyyc+ZokmMsg7LFL6hf8plKzOmC4ACWkLd3ug8AA4j4EQOkbcRjDKKDKeCcBQ=="
   },
   "metrics": {
     "train_loss": 0.41

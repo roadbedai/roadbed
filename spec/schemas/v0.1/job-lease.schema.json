@@ -2,6 +2,71 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/job-lease.schema.json",
   "$defs": {
+    "AttestSpec": {
+      "description": "Sign the rebase receipt (rebases/N/receipt.json) that binds the train, eval and bench receipts (W01c).\n\nThe control plane runs it in process (mock, replay) or on the runner, which holds the receipt key.",
+      "properties": {
+        "kind": {
+          "const": "rebase",
+          "title": "Kind",
+          "type": "string"
+        },
+        "receipts": {
+          "description": "The train, eval and bench receipts to bind, by oid.",
+          "items": {
+            "$ref": "#/$defs/ObjectRef"
+          },
+          "minItems": 1,
+          "title": "Receipts",
+          "type": "array"
+        },
+        "subjects": {
+          "description": "Receipt subjects: the adapter (oid:<hex>) and both prediction files by asset path.",
+          "items": {
+            "$ref": "#/$defs/Subject"
+          },
+          "minItems": 1,
+          "title": "Subjects",
+          "type": "array"
+        },
+        "receipt_path": {
+          "description": "Where the signed receipt goes, rebases/N/receipt.json.",
+          "pattern": "^rebases/\\d+/receipt\\.json$",
+          "title": "Receipt Path",
+          "type": "string"
+        },
+        "config": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ReceiptConfig"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional. The evaluation configuration digests; the receipt copies them."
+        },
+        "outputs": {
+          "description": "Artifacts the result must name: receipt.",
+          "items": {
+            "const": "receipt",
+            "type": "string"
+          },
+          "title": "Outputs",
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "receipts",
+        "subjects",
+        "receipt_path",
+        "outputs"
+      ],
+      "title": "AttestSpec",
+      "type": "object",
+      "additionalProperties": false
+    },
     "BenchSpec": {
       "description": "Latency and cost benchmark on the GPU box.",
       "properties": {
@@ -304,6 +369,7 @@
             "mapping": {
               "bench": "#/$defs/BenchSpec",
               "eval": "#/$defs/EvalSpec",
+              "rebase": "#/$defs/AttestSpec",
               "train": "#/$defs/TrainSpec"
             },
             "propertyName": "kind"
@@ -317,6 +383,9 @@
             },
             {
               "$ref": "#/$defs/BenchSpec"
+            },
+            {
+              "$ref": "#/$defs/AttestSpec"
             }
           ],
           "title": "Spec"
@@ -566,6 +635,104 @@
       "type": "object",
       "additionalProperties": false
     },
+    "ReceiptConfig": {
+      "description": "The evaluation configuration a receipt binds: sha256 of the file bytes the job ran against (W01c).\n\nEach field is optional for compatibility. The control plane fills all six for a rebase receipt.\n`roadbed verify` checks each one that is present (SPEC.md, Signatures and receipts).",
+      "properties": {
+        "roadbed_yaml_sha256": {
+          "anyOf": [
+            {
+              "description": "Lowercase hex SHA-256 digest.",
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "sha256 of roadbed.yaml bytes.",
+          "title": "Roadbed Yaml Sha256"
+        },
+        "slices_sha256": {
+          "anyOf": [
+            {
+              "description": "Lowercase hex SHA-256 digest.",
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "sha256 of the evals.slices file bytes.",
+          "title": "Slices Sha256"
+        },
+        "scorers_sha256": {
+          "anyOf": [
+            {
+              "description": "Lowercase hex SHA-256 digest.",
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "sha256 of the evals.scorers file bytes.",
+          "title": "Scorers Sha256"
+        },
+        "gate_policy_sha256": {
+          "anyOf": [
+            {
+              "description": "Lowercase hex SHA-256 digest.",
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "sha256 of the gate policy file bytes (policy/gate.yaml). Not gate.json policy_sha256.",
+          "title": "Gate Policy Sha256"
+        },
+        "seal_sha256": {
+          "anyOf": [
+            {
+              "description": "Lowercase hex SHA-256 digest.",
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "sha256 of the holdout SEAL.json bytes.",
+          "title": "Seal Sha256"
+        },
+        "lock_sha256": {
+          "anyOf": [
+            {
+              "description": "Lowercase hex SHA-256 digest.",
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "sha256 of the roadbed.lock bytes the job started from. It never lists this receipt.",
+          "title": "Lock Sha256"
+        }
+      },
+      "title": "ReceiptConfig",
+      "type": "object",
+      "additionalProperties": false
+    },
     "RecipeRef": {
       "properties": {
         "path": {
@@ -637,6 +804,34 @@
         "parts"
       ],
       "title": "SnapshotInput",
+      "type": "object",
+      "additionalProperties": false
+    },
+    "Subject": {
+      "properties": {
+        "name": {
+          "description": "Repo path, or oid:<hex> for a bucket object.",
+          "title": "Name",
+          "type": "string"
+        },
+        "digest": {
+          "additionalProperties": {
+            "description": "Lowercase hex SHA-256 digest.",
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "propertyNames": {
+            "const": "sha256"
+          },
+          "title": "Digest",
+          "type": "object"
+        }
+      },
+      "required": [
+        "name",
+        "digest"
+      ],
+      "title": "Subject",
       "type": "object",
       "additionalProperties": false
     },

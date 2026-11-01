@@ -1,0 +1,9 @@
+{
+  "verdict_id": "vd-7f3a-0001",
+  "interaction_id": "int-7f3a-0001",
+  "action": "fix",
+  "reason_code": "severity_low",
+  "ts": "2026-11-01T10:20:00Z",
+  "synthetic": true,
+  "actor": "vik"
+}

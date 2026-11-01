@@ -50,6 +50,7 @@ A case whose only fault is an unknown field fails the published (closed) schema;
 | `invalid/receipt/unknown-executor.json` | `receipt.schema.json` | executor.name must be runner, mock, replay, hf-jobs or together |
 | `invalid/receipt/rebase-without-snapshot.json` | `receipt.schema.json` | only a bench receipt may leave out snapshot (W01b) |
 | `invalid/receipt/eval-without-holdout.json` | `receipt.schema.json` | an eval receipt names its sealed holdout (W01b) |
+| `invalid/receipt/config-prefixed-digest.json` | `receipt.schema.json` | config digests are bare lowercase hex (W01c) |
 | `invalid/signature/rsa.json` | `signature.schema.json` | alg must be ed25519 |
 | `invalid/rebase/unknown-state.json` | `rebase.schema.json` | state must be a rebase state of the orchestrator |
 | `invalid/contamination/missing-seal-order.json` | `contamination.schema.json` | seal_order is required |
@@ -77,12 +78,23 @@ A case whose only fault is an unknown field fails the published (closed) schema;
 | `invalid/audit-event/free-text-key.json` | `audit-event.schema.json` | free-text payload keys are rejected |
 | `invalid/audit-event/free-text-payload.json` | `audit-event.schema.json` | payload values must be scalars (ids, hashes, aggregates) |
 | `invalid/audit-event/unknown-rule.json` | `audit-event.schema.json` | rule must be SoD-01 to SoD-05 |
+| `invalid/audit-event/object-type-upper.json` | `audit-event.schema.json` | object.type is ^[a-z][a-z_]{0,63}$ (W01c) |
+| `invalid/audit-event/object-id-space.json` | `audit-event.schema.json` | object.id has no spaces (W01c) |
+| `invalid/audit-event/object-id-long.json` | `audit-event.schema.json` | object.id is at most 256 characters (W01c) |
+| `invalid/audit-event/object-id-email.json` | `audit-event.schema.json` | object.id has no '@': never an email address (W01c) |
+| `invalid/audit-event/object-id-star-prefix.json` | `audit-event.schema.json` | '*' is the whole id or absent (W01c) |
+| `invalid/audit-event/payload-int-unsafe.json` | `audit-event.schema.json` | payload integers stay within +-(2^53-1) (W01c) |
+| `invalid/audit-event/payload-number-unsafe.json` | `audit-event.schema.json` | payload numbers stay within +-(2^53-1) (W01c) |
 | `invalid/approval/unknown-decision.json` | `approval.schema.json` | decision is an enum |
 | `invalid/approval/validator-approves.json` | `approval.schema.json` | a validator records validated, validated_with_findings or rejected (review probe) |
 | `invalid/approval/approver-validates.json` | `approval.schema.json` | an approver records approved or rejected (review probe) |
 | `invalid/approval/free-text-comment.json` | `approval.schema.json` | no free-text comment |
 | `invalid/approval/bad-ref.json` | `approval.schema.json` | refs are finding, correction-test, audit or rebase ids |
-| `invalid/executor-job/unknown-kind.json` | `executor-job.schema.json` | spec.kind must be train, eval or bench |
+| `invalid/executor-job/unknown-kind.json` | `executor-job.schema.json` | spec.kind must be train, eval, bench or rebase |
+| `invalid/executor-job/attest-no-receipts.json` | `executor-job.schema.json` | an attest job binds at least one receipt (W01c) |
+| `invalid/executor-job/attest-no-subjects.json` | `executor-job.schema.json` | an attest job names at least one subject (W01c) |
+| `invalid/executor-job/attest-version-path.json` | `executor-job.schema.json` | an attest job signs rebases/N/receipt.json (W01c) |
+| `invalid/executor-job/attest-adapter-output.json` | `executor-job.schema.json` | an attest job outputs the receipt only (W01c) |
 | `invalid/executor-job/no-parts.json` | `executor-job.schema.json` | the runner needs the snapshot part oids |
 | `invalid/executor-job/no-storage.json` | `executor-job.schema.json` | the job names its bucket |
 | `invalid/executor-job/secret-in-credentials.json` | `executor-job.schema.json` | credentials is the name of a credential, never the secret |
@@ -99,9 +111,15 @@ A case whose only fault is an unknown field fails the published (closed) schema;
 | `invalid/job-result/probe-succeeded-sig-absent.json` | `job-result.schema.json` | receipt_sig is required when state is succeeded (verifier probe) |
 | `invalid/alias-config/canary-weight.json` | `alias-config.schema.json` | canary.weight must be in [0, 1] |
 | `invalid/interaction-in/no-profile.json` | `interaction-in.schema.json` | profile_id is required: ingest without it is a 422 |
+| `invalid/interaction-in/id-too-long.json` | `interaction-in.schema.json` | interaction_id is at most 128 characters (W01c) |
+| `invalid/interaction-in/id-empty.json` | `interaction-in.schema.json` | interaction_id is not empty |
 | `invalid/verdict-in/fix-without-verdict.json` | `verdict-in.schema.json` | a fix must carry verdict and reason_code |
 | `invalid/verdict-in/unknown-action.json` | `verdict-in.schema.json` | action must be approve, fix, reject or escalate |
 | `invalid/verdict-in/synthetic-not-bool.json` | `verdict-in.schema.json` | synthetic is a boolean (W01b) |
+| `invalid/verdict-in/client-sets-actor.json` | `verdict-in.schema.json` | the request body has no actor: the server sets it (W01c) |
+| `invalid/verdict-record/no-actor.json` | `verdict-record.schema.json` | a stored verdict names its actor (W01c) |
+| `invalid/verdict-record/email-actor.json` | `verdict-record.schema.json` | actor is a user id, never an email address (W01c) |
+| `invalid/verdict-record/fix-without-verdict.json` | `verdict-record.schema.json` | a fix must carry verdict and reason_code |
 | `invalid/outcome-in/bad-source.json` | `outcome-in.schema.json` | source must be system_of_record or csv |
 | `invalid/outcome-in/synthetic-not-bool.json` | `outcome-in.schema.json` | synthetic is a boolean (W01b) |
 
@@ -111,5 +129,13 @@ More valid cases (besides `valid/<schema>/example.json`):
 |---|---|---|
 | `valid/executor-job/eval-with-snapshot.json` | `executor-job.schema.json` | an eval job carries the snapshot ref its receipt copies |
 | `valid/executor-job/bench-with-refs.json` | `executor-job.schema.json` | a bench job may carry snapshot and sealed holdout refs |
+| `valid/executor-job/attest-rebase.json` | `executor-job.schema.json` | an attest job (kind rebase) binds the job receipts and signs rebases/N/receipt.json (W01c) |
 | `valid/receipt/bench-without-data.json` | `receipt.schema.json` | a bench receipt may leave out snapshot and holdout |
+| `valid/receipt/without-config.json` | `receipt.schema.json` | config is optional: a W01b receipt without it stays valid (W01c) |
+| `valid/receipt/partial-config.json` | `receipt.schema.json` | each config digest is optional (W01c) |
+| `valid/audit-event/payload-safe-bounds.json` | `audit-event.schema.json` | payload numbers up to 2^53-1 in size are valid (W01c) |
+| `valid/audit-event/object-hash-id.json` | `audit-event.schema.json` | object ids are ids, tokens or hashes (W01c) |
+| `valid/audit-event/object-collection.json` | `audit-event.schema.json` | a lone '*' names a collection, as authz writes for list routes (W01c) |
+| `valid/cost/bench-cap-null.json` | `cost.schema.json` | a bench job's cost.json has cap_eur null; the control plane sets it from policy/gate.yaml (W01c) |
+| `valid/interaction-in/id-128.json` | `interaction-in.schema.json` | interaction_id may be 128 characters (W01c) |
 | `valid/job-lease/first-receipt.json` | `job-lease.schema.json` | the first receipt of an asset has prev_receipt null |

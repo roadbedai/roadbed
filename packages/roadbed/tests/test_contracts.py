@@ -114,3 +114,100 @@ def test_export_schemas_writes_spec_files(tmp_path):
     assert sorted(p.name for p in paths) == sorted(p.name for p in SCHEMA_DIR.glob("*.schema.json"))
     for p in paths:
         assert p.read_text() == (SCHEMA_DIR / p.name).read_text()
+
+
+# ---------------------------------------------------------------- W01c: contract amendments round 2
+
+
+def _case(name, case="example"):
+    return json.loads((CONFORMANCE / "valid" / name / f"{case}.json").read_text())
+
+
+def test_attest_job_parses_as_attest_spec():
+    from roadbed.contracts import AttestSpec, ExecutorJob
+
+    job = ExecutorJob.model_validate(_case("executor-job", "attest-rebase"))
+    assert isinstance(job.spec, AttestSpec)
+    assert job.spec.kind == "rebase" and job.spec.receipt_path == "rebases/13/receipt.json"
+    assert job.spec.config is not None and len(job.spec.receipts) == 4
+
+
+@pytest.mark.parametrize("asset", ["pass", "blocked"])
+def test_rebase_receipt_binds_the_eval_config(asset):
+    """The fixture rebase receipts carry all six config digests. Five match the files now; the lock digest is the
+    roadbed.lock of the commit that added the receipt (the final lock lists the receipt, so it differs)."""
+    from roadbed.contracts import Receipt
+    from roadbed.hashing import sha256_file
+
+    root = SPEC_DIR / "examples" / asset
+    n = 13 if asset == "pass" else 14
+    seal = io.read_yaml(root / "roadbed.yaml")["data"]["holdout"]["path"] + "/SEAL.json"
+    cfg = Receipt.model_validate_json((root / f"rebases/{n}/receipt.json").read_text()).predicate.config
+    assert cfg is not None
+    assert cfg.roadbed_yaml_sha256 == sha256_file(root / "roadbed.yaml")
+    assert cfg.slices_sha256 == sha256_file(root / "evals/slices.yaml")
+    assert cfg.scorers_sha256 == sha256_file(root / "evals/scorers.yaml")
+    assert cfg.gate_policy_sha256 == sha256_file(root / "policy/gate.yaml")
+    assert cfg.seal_sha256 == sha256_file(root / seal)
+    assert cfg.lock_sha256 is not None and cfg.lock_sha256 != sha256_file(root / "roadbed.lock")
+
+
+def test_verdict_record_is_the_request_plus_a_server_actor():
+    from roadbed.contracts import VerdictIn, VerdictRecord
+
+    rec = _case("verdict-record")
+    body = {k: v for k, v in rec.items() if k != "actor"}
+    assert set(VerdictRecord.model_fields) == set(VerdictIn.model_fields) | {"actor"}
+    VerdictIn.model_validate(body)
+    with pytest.raises(ValueError):
+        VerdictIn.model_validate(rec)  # clients never send actor
+    with pytest.raises(ValueError):
+        VerdictRecord.model_validate({**rec, "action": "fix", "verdict": None})  # the fix rule is inherited
+    assert VerdictRecord.model_validate(rec).actor == "vik"
+
+
+def test_interaction_id_length():
+    from roadbed.contracts import InteractionIn
+
+    body = _case("interaction-in")
+    InteractionIn.model_validate({**body, "interaction_id": "i" * 128})
+    for bad in ("", "i" * 129):
+        with pytest.raises(ValueError):
+            InteractionIn.model_validate({**body, "interaction_id": bad})
+
+
+@pytest.mark.parametrize("value,ok", [
+    (9007199254740991, True), (-9007199254740991, True), (9007199254740992, False), (-9007199254740992, False),
+    (0.5, True), (1e300, False), (True, True), (None, True),
+])
+def test_audit_payload_numbers_are_safe_integers(value, ok):
+    from roadbed.contracts import AuditEvent
+
+    ev = {**_case("audit-event"), "payload": {"v": value}}
+    if ok:
+        assert AuditEvent.model_validate(ev).payload["v"] == value
+        assert type(AuditEvent.model_validate(ev).payload["v"]) is type(value)
+    else:
+        with pytest.raises(ValueError):
+            AuditEvent.model_validate(ev)
+
+
+def test_fixture_audit_objects_match_the_patterns():
+    """Every audit event in the spec vectors still validates under the W01c object and payload rules."""
+    from roadbed.contracts import AuditEvent
+
+    n = 0
+    for f in sorted((CONFORMANCE / "vectors").rglob("*.json*")):
+        text = f.read_text()
+        docs = [json.loads(ln) for ln in text.splitlines() if ln.strip()] if f.suffix == ".jsonl" else [json.loads(text)]
+        stack = list(docs)
+        while stack:
+            d = stack.pop()
+            if isinstance(d, dict) and {"seq", "action", "object", "payload", "hash"} <= set(d):
+                AuditEvent.model_validate(d)
+                n += 1
+            elif isinstance(d, dict):
+                stack.extend(d.values())
+            elif isinstance(d, list):
+                stack.extend(d)
+    assert n > 0
