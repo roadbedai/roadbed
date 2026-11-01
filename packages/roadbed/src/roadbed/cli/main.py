@@ -28,6 +28,7 @@ from roadbed.cli import verify as verify_mod
 from roadbed.cli import watch as watch_mod
 from roadbed.cli.api import Api, ApiError, new_key, seg
 from roadbed.cli.asset import LICENSE_POLICY, AssetError, find_root, open_asset, read_meta, rebase_dir
+from roadbed.cli.evals import app as evals_app
 from roadbed.cli.output import (
     EXIT_OK,
     EXIT_REMOTE,
@@ -50,6 +51,7 @@ app = typer.Typer(
     add_completion=False,
     pretty_exceptions_enable=False,
 )
+app.add_typer(evals_app, name="evals")
 
 AssetOpt = Annotated[Path | None, typer.Option("--asset", help="Asset repo root (default: search up from cwd).")]
 JsonOpt = Annotated[bool, typer.Option("--json", help="Print one JSON object instead of text.")]

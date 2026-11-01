@@ -16,6 +16,7 @@ dependencies = [
     "huggingface_hub",
     "rfc8785",
     "cryptography>=43",
+    "duckdb>=2.0.0",
 ]
 
 [project.scripts]
