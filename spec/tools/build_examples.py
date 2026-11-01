@@ -592,7 +592,7 @@ def build_asset(root: Path, n: int, blocked: bool) -> None:
     })
     repo.commit(f"rebase {n}: outputs and evidence", "2026-11-01T11:06:00Z" if not blocked else "2026-11-01T10:40:00Z")
     assert c0
-    repo.git("-c", "pack.threads=1", "bundle", "create", "-q", str(root.with_suffix(".bundle")), "main")
+    repo.git("-c", "pack.threads=1", "bundle", "create", "-q", str(root.with_suffix(".bundle")), "HEAD", "main")
     shutil.rmtree(root / ".git")
 
 

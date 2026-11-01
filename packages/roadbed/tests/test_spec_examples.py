@@ -326,7 +326,7 @@ def test_tampered_receipt_fails_signature(asset, tmp_path):
 
 def _clone(asset: str, tmp_path: Path) -> Path:
     dest = tmp_path / f"{asset}-git"
-    subprocess.run(["git", "clone", "-q", str(EXAMPLES / f"{asset}.bundle"), str(dest)], check=True)
+    subprocess.run(["git", "clone", "-q", "-b", "main", str(EXAMPLES / f"{asset}.bundle"), str(dest)], check=True)
     return dest
 
 
