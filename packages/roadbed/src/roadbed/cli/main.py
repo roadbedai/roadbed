@@ -13,6 +13,7 @@ from rich.table import Table
 from rich.text import Text
 
 from roadbed import __version__
+from roadbed import watch as hub_watch
 from roadbed.cli import rebase as rebase_mod
 from roadbed.cli import verify as verify_mod
 from roadbed.cli import watch as watch_mod
@@ -30,9 +31,7 @@ from roadbed.cli.output import (
     print_json,
     signed,
 )
-from roadbed.contracts import LicensePolicy
-from roadbed.gate import decide_license
-from roadbed.io import read_yaml
+from roadbed.license_policy import load_policy
 
 app = typer.Typer(
     name="roadbed",
@@ -44,6 +43,8 @@ app = typer.Typer(
 
 AssetOpt = Annotated[Path | None, typer.Option("--asset", help="Asset repo root (default: search up from cwd).")]
 JsonOpt = Annotated[bool, typer.Option("--json", help="Print one JSON object instead of text.")]
+
+WATCH_DECISION = {"allow": ("allowed", "green"), "review": ("needs review", "yellow"), "deny": ("denied", "red")}
 
 INPUT_ERRORS = (AssetError, FileNotFoundError, ValueError, jsonschema.ValidationError, pydantic.ValidationError)
 
@@ -78,62 +79,55 @@ def _fail(msg: str, as_json: bool, code: int = EXIT_ERROR, **extra: Any) -> type
 
 @app.command()
 def watch(
-    base: Annotated[str, typer.Option("--base", help="Glob over Hub repo ids, e.g. 'Qwen/Qwen3.*-27B'.")],
-    offline: Annotated[bool, typer.Option("--offline", help="Read the cache only; no network.")] = False,
+    base: Annotated[str, typer.Option("--base", help="Glob over Hub repo ids, e.g. 'Qwen/Qwen3.*-27B'. The author part is literal.")],
+    offline: Annotated[bool, typer.Option("--offline", help="Read the 24 h cache only; no network.")] = False,
+    state: Annotated[Path | None, typer.Option("--state", help="State file of detected bases (default: cache dir).")] = None,
     asset: AssetOpt = None,
     as_json: JsonOpt = False,
 ) -> None:
-    """Find the newest Hugging Face Hub repo matching --base and check its license."""
-    source = "hub"
-    try:
-        if offline:
-            raise ConnectionError("offline")
-        result = watch_mod.fetch(base)
-        watch_mod.write_cache(result)
-    except watch_mod.NoMatch:
-        raise _fail(f"no Hub repo matches {base}", as_json, EXIT_NO_MATCH, base=base)
-    except Exception as e:  # network failure or --offline: fall back to the cache
-        try:
-            result = watch_mod.cached(base)
-        except watch_mod.NoCache:
-            why = "--offline" if offline else f"Hub unreachable ({type(e).__name__})"
-            raise _fail(f"{why} and no cached result for {base} in {watch_mod.cache_path()}", as_json)
-        source = "cache"
+    """Report new Hugging Face Hub bases matching --base, pinned to a revision, with the license decision.
 
+    Each base is reported once (see --state). Inside an asset repo, policy/license.yaml decides
+    allow, review or deny.
+    """
     # License policy applies only inside an asset repo.
-    policy_path = None
+    policy = None
     try:
         root = _root(asset)
         if (root / LICENSE_POLICY).is_file():
-            policy_path = root / LICENSE_POLICY
+            policy = load_policy(root / LICENSE_POLICY)
     except AssetError:
         pass
-    decision = None
-    if policy_path and result.get("license"):
-        decision = decide_license(result["license"], LicensePolicy.model_validate(read_yaml(policy_path)))
+    except INPUT_ERRORS as e:
+        raise _fail(f"{LICENSE_POLICY}: {e}", as_json)
 
-    age = watch_mod.age(result["fetched_at"]) if source == "cache" else None
+    try:
+        found = hub_watch.scan(base, state or watch_mod.state_path(), policy, offline=offline)
+    except hub_watch.NoMatch:
+        raise _fail(f"no Hub repo matches {base}", as_json, EXIT_NO_MATCH, base=base)
+    except hub_watch.WatchError as e:
+        raise _fail(str(e), as_json, base=base)
+    if found:
+        watch_mod.write_last(found[0])
+
     if as_json:
-        print_json({
-            "ok": True,
-            **result,
-            "source": source,
-            "cache_age": age,
-            "license_allowed": decision.allowed if decision else None,
-        })
+        print_json({"ok": True, "base": base, "detections": [d.to_dict() for d in found], "exit_code": EXIT_OK})
         return
-
-    sha12 = (result.get("sha") or "unknown")[:12]
-    line = Text("new base: ", style="bold") + Text(f"{result['repo']} @{sha12}")
-    lic = result.get("license") or "unknown"
-    line.append(f"  license {lic}")
-    if decision:
-        line.append(": ")
-        line.append("allowed" if decision.allowed else "denied", style="green" if decision.allowed else "red")
-        line.append(" by policy")
-    if age:
-        line.append(f"  (cached {age})", style="dim")
-    console().print(line)
+    con = console()
+    if not found:
+        con.print(Text(f"no new base for {base}", style="dim"))
+        return
+    for d in found:
+        line = Text("new base: ", style="bold") + Text(f"{d.repo} @{d.revision[:12]}")
+        line.append(f"  license {d.license}")
+        if d.decision:
+            word, style = WATCH_DECISION[d.decision.decision]
+            line.append(": ")
+            line.append(word, style=style)
+            line.append(" by policy")
+        if d.source == "cache":
+            line.append(f"  (cached {watch_mod.age(d.fetched_at)})", style="dim")
+        con.print(line)
 
 
 # ---------------------------------------------------------------- rebase
