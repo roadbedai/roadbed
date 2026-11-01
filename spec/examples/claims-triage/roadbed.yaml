@@ -1,0 +1,27 @@
+# SYNTHETIC example of roadbed.yaml (spec roadbed/v0.1)
+spec: roadbed/v0.1
+model: claims-triage
+synthetic: true
+tenant: "Acme Mutual (SYNTHETIC)"
+task:
+  type: structured-classification
+  output_schema: evals/output.schema.json
+base:
+  repo: Qwen/Qwen3.6-27B
+  revision: unpinned
+data:
+  holdout:
+    id: H-EXAMPLE
+    path: data/holdout/H-EXAMPLE
+    sealed_by: vik
+    sealed_at: "2026-11-01T09:02:00Z"
+evals:
+  scorers: evals/scorers.yaml
+  slices: evals/slices.yaml
+  margin: -2.0
+  min_n: 30
+recipe: recipes/qwen3/lora-r16-sft@v4.yaml
+gate: policy/gate.yaml
+alias:
+  name: claims-triage-prod
+  version: v12

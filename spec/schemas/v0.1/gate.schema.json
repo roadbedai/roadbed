@@ -1,0 +1,146 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/gate.schema.json",
+  "$defs": {
+    "Check": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "description": "slice_margin, license, contamination, or stage:<name>.",
+          "title": "Name",
+          "type": "string"
+        },
+        "status": {
+          "description": "fail blocks; warn is a failure whose reason is not in block_on; skipped did not run.",
+          "enum": [
+            "pass",
+            "fail",
+            "warn",
+            "skipped"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "detail": {
+          "title": "Detail",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "status",
+        "detail"
+      ],
+      "title": "Check",
+      "type": "object"
+    },
+    "Finding": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^F-\\d{4}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "rebase": {
+          "title": "Rebase",
+          "type": "integer"
+        },
+        "slice": {
+          "description": "key=value",
+          "title": "Slice",
+          "type": "string"
+        },
+        "n": {
+          "title": "N",
+          "type": "integer"
+        },
+        "delta": {
+          "title": "Delta",
+          "type": "number"
+        },
+        "ci_low": {
+          "title": "Ci Low",
+          "type": "number"
+        },
+        "ci_high": {
+          "title": "Ci High",
+          "type": "number"
+        },
+        "margin": {
+          "title": "Margin",
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "rebase",
+        "slice",
+        "n",
+        "delta",
+        "ci_low",
+        "ci_high",
+        "margin"
+      ],
+      "title": "Finding",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "gate.json written by `roadbed gate`.",
+  "properties": {
+    "spec": {
+      "const": "roadbed/v0.1",
+      "description": "Spec version of this file.",
+      "title": "Spec",
+      "type": "string"
+    },
+    "synthetic": {
+      "title": "Synthetic",
+      "type": "boolean"
+    },
+    "rebase": {
+      "title": "Rebase",
+      "type": "integer"
+    },
+    "status": {
+      "enum": [
+        "pass",
+        "blocked"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "policy_sha256": {
+      "description": "sha256 of the RFC 8785 canonical JSON of the policy.",
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Policy Sha256",
+      "type": "string"
+    },
+    "checks": {
+      "items": {
+        "$ref": "#/$defs/Check"
+      },
+      "title": "Checks",
+      "type": "array"
+    },
+    "findings": {
+      "items": {
+        "$ref": "#/$defs/Finding"
+      },
+      "title": "Findings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "spec",
+    "synthetic",
+    "rebase",
+    "status",
+    "policy_sha256",
+    "checks",
+    "findings"
+  ],
+  "title": "gate.json",
+  "type": "object"
+}

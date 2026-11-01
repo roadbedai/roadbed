@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/gate-policy.schema.json",
+  "$defs": {
+    "Stage": {
+      "additionalProperties": false,
+      "properties": {
+        "stub": {
+          "description": "True when the stage is a placeholder and does not run.",
+          "title": "Stub",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "stub"
+      ],
+      "title": "Stage",
+      "type": "object"
+    },
+    "Stages": {
+      "additionalProperties": false,
+      "properties": {
+        "shadow": {
+          "$ref": "#/$defs/Stage"
+        },
+        "canary": {
+          "$ref": "#/$defs/Stage"
+        },
+        "bias_tests": {
+          "$ref": "#/$defs/Stage"
+        }
+      },
+      "required": [
+        "shadow",
+        "canary",
+        "bias_tests"
+      ],
+      "title": "Stages",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "policy/gate.yaml.",
+  "properties": {
+    "margin": {
+      "description": "Block when a slice delta is below this (score points).",
+      "title": "Margin",
+      "type": "number"
+    },
+    "min_n": {
+      "description": "Slices with fewer rows are flagged low_n and never block.",
+      "minimum": 1,
+      "title": "Min N",
+      "type": "integer"
+    },
+    "ci": {
+      "description": "Confidence level of the percentile bootstrap CI.",
+      "exclusiveMaximum": 1,
+      "exclusiveMinimum": 0,
+      "title": "Ci",
+      "type": "number"
+    },
+    "n_boot": {
+      "description": "Bootstrap resamples.",
+      "minimum": 100,
+      "title": "N Boot",
+      "type": "integer"
+    },
+    "seed": {
+      "description": "Seed for the bootstrap RNG.",
+      "minimum": 0,
+      "title": "Seed",
+      "type": "integer"
+    },
+    "block_on": {
+      "description": "Failed checks with these reasons block the rebase.",
+      "items": {
+        "enum": [
+          "slice_below_margin",
+          "contamination",
+          "license_denied"
+        ],
+        "type": "string"
+      },
+      "title": "Block On",
+      "type": "array"
+    },
+    "stages": {
+      "$ref": "#/$defs/Stages"
+    },
+    "synthetic": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "True when part of a synthetic asset repo.",
+      "title": "Synthetic"
+    }
+  },
+  "required": [
+    "margin",
+    "min_n",
+    "ci",
+    "n_boot",
+    "seed",
+    "block_on",
+    "stages"
+  ],
+  "title": "gate.yaml (policy)",
+  "type": "object"
+}

@@ -1,0 +1,6 @@
+{"id":"clm-000001","slices":{"line":"bodily_injury","state":"CA","channel":"broker"},"input_ref":"sha256:4158398d53fd10709f8a9999cd2ae65dbd5ed7c8a2a788c4d06553aaca332090","expected":{"route":"standard","severity":2}}
+{"id":"clm-000002","slices":{"line":"property","state":"TX","channel":"broker"},"input_ref":"sha256:cf0d3268e5f677df261464442f2d64a4226741aed9fcd48c719905b5ac00c46d","expected":{"route":"complex","severity":3}}
+{"id":"clm-000003","slices":{"line":"auto_physical","state":"CA","channel":"broker"},"input_ref":"sha256:d4f4191504d22e706528528003cbcbaadb9023e49a160928f772559c0ad8a286","expected":{"route":"siu","severity":4}}
+{"id":"clm-000004","slices":{"line":"bodily_injury","state":"TX","channel":"broker"},"input_ref":"sha256:8c8f076c4b23e72d4760ffa1dfaeeee7ec083d75d6d9646fc8aa1079f8b531b3","expected":{"route":"fast_track","severity":5}}
+{"id":"clm-000005","slices":{"line":"property","state":"CA","channel":"broker"},"input_ref":"sha256:294f200c42a1045a1024a2e1c81de6f087919e1b876b4faa9b5bd748281a6c42","expected":{"route":"standard","severity":1}}
+{"id":"clm-000006","slices":{"line":"auto_physical","state":"TX","channel":"broker"},"input_ref":"sha256:2b6b6df77c118e406598db8a0dd3ad89a9f3ee8728d6d8ab2cc98b905f4eeec6","expected":{"route":"complex","severity":2}}

@@ -1,0 +1,217 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/roadbed.schema.json",
+  "$defs": {
+    "Alias": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "description": "Serving alias the gate protects.",
+          "title": "Name",
+          "type": "string"
+        },
+        "version": {
+          "description": "Current version behind the alias.",
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "version"
+      ],
+      "title": "Alias",
+      "type": "object"
+    },
+    "Base": {
+      "additionalProperties": false,
+      "properties": {
+        "repo": {
+          "description": "Hugging Face repo id of the open-weight base model, e.g. Qwen/Qwen3.6-27B.",
+          "title": "Repo",
+          "type": "string"
+        },
+        "revision": {
+          "description": "40-hex commit of the base repo, or 'unpinned'.",
+          "pattern": "^([0-9a-f]{40}|unpinned)$",
+          "title": "Revision",
+          "type": "string"
+        }
+      },
+      "required": [
+        "repo",
+        "revision"
+      ],
+      "title": "Base",
+      "type": "object"
+    },
+    "Data": {
+      "additionalProperties": false,
+      "properties": {
+        "holdout": {
+          "$ref": "#/$defs/HoldoutRef"
+        }
+      },
+      "required": [
+        "holdout"
+      ],
+      "title": "Data",
+      "type": "object"
+    },
+    "Evals": {
+      "additionalProperties": false,
+      "properties": {
+        "scorers": {
+          "description": "Path to scorers.yaml.",
+          "title": "Scorers",
+          "type": "string"
+        },
+        "slices": {
+          "description": "Path to slices.yaml.",
+          "title": "Slices",
+          "type": "string"
+        },
+        "margin": {
+          "description": "Most negative allowed slice delta, in score points.",
+          "title": "Margin",
+          "type": "number"
+        },
+        "min_n": {
+          "description": "Slices with fewer rows are flagged low_n and never block.",
+          "minimum": 1,
+          "title": "Min N",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "scorers",
+        "slices",
+        "margin",
+        "min_n"
+      ],
+      "title": "Evals",
+      "type": "object"
+    },
+    "HoldoutRef": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "description": "Holdout id, e.g. H-2026-11-01.",
+          "title": "Id",
+          "type": "string"
+        },
+        "path": {
+          "description": "Directory (from asset root) that holds holdout.jsonl.",
+          "title": "Path",
+          "type": "string"
+        },
+        "sealed_by": {
+          "description": "Person who sealed the holdout.",
+          "title": "Sealed By",
+          "type": "string"
+        },
+        "sealed_at": {
+          "description": "When the holdout was sealed (RFC 3339, with zone).",
+          "format": "date-time",
+          "title": "Sealed At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "path",
+        "sealed_by",
+        "sealed_at"
+      ],
+      "title": "HoldoutRef",
+      "type": "object"
+    },
+    "Task": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "structured-classification",
+          "description": "Kind of task the model does.",
+          "title": "Type",
+          "type": "string"
+        },
+        "output_schema": {
+          "description": "Path (from asset root) to the JSON Schema of one model output.",
+          "title": "Output Schema",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "output_schema"
+      ],
+      "title": "Task",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "roadbed.yaml at the asset repo root.",
+  "properties": {
+    "spec": {
+      "const": "roadbed/v0.1",
+      "description": "Spec version of this file.",
+      "title": "Spec",
+      "type": "string"
+    },
+    "model": {
+      "description": "Name of the fine-tuned model this asset repo governs.",
+      "title": "Model",
+      "type": "string"
+    },
+    "synthetic": {
+      "description": "True when the asset repo holds illustrative, synthetic data.",
+      "title": "Synthetic",
+      "type": "boolean"
+    },
+    "tenant": {
+      "description": "Display name of the tenant.",
+      "title": "Tenant",
+      "type": "string"
+    },
+    "task": {
+      "$ref": "#/$defs/Task"
+    },
+    "base": {
+      "$ref": "#/$defs/Base"
+    },
+    "data": {
+      "$ref": "#/$defs/Data"
+    },
+    "evals": {
+      "$ref": "#/$defs/Evals"
+    },
+    "recipe": {
+      "description": "Path or ref of the training recipe (may be a stub).",
+      "title": "Recipe",
+      "type": "string"
+    },
+    "gate": {
+      "description": "Path to the gate policy, e.g. policy/gate.yaml.",
+      "title": "Gate",
+      "type": "string"
+    },
+    "alias": {
+      "$ref": "#/$defs/Alias"
+    }
+  },
+  "required": [
+    "spec",
+    "model",
+    "synthetic",
+    "tenant",
+    "task",
+    "base",
+    "data",
+    "evals",
+    "recipe",
+    "gate",
+    "alias"
+  ],
+  "title": "roadbed.yaml",
+  "type": "object"
+}

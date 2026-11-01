@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/prediction-row.schema.json",
+  "additionalProperties": false,
+  "description": "One line of rebases/<n>/predictions.{incumbent,candidate}.jsonl.",
+  "properties": {
+    "id": {
+      "description": "Holdout row id this prediction answers.",
+      "minLength": 1,
+      "title": "Id",
+      "type": "string"
+    },
+    "output": {
+      "additionalProperties": true,
+      "description": "Model output. Must validate against task.output_schema.",
+      "title": "Output",
+      "type": "object"
+    }
+  },
+  "required": [
+    "id",
+    "output"
+  ],
+  "title": "Prediction row",
+  "type": "object"
+}

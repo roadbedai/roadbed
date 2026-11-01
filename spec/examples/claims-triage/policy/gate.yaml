@@ -1,0 +1,12 @@
+# SYNTHETIC example of policy/gate.yaml
+margin: -2.0
+min_n: 30
+ci: 0.95
+n_boot: 10000
+seed: 20261101
+block_on: [slice_below_margin, contamination, license_denied]
+stages:
+  shadow: {stub: true}
+  canary: {stub: true}
+  bias_tests: {stub: true}
+synthetic: true

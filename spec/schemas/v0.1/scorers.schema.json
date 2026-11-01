@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/scorers.schema.json",
+  "$defs": {
+    "FieldWeight": {
+      "additionalProperties": false,
+      "properties": {
+        "field": {
+          "description": "Top-level output field compared by exact match.",
+          "title": "Field",
+          "type": "string"
+        },
+        "weight": {
+          "description": "Relative weight of this field.",
+          "exclusiveMinimum": 0,
+          "title": "Weight",
+          "type": "number"
+        }
+      },
+      "required": [
+        "field",
+        "weight"
+      ],
+      "title": "FieldWeight",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "evals/scorers.yaml. Row score = 100 * sum(weight * match) / sum(weight).",
+  "properties": {
+    "type": {
+      "const": "weighted_field_exact_match",
+      "description": "Scorer kind.",
+      "title": "Type",
+      "type": "string"
+    },
+    "fields": {
+      "description": "Fields and weights.",
+      "items": {
+        "$ref": "#/$defs/FieldWeight"
+      },
+      "minItems": 1,
+      "title": "Fields",
+      "type": "array"
+    },
+    "synthetic": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "True when part of a synthetic asset repo.",
+      "title": "Synthetic"
+    }
+  },
+  "required": [
+    "type",
+    "fields"
+  ],
+  "title": "scorers.yaml",
+  "type": "object"
+}

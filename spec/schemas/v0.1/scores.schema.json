@@ -1,0 +1,259 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/scores.schema.json",
+  "$defs": {
+    "FileDigest": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "sha256": {
+          "description": "Lowercase hex SHA-256 digest.",
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "title": "FileDigest",
+      "type": "object"
+    },
+    "HoldoutDigest": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "rows": {
+          "minimum": 0,
+          "title": "Rows",
+          "type": "integer"
+        },
+        "sha256": {
+          "description": "Lowercase hex SHA-256 digest.",
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "rows",
+        "sha256"
+      ],
+      "title": "HoldoutDigest",
+      "type": "object"
+    },
+    "Overall": {
+      "additionalProperties": false,
+      "properties": {
+        "n": {
+          "minimum": 1,
+          "title": "N",
+          "type": "integer"
+        },
+        "incumbent": {
+          "description": "Mean row score of the incumbent, 0-100.",
+          "title": "Incumbent",
+          "type": "number"
+        },
+        "candidate": {
+          "description": "Mean row score of the candidate, 0-100.",
+          "title": "Candidate",
+          "type": "number"
+        },
+        "delta": {
+          "description": "candidate - incumbent, score points.",
+          "title": "Delta",
+          "type": "number"
+        },
+        "ci_low": {
+          "title": "Ci Low",
+          "type": "number"
+        },
+        "ci_high": {
+          "title": "Ci High",
+          "type": "number"
+        }
+      },
+      "required": [
+        "n",
+        "incumbent",
+        "candidate",
+        "delta",
+        "ci_low",
+        "ci_high"
+      ],
+      "title": "Overall",
+      "type": "object"
+    },
+    "PredictionDigests": {
+      "additionalProperties": false,
+      "properties": {
+        "incumbent": {
+          "$ref": "#/$defs/FileDigest"
+        },
+        "candidate": {
+          "$ref": "#/$defs/FileDigest"
+        }
+      },
+      "required": [
+        "incumbent",
+        "candidate"
+      ],
+      "title": "PredictionDigests",
+      "type": "object"
+    },
+    "SliceResult": {
+      "additionalProperties": false,
+      "properties": {
+        "n": {
+          "minimum": 1,
+          "title": "N",
+          "type": "integer"
+        },
+        "incumbent": {
+          "description": "Mean row score of the incumbent, 0-100.",
+          "title": "Incumbent",
+          "type": "number"
+        },
+        "candidate": {
+          "description": "Mean row score of the candidate, 0-100.",
+          "title": "Candidate",
+          "type": "number"
+        },
+        "delta": {
+          "description": "candidate - incumbent, score points.",
+          "title": "Delta",
+          "type": "number"
+        },
+        "ci_low": {
+          "title": "Ci Low",
+          "type": "number"
+        },
+        "ci_high": {
+          "title": "Ci High",
+          "type": "number"
+        },
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value",
+          "type": "string"
+        },
+        "low_n": {
+          "description": "n < min_n. Low-n slices never block.",
+          "title": "Low N",
+          "type": "boolean"
+        },
+        "below_margin": {
+          "description": "delta < margin and not low_n.",
+          "title": "Below Margin",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "n",
+        "incumbent",
+        "candidate",
+        "delta",
+        "ci_low",
+        "ci_high",
+        "key",
+        "value",
+        "low_n",
+        "below_margin"
+      ],
+      "title": "SliceResult",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "scores.json written by `roadbed score`.",
+  "properties": {
+    "spec": {
+      "const": "roadbed/v0.1",
+      "description": "Spec version of this file.",
+      "title": "Spec",
+      "type": "string"
+    },
+    "synthetic": {
+      "title": "Synthetic",
+      "type": "boolean"
+    },
+    "model": {
+      "title": "Model",
+      "type": "string"
+    },
+    "rebase": {
+      "minimum": 0,
+      "title": "Rebase",
+      "type": "integer"
+    },
+    "seed": {
+      "title": "Seed",
+      "type": "integer"
+    },
+    "n_boot": {
+      "title": "N Boot",
+      "type": "integer"
+    },
+    "ci": {
+      "description": "Confidence level of ci_low/ci_high.",
+      "title": "Ci",
+      "type": "number"
+    },
+    "holdout": {
+      "$ref": "#/$defs/HoldoutDigest"
+    },
+    "predictions": {
+      "$ref": "#/$defs/PredictionDigests"
+    },
+    "notice": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Provenance notice, e.g. that no training ran.",
+      "title": "Notice"
+    },
+    "overall": {
+      "$ref": "#/$defs/Overall"
+    },
+    "slices": {
+      "items": {
+        "$ref": "#/$defs/SliceResult"
+      },
+      "title": "Slices",
+      "type": "array"
+    }
+  },
+  "required": [
+    "spec",
+    "synthetic",
+    "model",
+    "rebase",
+    "seed",
+    "n_boot",
+    "ci",
+    "holdout",
+    "predictions",
+    "overall",
+    "slices"
+  ],
+  "title": "scores.json",
+  "type": "object"
+}

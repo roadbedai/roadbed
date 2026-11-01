@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/roadbedai/roadbed/blob/main/spec/schemas/v0.1/holdout-row.schema.json",
+  "additionalProperties": false,
+  "description": "One line of data/holdout/<id>/holdout.jsonl.",
+  "properties": {
+    "id": {
+      "description": "Stable row id, e.g. clm-000001.",
+      "minLength": 1,
+      "title": "Id",
+      "type": "string"
+    },
+    "slices": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "Slice key to slice value, e.g. {line: bodily_injury}.",
+      "title": "Slices",
+      "type": "object"
+    },
+    "input_ref": {
+      "description": "Content address of the input; the raw input is not stored in the holdout.",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Input Ref",
+      "type": "string"
+    },
+    "expected": {
+      "additionalProperties": true,
+      "description": "Reviewer verdict. Must validate against task.output_schema.",
+      "title": "Expected",
+      "type": "object"
+    }
+  },
+  "required": [
+    "id",
+    "slices",
+    "input_ref",
+    "expected"
+  ],
+  "title": "Holdout row",
+  "type": "object"
+}

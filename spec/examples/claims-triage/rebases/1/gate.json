@@ -1,0 +1,40 @@
+{
+  "spec": "roadbed/v0.1",
+  "synthetic": true,
+  "rebase": 1,
+  "status": "pass",
+  "policy_sha256": "4610c5ea25912e51ef7255bf4161fd2ee3126b576976277f1f4859186eb0542e",
+  "checks": [
+    {
+      "name": "slice_margin",
+      "status": "pass",
+      "detail": "0 of 6 slices below -2.0 margin; 6 flagged low-n"
+    },
+    {
+      "name": "license",
+      "status": "pass",
+      "detail": "apache-2.0 allowed by policy/license.yaml"
+    },
+    {
+      "name": "contamination",
+      "status": "skipped",
+      "detail": "train manifest absent: skipped"
+    },
+    {
+      "name": "stage:shadow",
+      "status": "skipped",
+      "detail": "stub: not run in prototype"
+    },
+    {
+      "name": "stage:canary",
+      "status": "skipped",
+      "detail": "stub: not run in prototype"
+    },
+    {
+      "name": "stage:bias_tests",
+      "status": "skipped",
+      "detail": "stub: not run in prototype"
+    }
+  ],
+  "findings": []
+}

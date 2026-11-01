@@ -1,0 +1,28 @@
+[project]
+name = "roadbed"
+version = "0.0.1"
+description = "Roadbed engine: per-slice scoring, paired bootstrap, and release gate for fine-tuned model rebases (prototype)."
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2",
+    "numpy",
+    "ruamel.yaml",
+    "jsonschema",
+    "typer",
+    "rich",
+    "httpx",
+    "huggingface_hub",
+    "rfc8785",
+]
+
+[project.scripts]
+roadbed = "roadbed.cli.main:app"
+
+[dependency-groups]
+dev = ["pytest>=8", "hypothesis>=6", "pytest-cov>=5"]
+
+[build-system]
+requires = ["uv_build>=0.9,<0.14"]
+build-backend = "uv_build"

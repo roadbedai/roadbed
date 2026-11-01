@@ -1,0 +1,6 @@
+# SYNTHETIC example of evals/slices.yaml
+keys:
+  line: [auto_physical, bodily_injury, property, liability, workers_comp]
+  state: [CA, TX, FL, NY, PA, IL]
+  channel: [broker, direct, partner]
+synthetic: true

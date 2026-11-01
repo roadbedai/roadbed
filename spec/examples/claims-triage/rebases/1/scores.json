@@ -1,0 +1,107 @@
+{
+  "spec": "roadbed/v0.1",
+  "synthetic": true,
+  "model": "claims-triage",
+  "rebase": 1,
+  "seed": 20261101,
+  "n_boot": 10000,
+  "ci": 0.95,
+  "holdout": {
+    "id": "H-EXAMPLE",
+    "rows": 6,
+    "sha256": "8861042c7036d7f0382e7f2598da9f1f60b86c819fe370b42a83420e975b61dd"
+  },
+  "predictions": {
+    "incumbent": {
+      "path": "rebases/1/predictions.incumbent.jsonl",
+      "sha256": "112f5c7f1f9c81055ba3db0df90535524efedd3961bddd3512cca3f9416ab513"
+    },
+    "candidate": {
+      "path": "rebases/1/predictions.candidate.jsonl",
+      "sha256": "70527862f065369858907c7916c9d56c597b12fb8178187ae2de3ec65d611673"
+    }
+  },
+  "notice": "predictions supplied via --from-predictions; no training in this run",
+  "overall": {
+    "n": 6,
+    "incumbent": 86.66666666666667,
+    "candidate": 90.0,
+    "delta": 3.3333333333333335,
+    "ci_low": -23.333333333333332,
+    "ci_high": 26.666666666666668
+  },
+  "slices": [
+    {
+      "n": 2,
+      "incumbent": 60.0,
+      "candidate": 100.0,
+      "delta": 40.0,
+      "ci_low": 40.0,
+      "ci_high": 40.0,
+      "key": "line",
+      "value": "auto_physical",
+      "low_n": true,
+      "below_margin": false
+    },
+    {
+      "n": 2,
+      "incumbent": 100.0,
+      "candidate": 70.0,
+      "delta": -30.0,
+      "ci_low": -60.0,
+      "ci_high": 0.0,
+      "key": "line",
+      "value": "bodily_injury",
+      "low_n": true,
+      "below_margin": false
+    },
+    {
+      "n": 2,
+      "incumbent": 100.0,
+      "candidate": 100.0,
+      "delta": 0.0,
+      "ci_low": 0.0,
+      "ci_high": 0.0,
+      "key": "line",
+      "value": "property",
+      "low_n": true,
+      "below_margin": false
+    },
+    {
+      "n": 3,
+      "incumbent": 86.66666666666667,
+      "candidate": 100.0,
+      "delta": 13.333333333333334,
+      "ci_low": 0.0,
+      "ci_high": 40.0,
+      "key": "state",
+      "value": "CA",
+      "low_n": true,
+      "below_margin": false
+    },
+    {
+      "n": 3,
+      "incumbent": 86.66666666666667,
+      "candidate": 80.0,
+      "delta": -6.666666666666667,
+      "ci_low": -60.0,
+      "ci_high": 40.0,
+      "key": "state",
+      "value": "TX",
+      "low_n": true,
+      "below_margin": false
+    },
+    {
+      "n": 6,
+      "incumbent": 86.66666666666667,
+      "candidate": 90.0,
+      "delta": 3.3333333333333335,
+      "ci_low": -23.333333333333332,
+      "ci_high": 26.666666666666668,
+      "key": "channel",
+      "value": "broker",
+      "low_n": true,
+      "below_margin": false
+    }
+  ]
+}

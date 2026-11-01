@@ -1,0 +1,117 @@
+"""Loading an asset repo and the files of one rebase."""
+
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+from roadbed.contracts import GatePolicy, HoldoutRow, LicensePolicy, PredictionRow, Scorers, Slices
+from roadbed.io import load_asset, read_jsonl, read_yaml
+from roadbed.scoring import load_scorers
+
+NOTICE = "predictions supplied via --from-predictions; no training in this run"
+LICENSE_POLICY = "policy/license.yaml"
+PRED_FILES = {"incumbent": "predictions.incumbent.jsonl", "candidate": "predictions.candidate.jsonl"}
+MANIFEST = "MANIFEST.sha256"
+REBASE_META = "rebase.yaml"
+PROPOSED = "roadbed.yaml.proposed"
+SEAL_NAMES = ("SEAL.yaml", "SEAL.yml", "SEAL.json", "SEAL")
+
+
+class AssetError(Exception):
+    """Input problem the user can fix. Exit code 1."""
+
+
+@dataclass
+class Asset:
+    root: Path
+    cfg: dict[str, Any]
+    policy: GatePolicy
+    scorers: Scorers
+    slices: Slices
+    license_policy: LicensePolicy | None
+
+    @property
+    def holdout_dir(self) -> Path:
+        return self.root / self.cfg["data"]["holdout"]["path"]
+
+    @property
+    def holdout_file(self) -> Path:
+        return self.holdout_dir / "holdout.jsonl"
+
+    def rel(self, p: Path) -> str:
+        return p.resolve().relative_to(self.root.resolve()).as_posix()
+
+
+def find_root(start: Path) -> Path:
+    for p in [start, *start.parents]:
+        if (p / "roadbed.yaml").is_file():
+            return p
+    raise AssetError(f"no roadbed.yaml in {start} or its parents; run inside an asset repo or pass --asset")
+
+
+def open_asset(root: Path) -> Asset:
+    root = root.resolve()
+    if not (root / "roadbed.yaml").is_file():
+        raise AssetError(f"no roadbed.yaml in {root}")
+    cfg = load_asset(root)
+    lic_path = root / LICENSE_POLICY
+    return Asset(
+        root=root,
+        cfg=cfg,
+        policy=GatePolicy.model_validate(read_yaml(root / cfg["gate"])),
+        scorers=load_scorers(root / cfg["evals"]["scorers"]),
+        slices=Slices.model_validate(read_yaml(root / cfg["evals"]["slices"])),
+        license_policy=LicensePolicy.model_validate(read_yaml(lic_path)) if lic_path.is_file() else None,
+    )
+
+
+def rebase_dir(asset_root: Path, arg: str) -> tuple[Path, int]:
+    p = Path(arg)
+    d = p if p.is_absolute() else asset_root / p
+    if not d.is_dir():
+        # also accept a path relative to the current directory
+        if p.is_dir():
+            d = p.resolve()
+        else:
+            raise AssetError(f"rebase directory not found: {arg}")
+    m = re.fullmatch(r"\d+", d.name)
+    if not m:
+        raise AssetError(f"rebase directory must be named by its number, e.g. rebases/13 (got {d.name})")
+    return d, int(d.name)
+
+
+def load_rows(asset: Asset, d: Path) -> tuple[list[dict], list[dict], list[dict]]:
+    if not asset.holdout_file.is_file():
+        raise AssetError(f"holdout not found: {asset.rel(asset.holdout_file)}")
+    hold = read_jsonl(asset.holdout_file)
+    for r in hold:
+        HoldoutRow.model_validate(r)
+    preds = []
+    for name in ("incumbent", "candidate"):
+        f = d / PRED_FILES[name]
+        if not f.is_file():
+            raise AssetError(f"prediction file not found: {f}")
+        rows = read_jsonl(f)
+        for r in rows:
+            PredictionRow.model_validate(r)
+        preds.append(rows)
+    return hold, preds[0], preds[1]
+
+
+def read_meta(d: Path) -> dict[str, Any] | None:
+    f = d / REBASE_META
+    return read_yaml(f) if f.is_file() else None
+
+
+def seal_time(asset: Asset) -> Any:
+    """sealed_at from a SEAL file in the holdout directory, else from roadbed.yaml."""
+    for name in SEAL_NAMES:
+        f = asset.holdout_dir / name
+        if f.is_file():
+            data = read_yaml(f)  # YAML is a superset of JSON
+            if isinstance(data, dict) and "sealed_at" in data:
+                return data["sealed_at"]
+    return asset.cfg["data"]["holdout"]["sealed_at"]

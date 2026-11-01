@@ -1,0 +1,3 @@
+# SYNTHETIC example of policy/license.yaml
+allow: [apache-2.0, mit]
+synthetic: true

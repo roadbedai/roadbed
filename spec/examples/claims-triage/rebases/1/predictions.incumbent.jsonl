@@ -1,0 +1,6 @@
+{"id":"clm-000001","output":{"route":"standard","severity":2}}
+{"id":"clm-000002","output":{"route":"complex","severity":3}}
+{"id":"clm-000003","output":{"route":"siu","severity":2}}
+{"id":"clm-000004","output":{"route":"fast_track","severity":5}}
+{"id":"clm-000005","output":{"route":"standard","severity":1}}
+{"id":"clm-000006","output":{"route":"complex","severity":4}}
