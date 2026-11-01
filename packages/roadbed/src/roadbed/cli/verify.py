@@ -3,6 +3,6 @@
 from __future__ import annotations
 
 from roadbed.asset.day0 import DECIMALS, Check, VerifyFailed, _diff, _hashes, _schemas, _scores, _seal, _when
-from roadbed.asset.verify import is_full, run
+from roadbed.asset.verify import is_full, receipt_executors, run
 
-__all__ = ["DECIMALS", "Check", "VerifyFailed", "_diff", "_hashes", "_schemas", "_scores", "_seal", "_when", "is_full", "run"]
+__all__ = ["DECIMALS", "Check", "VerifyFailed", "_diff", "_hashes", "_schemas", "_scores", "_seal", "_when", "is_full", "receipt_executors", "run"]

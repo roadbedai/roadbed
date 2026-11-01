@@ -49,7 +49,7 @@ A contract change is a pull request to this directory that the founder approves.
 ├── versions/vN/{model.json, receipt.json, receipt.sig}
 ├── rebases/N/{rebase.yaml, receipt.json, receipt.sig, predictions.incumbent.jsonl, predictions.candidate.jsonl,
 │              scores.json, gate.json, contamination.json, cost.json, license.json, bom.cdx.json, report.md, MANIFEST.sha256}
-├── rebases/N/evidence/{evidence.pdf, approvals.json, MANIFEST.sha256, MANIFEST.sig}
+├── rebases/N/evidence/{approvals.json, MANIFEST.sha256, MANIFEST.sig[, evidence.md, evidence.html, evidence.pdf]}
 ├── findings/F-NNNN.yaml
 ├── lineage/edges.jsonl                 append-only {from, to, kind, hashes, ts, actor}
 └── audit/anchors/<date>.json           daily audit-chain head (also in the Object Lock bucket)
@@ -91,7 +91,7 @@ A contract change is a pull request to this directory that the founder approves.
 | `rebases/N/roadbed.yaml.proposed` | `roadbed` | Optional (Day 0). The base bump the PR applies after sign-off. |
 | `rebases/N/MANIFEST.sha256`, `rebases/N/evidence/MANIFEST.sha256` | `evidence-manifest` (parsed) | `sha256sum` style list of files. See "Manifests". |
 | `rebases/N/evidence/approvals.json` | `approvals` | Sign-off status ("awaiting MRM sign-off"), required roles, approvals, pack version. |
-| `rebases/N/evidence/evidence.pdf` | (PDF) | Evidence pack. Made by W18. Optional in v0.1 fixtures. |
+| `rebases/N/evidence/evidence.{md,html,pdf}` | (text, HTML, PDF) | Rendered evidence pack. Made by W18. Optional: see "Manifests". |
 | `findings/F-NNNN.yaml` | `finding` | Logged findings. Ids are F-0001, F-0002, ... in order. |
 | `lineage/edges.jsonl` | `lineage-edge` | Append-only lineage graph. |
 | `audit/anchors/<date>.json` | `audit-anchor` | Daily head of the audit hash chain. |
@@ -142,6 +142,7 @@ A `MANIFEST.sha256` is text: one line per file, `<sha256>  <path>` (two spaces),
 - `rebases/N/MANIFEST.sha256` lists every file under `rebases/N/` except itself and the `evidence/` directory, plus the holdout file, plus the bound files: the holdout `SEAL.json`, the training snapshot `MANIFEST.json` (`<data.verdicts>/<date>/MANIFEST.json` for snapshot `S-<date>`) and the recipe file. So the signed evidence manifest covers the seal.
 - **Day 0 rule.** A rebase without `receipt.json` (spec v0.1, Day 0) needs only the files its manifest lists. A rebase with `receipt.json` must list every bound file that exists, or verify fails with `V-MANIFEST-INCOMPLETE`.
 - `rebases/N/evidence/MANIFEST.sha256` lists every file under `evidence/` except the manifest and its signature, plus `rebases/N/MANIFEST.sha256`. So it covers the whole rebase. Each new approval writes a new `approvals.json`, a new evidence manifest and a new signature (a new pack version). The rebase manifest does not change.
+- **Approvals-only evidence.** The rendered pack (`evidence.md`, `evidence.html`, `evidence.pdf`) is optional for a Day 0 asset. An `evidence/` directory that holds only `approvals.json`, `MANIFEST.sha256` and `MANIFEST.sig` is valid when its manifest lists no rendered file. The fixtures in `spec/examples` carry this form: no W18 renderer ran. `roadbed verify` then says "approvals only, no rendered evidence pack", and an evidence verifier (W18) checks the approvals, the manifest and the signature and does not ask for the rendered files. When the manifest lists one rendered file, the full W18 pack rules apply.
 
 ## Signatures and receipts
 
@@ -236,6 +237,8 @@ A daily anchor (`audit/anchors/<date>.json`) records the head seq and hash. A co
 `roadbed verify rebases/N` checks integrity, not the gate outcome. A blocked rebase still verifies. Exit 0 means every check passed. Exit 4 names the first failed check (`V-...`).
 
 A Day 0 rebase (no receipt, no evidence, no lock) gets the Day 0 checks, in order: the rebase `MANIFEST.sha256` hashes, the `scores.json` and `gate.json` schemas (reader form), `scores.json` recomputed from the two prediction files with the stored seed, and the seal time before the rebase time.
+
+For each receipt in the asset, the transcript names the executor and the key id of its signature, for example `receipt rebases/13/receipt.json: executor mock, signed by cb54bac00a07`. When a receipt is `mock` or `replay`, the last line is `MOCK: no model was trained`. `--json` carries the same list as `executors` and the flag as `mock`.
 
 A full rebase gets every check below. Without git history or `--objects`, the git and near-overlap checks are skipped, not passed; `--strict` makes a skip a failure. These are all the codes verify emits:
 

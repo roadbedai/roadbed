@@ -58,13 +58,15 @@ from roadbed.asset.signing import SignatureError, verify_signature
 from roadbed.cli.asset import PRED_FILES, Asset, open_asset
 from roadbed.contracts import SCHEMA_MODELS
 
-__all__ = ["Check", "VerifyFailed", "VerifyResult", "is_full", "run", "verify"]
+__all__ = ["Check", "VerifyFailed", "VerifyResult", "is_full", "receipt_executors", "run", "verify"]
 
 RECEIPT, RECEIPT_SIG, EVIDENCE = "receipt.json", "receipt.sig", "evidence"
 RECEIPT_KEY, EVIDENCE_KEY = "policy/keys/receipt.pub", "policy/keys/evidence.pub"
 # Files every full rebase has (SPEC.md, The asset tree). The rest of rebases/N/ must be listed when present.
 FULL_REBASE_FILES = (RECEIPT, RECEIPT_SIG, "rebase.yaml", "scores.json", "gate.json", "contamination.json", *PRED_FILES.values())
 EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}")
+# Rendered evidence pack files (W18). A Day 0 asset may carry approvals only (SPEC.md, Manifests).
+RENDERED = ("evidence.md", "evidence.html", "evidence.pdf")
 FILE_EXT = re.compile(r"\.(ya?ml|json|jsonl|md|pdf|sha256|sig|pub|ptr|txt|csv|parquet|safetensors)$")
 
 
@@ -322,6 +324,9 @@ def _evidence(c: _Ctx) -> Check:
     missing = sorted(need - listed)
     if missing:
         return Check("V-MANIFEST-INCOMPLETE", label, False, f"{mrel} does not list {', '.join(missing)}")
+    rendered = [r for r in RENDERED if f"{c.rrel}/{EVIDENCE}/{r}" in listed]
+    if not rendered:
+        return Check("V-HASH-MISMATCH", label, True, f"{len(listed)} files; approvals only, no rendered evidence pack")
     return Check("V-HASH-MISMATCH", label, True, f"{len(listed)} files")
 
 
@@ -345,6 +350,22 @@ def _chain(c: _Ctx) -> Check:
             return Check("V-RECEIPT-CHAIN", label, False, f"{rel}: prev_receipt is {got and got[:12]}, expected {want}")
         prev = jcs_sha256(doc)
     return Check("V-RECEIPT-CHAIN", label, True, f"{len(receipts)} receipts")
+
+
+def receipt_executors(root: Path) -> list[dict[str, str | None]]:
+    """Every receipt in the asset with its executor and the key id its signature names (None when unreadable).
+
+    The signatures check proves the key id; this only reports it, so a reader can tell mock from runner.
+    """
+    out: list[dict[str, str | None]] = []
+    for rel in tree_files(root):
+        if schema_for(rel) != "receipt":
+            continue
+        doc = _try_doc(root / rel) or {}
+        ex = (doc.get("predicate") or {}).get("executor") or {}
+        sig = _try_doc(root / (rel[: -len(RECEIPT)] + RECEIPT_SIG)) or {}
+        out.append({"receipt": rel, "executor": ex.get("name"), "keyid": sig.get("keyid")})
+    return out
 
 
 def _binding(c: _Ctx) -> Check:

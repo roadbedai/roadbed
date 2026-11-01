@@ -14,8 +14,8 @@ from pathlib import Path
 from typing import Any
 
 from roadbed.asset import Check, sha256_file
-from roadbed.cli.asset import PRED_FILES, Asset, load_rows
-from roadbed.contracts import HoldoutDigest, PredictionDigests, Receipt, Scores
+from roadbed.cli.asset import PRED_FILES, Asset, load_rows, receipt_executor
+from roadbed.contracts import HoldoutDigest, PredictionDigests, Scores
 from roadbed.stats import compare
 
 DECIMALS = 6
@@ -58,11 +58,7 @@ def first_diff(a: Any, b: Any, path: str = "") -> str | None:
 def reproduce(asset: Asset, d: Path, n: int) -> Reproduced:
     raw = json.loads((d / "scores.json").read_text(encoding="utf-8"))
     stored = Scores.model_validate(raw)
-    receipt = None
-    if (d / "receipt.json").is_file():
-        receipt = Receipt.model_validate(json.loads((d / "receipt.json").read_text(encoding="utf-8")))
-    ex = receipt.predicate.executor.name if receipt is not None else None
-    executor = str(getattr(ex, "value", ex)) if ex is not None else None
+    executor = receipt_executor(d)
     policy = asset.policy.model_copy(update={"seed": stored.seed, "n_boot": stored.n_boot, "ci": stored.ci})
     hold, inc, cand = load_rows(asset, d)
     recomputed = compare(

@@ -4,12 +4,15 @@ import json
 from pathlib import Path
 
 import jsonschema
+import pytest
 from typer.testing import CliRunner
 
 from cli_asset import _cache_dir, asset  # noqa: F401  (pytest fixtures)
+from roadbed.cli import rebase as rebase_mod
+from roadbed.cli.asset import open_asset, receipt_executor
 from roadbed.cli.main import app
-from roadbed.contracts import json_schema
-from roadbed.io import read_yaml
+from roadbed.contracts import GateResult, Scores, json_schema
+from roadbed.io import read_yaml, write_yaml
 
 runner = CliRunner()
 PASS_LINE = "opened rebase #13 → awaiting MRM sign-off"
@@ -137,3 +140,93 @@ def test_status(asset: Path):
     data = json.loads(runner.invoke(app, ["status", "--asset", str(asset), "--json"]).output)
     assert [(x["rebase"], x["status"]) for x in data["rebases"]] == [(13, "pass"), (14, "blocked")]
     assert data["rebases"][1]["findings"] == ["F-0003"]
+
+
+# ---------------------------------------------------------------- honesty: synthetic marks and executor
+
+EXAMPLES = Path(__file__).resolve().parents[4] / "spec" / "examples"
+
+
+def _real(asset: Path) -> None:
+    """Turn the test asset into a real one: every synthetic flag false, no SYNTHETIC in the tenant name."""
+    for rel in ("roadbed.yaml", "evals/scorers.yaml", "evals/slices.yaml", "policy/gate.yaml", "policy/license.yaml",
+                "rebases/13/rebase.yaml", "rebases/14/rebase.yaml"):
+        doc = read_yaml(asset / rel)
+        doc["synthetic"] = False
+        if rel == "roadbed.yaml":
+            doc["tenant"] = "Acme Mutual"
+        write_yaml(asset / rel, doc)
+    (asset / "SYNTHETIC.md").unlink()
+    for f in (asset / "findings").iterdir():
+        write_yaml(f, {**read_yaml(f), "synthetic": False})
+
+
+def _receipt(asset: Path, n: int, executor: str) -> None:
+    doc = json.loads((EXAMPLES / "pass/rebases/13/receipt.json").read_text())
+    doc["predicate"]["executor"]["name"] = executor
+    (asset / f"rebases/{n}/receipt.json").write_text(json.dumps(doc, indent=2))
+
+
+@pytest.mark.parametrize("name,n", [("pass", 13), ("blocked", 14)])
+def test_fixture_reports_render_as_before(name: str, n: int):
+    """The synthetic fixtures (mock receipts) keep the Day 0 text byte for byte."""
+    a = open_asset(EXAMPLES / name)
+    d = a.root / f"rebases/{n}"
+    meta = read_yaml(d / "rebase.yaml")
+    base = rebase_mod.BaseRef(meta["base"]["repo"], meta["base"]["revision"], meta["base"].get("license"))
+    scores = Scores.model_validate_json((d / "scores.json").read_text())
+    gate = GateResult.model_validate_json((d / "gate.json").read_text())
+    final = rebase_mod.final_line(n, gate, a.policy.margin)
+    got = rebase_mod.report_md(a, n, base, scores, gate, final, receipt_executor(d))
+    assert got == (d / "report.md").read_text(encoding="utf-8")
+    assert got.splitlines()[0].endswith("(SYNTHETIC)")
+
+
+@pytest.mark.parametrize("n,line", [(13, PASS_LINE), (14, BLOCK_LINE)])
+def test_real_asset_report_has_no_synthetic_mark(asset: Path, n: int, line: str):
+    _real(asset)
+    r = _rebase(asset, n)
+    assert r.exit_code in (0, 4), r.output
+    d = asset / f"rebases/{n}"
+    report = (d / "report.md").read_text()
+    assert "SYNTHETIC" not in report.upper()
+    lines = report.splitlines()
+    assert lines[0] == f"# Rebase #{n}: Qwen/Qwen3.8-27B for claims-triage"
+    assert lines[2].startswith("> **Executor: none, predictions supplied with `--from-predictions`") and "Data: real." in lines[2]
+    assert report.rstrip().endswith(line)
+    assert read_yaml(d / "rebase.yaml")["synthetic"] is False
+    assert json.loads((d / "scores.json").read_text())["synthetic"] is False
+    for f in (asset / "findings").iterdir():
+        assert read_yaml(f)["synthetic"] is False
+    if n == 13:
+        assert "SYNTHETIC" not in (d / "roadbed.yaml.proposed").read_text()
+
+
+def test_runner_receipt_says_runner_eval_job(asset: Path):
+    _real(asset)
+    _receipt(asset, 13, "runner")
+    r = _rebase(asset, 13)
+    assert r.exit_code == 0, r.output
+    d = asset / "rebases/13"
+    report = (d / "report.md").read_text()
+    assert report.splitlines()[2].startswith("> **Executor: runner, predictions from the runner eval job. Data: real.**")
+    assert "predictions supplied" not in report and "SYNTHETIC" not in report.upper()
+    assert json.loads((d / "scores.json").read_text())["notice"] == "predictions from the runner eval job"
+    assert "predictions from the runner eval job" in r.output and "no training in this run" not in r.output
+
+
+def test_synthetic_asset_with_runner_receipt_says_both(asset: Path):
+    _receipt(asset, 13, "runner")
+    r = _rebase(asset, 13)
+    assert r.exit_code == 0, r.output
+    lines = (asset / "rebases/13/report.md").read_text().splitlines()
+    assert lines[0] == "# Rebase #13: Qwen/Qwen3.8-27B for claims-triage"
+    assert lines[2].startswith("> **Executor: runner, predictions from the runner eval job. Data: SYNTHETIC")
+
+
+def test_mock_receipt_on_real_asset_says_supplied(asset: Path):
+    _real(asset)
+    _receipt(asset, 13, "mock")
+    assert _rebase(asset, 13).exit_code == 0
+    line = (asset / "rebases/13/report.md").read_text().splitlines()[2]
+    assert line.startswith("> **Executor: mock, predictions supplied, no model was trained. Data: real.**")

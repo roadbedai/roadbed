@@ -19,7 +19,9 @@ from roadbed.cli.asset import (
     AssetError,
     bound_files,
     load_rows,
+    predictions_supplied,
     read_meta,
+    receipt_executor,
 )
 from roadbed.cli.output import MINUS, plain, signed
 from roadbed.contracts import FileDigest, GateContaminationInput, GateResult, HoldoutDigest, PredictionDigests, Scores
@@ -120,8 +122,26 @@ def _num(x: float) -> str:
     return f"{x:.1f}".replace("-", MINUS)
 
 
-def report_md(asset: Asset, n: int, base: BaseRef, scores: Scores, gate: GateResult, final: str) -> str:
+def provenance_line(executor: str | None, synthetic: bool) -> str:
+    """First line of a report that is not the synthetic Day 0 one: who produced the predictions, and the data kind."""
+    if executor is None:
+        who = "Executor: none, predictions supplied with `--from-predictions`, no training in this run."
+    elif predictions_supplied(executor):
+        who = f"Executor: {executor}, predictions supplied, no model was trained."
+    else:
+        who = f"Executor: {executor}, predictions from the {executor} eval job."
+    data = "Data: SYNTHETIC, illustrative only." if synthetic else "Data: real."
+    return f"> **{who} {data}** The scoring, statistics, gate and hashes are the real code paths."
+
+
+def report_md(asset: Asset, n: int, base: BaseRef, scores: Scores, gate: GateResult, final: str,
+              executor: str | None = None) -> str:
+    """W19 uses this file verbatim as the PR body. A synthetic asset with supplied predictions keeps the Day 0 text;
+    any other report names the executor and the data kind on its first line and carries no SYNTHETIC mark when the
+    asset is real."""
     cfg = asset.cfg
+    synthetic = bool(cfg["synthetic"])
+    day0 = synthetic and predictions_supplied(executor)
     o = scores.overall
     below = [s for s in scores.slices if s.below_margin]
     low = [s for s in scores.slices if s.low_n]
@@ -131,20 +151,28 @@ def report_md(asset: Asset, n: int, base: BaseRef, scores: Scores, gate: GateRes
         else f"The gate blocked this rebase: {len(below)} slice(s) fell below the {plain(asset.policy.margin)} margin."
         + (" The overall delta alone would not have caught it." if o.delta >= 0 else "")
     )
-    out = [
-        f"# Rebase #{n}: {cfg['model']} → {base.repo} (SYNTHETIC)",
-        "",
+    summary = (
         f"Rebase #{n} moves `{cfg['model']}` for {cfg['tenant']} from `{cfg['base']['repo']}` to "
         f"`{base.repo}` @ `{base.revision[:12]}`. Both models were scored on {o.n:,} sealed holdout cases "
         f"(holdout `{scores.holdout.id}`). The candidate scores {_num(o.candidate)} against the incumbent's "
         f"{_num(o.incumbent)}, a delta of {signed(o.delta)} ({int(scores.ci * 100)}% CI {signed(o.ci_low)} to "
         f"{signed(o.ci_high)}). {verdict} {len(low)} slice(s) have fewer than {asset.policy.min_n} rows and are "
-        f"flagged low-n; they never block.",
-        "",
-        "> **Illustrative: predictions supplied, no training in this run.** "
-        "The prediction files are synthetic fixtures passed with `--from-predictions`. "
-        "The scoring, statistics, gate and hashes are the real code paths. All data in this repo is synthetic.",
-        "",
+        f"flagged low-n; they never block."
+    )
+    if day0:
+        out = [
+            f"# Rebase #{n}: {cfg['model']} → {base.repo} (SYNTHETIC)",
+            "",
+            summary,
+            "",
+            "> **Illustrative: predictions supplied, no training in this run.** "
+            "The prediction files are synthetic fixtures passed with `--from-predictions`. "
+            "The scoring, statistics, gate and hashes are the real code paths. All data in this repo is synthetic.",
+            "",
+        ]
+    else:
+        out = [f"# Rebase #{n}: {base.repo} for {cfg['model']}", "", provenance_line(executor, synthetic), "", summary, ""]
+    out += [
         "## Results",
         "",
         "| Slice | n | Incumbent | Candidate | Delta | 95% CI | Flag |".replace("95%", f"{int(scores.ci * 100)}%"),
@@ -193,22 +221,29 @@ def write_manifest(asset: Asset, d: Path) -> Path:
 
 
 def run(asset: Asset, d: Path, n: int, base: BaseRef, emit, contamination: GateContaminationInput | None = None) -> RebaseResult:
-    """contamination: overlap between the training snapshot and the holdout; None means no train manifest (skipped)."""
+    """contamination: overlap between the training snapshot and the holdout; None means no train manifest (skipped).
+
+    A receipt in the rebase directory names the executor. Predictions are "supplied" unless a training executor
+    (runner, hf-jobs, together) produced them.
+    """
     cfg = asset.cfg
+    synthetic = bool(cfg["synthetic"])
     meta = read_meta(d)
+    executor = receipt_executor(d)
+    notice = NOTICE if predictions_supplied(executor) else f"predictions from the {executor} eval job"
     emit(f"new base: {base.repo}")
-    emit(NOTICE)
+    emit(notice)
 
     hold, inc, cand = load_rows(asset, d)
     scores = compare(
         inc, cand, hold, asset.slices, asset.policy,
-        scorers=asset.scorers, synthetic=bool(cfg["synthetic"]), model=cfg["model"], rebase=n,
+        scorers=asset.scorers, synthetic=synthetic, model=cfg["model"], rebase=n,
         holdout_digest=HoldoutDigest(id=cfg["data"]["holdout"]["id"], rows=len(hold), sha256=sha256_file(asset.holdout_file)),
         prediction_digests=PredictionDigests(**{
             k: FileDigest(path=asset.rel(d / PRED_FILES[k]), sha256=sha256_file(d / PRED_FILES[k]))
             for k in ("incumbent", "candidate")
         }),
-        notice=NOTICE,
+        notice=notice,
     )
     emit(f"scored on {scores.overall.n:,} sealed holdout cases")
 
@@ -224,7 +259,7 @@ def run(asset: Asset, d: Path, n: int, base: BaseRef, emit, contamination: GateC
     # rebase.yaml records which base was used and when the rebase was created.
     new_meta = {
         **(meta or {}),
-        "synthetic": True,
+        "synthetic": synthetic,
         "rebase": n,
         "model": cfg["model"],
         "base": {"repo": base.repo, "revision": base.revision, **({"license": base.license} if base.license else {})},
@@ -238,12 +273,12 @@ def run(asset: Asset, d: Path, n: int, base: BaseRef, emit, contamination: GateC
     (d / "scores.json").write_text(scores.model_dump_json(indent=2, exclude_none=True) + "\n", encoding="utf-8")
     (d / "gate.json").write_text(gate.model_dump_json(indent=2, exclude_none=True) + "\n", encoding="utf-8")
     final = final_line(n, gate, asset.policy.margin)
-    (d / "report.md").write_text(report_md(asset, n, base, scores, gate, final), encoding="utf-8")
+    (d / "report.md").write_text(report_md(asset, n, base, scores, gate, final, executor), encoding="utf-8")
 
     written = [d / REBASE_META, d / "scores.json", d / "gate.json", d / "report.md"]
     for f in gate.findings:
         p = findings_dir / f"{f.id}.yaml"
-        write_yaml(p, {**f.model_dump(mode="json"), "synthetic": True, "gate": asset.rel(d / "gate.json")})
+        write_yaml(p, {**f.model_dump(mode="json"), "synthetic": synthetic, "gate": asset.rel(d / "gate.json")})
         written.append(p)
 
     proposed = d / PROPOSED
@@ -252,7 +287,8 @@ def run(asset: Asset, d: Path, n: int, base: BaseRef, emit, contamination: GateC
         new_cfg["base"] = {"repo": base.repo, "revision": base.revision}
         write_yaml(proposed, new_cfg)
         proposed.write_text(
-            f"# SYNTHETIC · proposed by `roadbed rebase` #{n}: base bump, applied by the PR script after MRM sign-off\n"
+            f"# {'SYNTHETIC · ' if synthetic else ''}proposed by `roadbed rebase` #{n}: base bump, applied by the PR script "
+            "after MRM sign-off\n"
             + proposed.read_text(encoding="utf-8"),
             encoding="utf-8",
         )

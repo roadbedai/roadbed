@@ -2,16 +2,19 @@
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from roadbed.contracts import GatePolicy, HoldoutRow, LicensePolicy, PredictionRow, Scorers, Slices
+from roadbed.contracts import GatePolicy, HoldoutRow, LicensePolicy, PredictionRow, Receipt, Scorers, Slices
 from roadbed.io import load_asset, read_jsonl, read_yaml
 from roadbed.scoring import load_scorers
 
 NOTICE = "predictions supplied via --from-predictions; no training in this run"
+# Executors that never train: their predictions count as supplied (contracts.ExecutorName).
+NO_TRAINING_EXECUTORS = ("mock", "replay")
 LICENSE_POLICY = "policy/license.yaml"
 PRED_FILES = {"incumbent": "predictions.incumbent.jsonl", "candidate": "predictions.candidate.jsonl"}
 MANIFEST = "MANIFEST.sha256"
@@ -99,6 +102,20 @@ def load_rows(asset: Asset, d: Path) -> tuple[list[dict], list[dict], list[dict]
             PredictionRow.model_validate(r)
         preds.append(rows)
     return hold, preds[0], preds[1]
+
+
+def receipt_executor(d: Path) -> str | None:
+    """Executor name from rebases/<n>/receipt.json, or None when the rebase has no receipt."""
+    f = d / "receipt.json"
+    if not f.is_file():
+        return None
+    receipt = Receipt.model_validate(json.loads(f.read_text(encoding="utf-8")))
+    return str(receipt.predicate.executor.name)
+
+
+def predictions_supplied(executor: str | None) -> bool:
+    """True unless a training executor (runner, hf-jobs, together) produced the predictions."""
+    return executor is None or executor in NO_TRAINING_EXECUTORS
 
 
 def read_meta(d: Path) -> dict[str, Any] | None:
