@@ -7,9 +7,10 @@ Rules (applied to every string leaf of an input, output, verdict or outcome):
 3. Free text then depends on the text mode:
    - "tokenize" (default, needs no extra): the whole string becomes `<TEXT:tok_...>`, an HMAC of the original.
    - "redact": a named-entity redactor (Presidio, the `[redact]` extra) replaces the entities it finds.
-4. A string under a key in `keep` (labels such as `route`) keeps its value after rules 1 and 2 only if it looks like
-   an identifier (no spaces, at most 64 characters). Anything else is tokenised.
-5. A number with 7 or more integer digits (phone or account numbers) is tokenised unless its key is in `keep`.
+4. A string under a key in `keep` (labels such as `route`) and a slice label keep their value after rules 1 and 2 only
+   if it looks like a lowercase label (a-z, 0-9, _ . : / + = -, at most 64 characters). Anything else is tokenised.
+5. A number equal to a host-named value (rule 1) becomes its placeholder. Otherwise a number with 7 or more integer
+   digits (phone or account numbers) is tokenised unless its key is in `keep`.
 6. A dict key that is not a field name (snake_case or camelCase, starting lowercase) is tokenised.
 7. Ids from the host or the gateway must be plain ids without pattern entities, or they are not used.
 
@@ -29,7 +30,8 @@ TextMode = Literal["tokenize", "redact"]
 
 MIN_KEY_BYTES = 16
 _KEY_ID_DOMAIN = b"roadbed-sdk/hmac-key-id/v1\x00"
-_IDENT = re.compile(r"^[A-Za-z0-9_.:/+=-]{0,64}$")
+# Kept values: lowercase label shapes only. "Virtanen" or "Jane.Doe" under a kept key is tokenised.
+_IDENT = re.compile(r"^[a-z0-9][a-z0-9_.:/+=-]{0,63}$")
 # Field names: snake_case or camelCase that starts lowercase. A capitalised key ("Virtanen") is tokenised.
 _FIELD = re.compile(r"^[a-z_][A-Za-z0-9_.-]{0,63}$")
 _ID = re.compile(r"^[A-Za-z0-9_.:-]{1,128}$")
@@ -42,7 +44,8 @@ _PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ("EMAIL_ADDRESS", re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")),
     ("IBAN_CODE", re.compile(_L + r"[A-Z]{2}\d{2}(?:[ ]?[A-Z0-9]{4}){2,7}(?:[ ]?[A-Z0-9]{1,4})?" + _R)),
     ("US_SSN", re.compile(_L + r"\d{3}-\d{2}-\d{4}" + _R)),
-    ("DATE_TIME", re.compile(_L + r"(?:\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2})?)?|\d{1,2}[./]\d{1,2}[./]\d{2,4})" + _R)),
+    # Left side: no digit only, so a date glued to letters ("JaneDoe1985-03-12") is still found.
+    ("DATE_TIME", re.compile(r"(?<!\d)" + r"(?:\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2})?)?|\d{1,2}[./]\d{1,2}[./]\d{2,4})" + _R)),
     ("IP_ADDRESS", re.compile(_L + r"(?:\d{1,3}\.){3}\d{1,3}" + _R)),
     ("CREDIT_CARD", re.compile(_L + r"(?:\d[ -]?){12,18}\d" + _R)),
     ("PHONE_NUMBER", re.compile(r"(?<![A-Za-z0-9+])\+?\d(?:[\d ()./-]{5,}\d)" + _R)),
@@ -143,7 +146,7 @@ class Pseudonymiser:
 
     def _ner(self, s: str, session: Session) -> str:
         assert self.redactor is not None
-        spans = sorted(self.redactor.find(s), key=lambda t: t[0])
+        spans = sorted(self.redactor.find(s), key=lambda t: (t[0], -t[1]))  # longest span at a position wins
         out, pos = [], 0
         for start, end, kind in spans:
             if start < pos or end <= start:
@@ -178,6 +181,11 @@ class Pseudonymiser:
         if isinstance(v, bool) or v is None:
             return v
         if isinstance(v, int | float):
+            texts = {str(v), repr(v)} | ({str(int(v))} if isinstance(v, float) and v.is_integer() else set())
+            for text in texts:
+                for value, kind in known:
+                    if value.casefold() == text.casefold():
+                        return session.placeholder(kind, value)
             if not kept and abs(v) >= _BIG_NUMBER:
                 return f"<NUMBER:{hmac_token(self.key, repr(v), 'number')}>"
             return v

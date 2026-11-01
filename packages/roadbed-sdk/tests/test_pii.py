@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from pathlib import Path
 
@@ -148,3 +149,82 @@ def test_synthetic_flag_is_sticky(mock: respx.MockRouter, ingest: FakeIngest, oa
     roadbed_sdk.flush()
     assert [b["synthetic"] for b in ingest.interactions.values()] == [True]
     roadbed_sdk.shutdown()
+
+
+def test_host_named_numeric_values_become_placeholders_everywhere(mock: respx.MockRouter, ingest: FakeIngest, oai: openai.OpenAI,
+                                                                  spool_path: Path) -> None:
+    # Triage models echo claim numbers as JSON numbers; a host-named value must not pass as a raw int or float.
+    roadbed_sdk.init(API, "test-token", TEST_KEY, "p@v1", keep=("claim_number",), spool_path=spool_path, background=False)
+    mock.post(f"{GATEWAY}/chat/completions").mock(
+        return_value=httpx.Response(200, json=chat_completion('{"claim_number": 123456, "ref": 654321.0}')))
+    client = roadbed_sdk.wrap_openai(oai)
+    pii = {"123456": "CLAIM_NUMBER", "654321": "CLAIM_NUMBER"}
+    with roadbed_sdk.capture(pii=pii) as cap:
+        client.chat.completions.create(model="m", messages=[{"role": "user", "content": "claim 123456"}])
+    ix = cap.interaction_id
+    assert ix
+    assert roadbed_sdk.verdict(ix, "fix", {"claim_number": 123456}, reason_code="wrong_claim", pii=pii)
+    assert roadbed_sdk.outcome(ix, {"claim_number": 123456, "note": "claim 123456"}, pii=pii)
+    roadbed_sdk.flush()
+    blob = spool_bytes(spool_path)
+    assert b"123456" not in blob and b"654321" not in blob
+    roadbed_sdk.shutdown()
+
+
+@pytest.mark.parametrize("value", [123456, 123456.0, -1])
+def test_numeric_known_answer(value: float) -> None:
+    out = Pseudonymiser(TEST_KEY).value({"n": value}, Session(), [("123456", "CLAIM_NUMBER")])["n"]
+    assert out == (-1 if value == -1 else "<CLAIM_NUMBER_1>")
+
+
+def test_kept_values_and_slice_labels_must_be_lowercase_labels() -> None:
+    p = Pseudonymiser(TEST_KEY, keep=("route",))
+    out = p.value({"route": "Virtanen", "role": "Jane.Doe", "type": "text"}, Session(), [])
+    assert out["route"].startswith("<TEXT:tok_") and out["role"].startswith("<TEXT:tok_")
+    assert out["type"] == "text"
+    assert p.labels({"claimant": "Virtanen", "line": "auto"}, Session(), [])["claimant"].startswith("<TEXT:tok_")
+
+
+def test_a_date_glued_to_letters_is_found() -> None:
+    p = Pseudonymiser(TEST_KEY)
+    assert p._patterns("janedoe1985-03-12", Session()) == "janedoe<DATE_TIME_1>"
+    assert not p.safe_id("ix_janedoe1985-03-12")
+
+
+def test_redact_mode_overlapping_spans_take_the_longest() -> None:
+    class OverlapNer:  # stub: two spans at one start, the shorter first
+        def find(self, text: str) -> list[tuple[int, int, str]]:
+            i = text.find(NAME)
+            return [] if i < 0 else [(i, i + 4, "PERSON"), (i, i + len(NAME), "PERSON")]
+
+    p = Pseudonymiser(TEST_KEY, text="redact", redactor=OverlapNer())
+    assert p.value({"a": f"{NAME} fell"}, Session(), []) == {"a": "<PERSON_1> fell"}
+
+
+def _shingles(obj: object, k: int = 3) -> set[str]:
+    s = json.dumps(obj, sort_keys=True)
+    return {s[i:i + k] for i in range(len(s) - k + 1)}
+
+
+def _jaccard(a: set[str], b: set[str]) -> float:
+    return len(a & b) / len(a | b)
+
+
+def test_near_duplicate_detection_needs_redact_mode() -> None:
+    """Tokenize mode keeps no text, so a 1-character variant of a holdout input looks as far as an unrelated row.
+    Redact mode keeps the text and the near-copy stays near. The README says which mode training-bound text needs."""
+
+    class NoNer:  # stub: finds nothing, so only the text mode differs
+        def find(self, text: str) -> list[tuple[int, int, str]]:
+            return []
+
+    holdout = "Claimant fell at the store on a wet floor and hurt the left knee."
+    texts = (holdout, holdout[:-1], "Hail damaged the roof of the insured's garage during the storm.")
+    for mode, redactor in (("tokenize", None), ("redact", NoNer())):
+        p = Pseudonymiser(TEST_KEY, text=mode, redactor=redactor)  # type: ignore[arg-type]
+        rows = [_shingles(p.value({"messages": [{"role": "user", "content": t}]}, Session(), [])) for t in texts]
+        near, unrelated = _jaccard(rows[0], rows[1]), _jaccard(rows[0], rows[2])
+        if mode == "tokenize":
+            assert near < 0.8 and abs(near - unrelated) < 0.1  # the known limit, stated in the README
+        else:
+            assert near >= 0.8 > unrelated

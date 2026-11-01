@@ -38,19 +38,24 @@ Bodies are `InteractionIn`, `VerdictIn` and `OutcomeIn` from `roadbed.contracts`
 ## Personal data
 
 - Free text becomes an HMAC token `<TEXT:tok_...>` (default `text="tokenize"`). With `text="redact"`, Presidio replaces the entities it finds with placeholders such as `<PERSON_1>`. Install it with `pip install 'roadbed-sdk[redact]'` and a spaCy model.
-- Values in `pii=` and pattern entities (email, phone, IBAN, card, SSN, IP, date) always become placeholders.
-- A field in `keep` keeps a short identifier value (a label such as `fast_track`). Other values in it are tokenised.
+- Values in `pii=` and pattern entities (email, phone, IBAN, card, SSN, IP, date) always become placeholders. This includes a number equal to a `pii=` value, such as a claim number the model returns as a JSON number.
+- A field in `keep` and a slice label keep a short lowercase label value (such as `fast_track`). Other values in them are tokenised.
 - Numbers with 7 or more digits are tokenised, unless the field is in `keep`.
 - The subject id becomes `tok_` plus 32 hex of HMAC-SHA256 with the tenant key. Only the key id (`hk_...`) is recorded.
 - Ids with personal data in them are not used. Logs hold ids and error types, never values.
 
-Limit: in `redact` mode, a name that Presidio does not find stays in the text. `tokenize` mode has no such gap.
+Limits:
+
+- In `redact` mode, a name that Presidio does not find stays in the text.
+- In `tokenize` mode, a name that the host puts in a `keep` field or a slice label stays if it is a lowercase label (for example `virtanen`). Use `keep` only for fields that hold labels.
+- In `tokenize` mode, the stored input holds no text: each free-text string is one HMAC token. A near-copy of a holdout input (one character changed) then looks as far from it as an unrelated row, so the near-duplicate check (SPEC "Seal precedes training", MinHash Jaccard >= 0.8) can find exact copies only, and training cannot use the text. Use `text="redact"` for text that goes to training.
 
 ## Delivery
 
 - The spool is SQLite in WAL mode, file mode 0600. A row leaves only when the server acknowledges its id.
 - Retries back off from 0.5 s to 60 s. A 404 on a verdict or outcome is retried (its interaction may arrive later). A 422 keeps the row out of the send loop.
-- One row per id: duplicate ids are stored once, and the server dedupes by the same id.
+- One row per id: duplicate verdict and outcome ids are stored once, and the server dedupes by the same id. An interaction id is never reused: if the gateway or the host gives an id that is still in the spool, the SDK records the new interaction under a generated id and logs a warning.
+- `reconcile` skips a row that fails and counts it in `skipped`. A `nan` or `inf` cell stays text.
 - Streaming calls (`stream=True`) are not captured yet.
 
 ## Test
