@@ -67,7 +67,8 @@ def reproduce(asset: Asset, d: Path, n: int) -> Reproduced:
     hold, inc, cand = load_rows(asset, d)
     recomputed = compare(
         inc, cand, hold, asset.slices, policy,
-        scorers=asset.scorers, synthetic=stored.synthetic, model=stored.model, rebase=n,
+        # synthetic and model come from roadbed.yaml, not from the file under test, so a flipped value fails.
+        scorers=asset.scorers, synthetic=bool(asset.cfg["synthetic"]), model=asset.cfg["model"], rebase=n,
         holdout_digest=HoldoutDigest(id=stored.holdout.id, rows=len(hold), sha256=sha256_file(asset.holdout_file)),
         prediction_digests=PredictionDigests.model_validate({
             k: {"path": asset.rel(d / PRED_FILES[k]), "sha256": sha256_file(d / PRED_FILES[k])} for k in ("incumbent", "candidate")

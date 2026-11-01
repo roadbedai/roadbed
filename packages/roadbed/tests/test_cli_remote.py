@@ -155,7 +155,7 @@ def test_rebase_timeout_exits_3(cli_env):
         m.post("/v1/models/claims-triage/rebases").mock(return_value=httpx.Response(202, json=views[0]))
         m.get("/v1/rebases/13").mock(return_value=httpx.Response(200, json=views[2]))
         r = cli.invoke(app, [*ARGS, "--timeout", "0"])
-    assert r.exit_code == 3, r.output and "still detected after 0 s" in r.output
+    assert r.exit_code == 3 and "still detected after 0 s" in r.output, r.output
 
 
 def test_rebase_failed_state_exits_3(cli_env):

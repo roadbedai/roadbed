@@ -718,7 +718,7 @@ def eval_reproduce(
     r = res.recomputed
     if as_json:
         print_json({
-            "ok": bool(res.check.ok), "rebase": n, "synthetic": r.synthetic, "executor": res.executor, "notice": r.notice,
+            "ok": bool(res.check.ok), "rebase": n, "synthetic": bool(a.cfg["synthetic"]), "executor": res.executor, "notice": r.notice,
             "seed": r.seed, "n_boot": r.n_boot, "ci": r.ci,
             "overall": r.overall.model_dump(), "slices": [s.model_dump() for s in r.slices],
             "check": {"code": res.check.code, "status": "ok" if res.check.ok else "fail", "detail": res.check.detail},
@@ -728,7 +728,9 @@ def eval_reproduce(
     con = console()
     if res.executor in ("mock", "replay"):
         con.print(Text(f"{res.executor.upper()} executor: these predictions did not come from a GPU run", style="bold"))
-    if r.synthetic:
+    elif res.executor is None:
+        con.print(Text("no receipt: executor unknown", style="bold"))
+    if a.cfg["synthetic"]:
         con.print(Text("SYNTHETIC data", style="bold"))
     if r.notice:
         con.print(Text(r.notice, style="dim"))

@@ -114,6 +114,26 @@ def test_eval_reproduce_digest_only_change_exits_4(tmp_path: Path):
     assert r.exit_code == 4 and "predictions.incumbent.sha256" in jline(r)["check"]["detail"]
 
 
+@pytest.mark.parametrize(("field", "value"), [("synthetic", False), ("model", "someone-elses-model")])
+def test_eval_reproduce_tampered_label_exits_4(tmp_path: Path, field: str, value: object):
+    """synthetic and model are checked against roadbed.yaml, not copied from the file under test."""
+    a = copy("pass", tmp_path / "a")
+    p = a / "rebases/13/scores.json"
+    s = json.loads(p.read_text())
+    s[field] = value
+    p.write_text(json.dumps(s, indent=2))
+    r = cli.invoke(app, ["eval", "reproduce", "rebases/13", "--asset", str(a)])
+    assert r.exit_code == 4, r.output
+    assert f"scores.json differs at {field}" in r.output
+    assert "SYNTHETIC data" in r.output
+
+
+def test_eval_reproduce_without_receipt_says_executor_unknown():
+    r = cli.invoke(app, ["eval", "reproduce", "rebases/1", "--asset", str(EX / "claims-triage")])
+    assert r.exit_code == 0, r.output
+    assert r.output.startswith("no receipt: executor unknown\nSYNTHETIC data\n")
+
+
 def test_eval_reproduce_missing_dir_exits_2():
     r = cli.invoke(app, ["eval", "reproduce", "rebases/99", "--asset", str(EX / "pass")])
     assert r.exit_code == 2 and "not found" in r.output
