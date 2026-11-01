@@ -1,19 +1,22 @@
-"""W14 verifier findings (PR #7 round 1): one test per finding, each fails on 4279b4f."""
+"""W14 verifier findings (PR #7): one test per finding. Round 1 tests fail on 4279b4f, round 4 tests on af92289."""
 
 from __future__ import annotations
 
 import copy
+import gzip
+import hashlib
 import json
 import shutil
 
 import pytest
 from test_evals_cli import ARGS, _asset
-from test_evals_support import AS_OF, SEED, events, input_ref, interaction, outcome, output_schema, slices, verdict
+from test_evals_support import AS_OF, SEED, events, fresh, input_ref, interaction, outcome, output_schema, slices, verdict
 from typer.testing import CliRunner
 
-from roadbed.asset import jaccard, shingles
+from roadbed.asset import ObjectStore, jaccard, shingles
+from roadbed.cli.evals import read_sealed
 from roadbed.cli.main import app
-from roadbed.evals import EvalPolicy, build, read_snapshots
+from roadbed.evals import EvalPolicy, LeakageError, build, read_seen, read_snapshots, seal_candidate
 from roadbed.labels import resolve
 
 EMAIL = "jane.doe@example.com"
@@ -235,7 +238,7 @@ def test_cli_excludes_every_sealed_holdout_not_only_the_configured_one(tmp_path)
     d = root / "data" / "holdout" / "H-A"
     d.mkdir()
     (d / "holdout.jsonl").write_bytes(cand)
-    (d / "SEAL.json").write_text(json.dumps({"sha256": hashlib.sha256(cand).hexdigest()}))
+    (d / "SEAL.json").write_text(json.dumps({"sha256": hashlib.sha256(cand).hexdigest(), "synthetic": True}))
     shutil.rmtree(root / "data" / "snapshots")  # forget the first snapshot: only the new seal keeps its rows out
     r = CliRunner().invoke(app, [*ARGS, "--suffix", "c", "--asset", str(root), "--events", str(ev), "--json"])
     assert r.exit_code == 0, r.output
@@ -252,3 +255,176 @@ def test_cli_refuses_a_holdout_that_does_not_match_its_seal(tmp_path):
     p.write_text(p.read_text().splitlines()[0] + "\n")
     r = CliRunner().invoke(app, [*ARGS, "--asset", str(root), "--events", str(ev)])
     assert r.exit_code == 2 and "does not match the sha256 in SEAL.json" in r.output
+
+
+# ================================================================ round 4
+
+
+def _seen_keys(rows) -> set[tuple[str, str, str]]:
+    return {(r.get("interaction_id") or r["id"], r["input_ref"], r["row_hash"]) for r in rows}
+
+
+def _with_fresh(n: int, tag: str):
+    ints, vds = fresh(n, tag)
+    return _resolve(events("interactions") + ints, events("verdicts") + vds, events("outcomes"))
+
+
+# ---------------------------------------------------------------- major: golden and correction-test rows became holdout rows
+
+
+def test_rows_of_golden_and_correction_tests_never_become_holdout_rows_later(tmp_path):
+    rows = _resolve(events("interactions"), events("verdicts"), events("outcomes"))
+    first = _build(rows)
+    first.write(tmp_path)
+    seen = _seen_keys(first.golden) | _seen_keys(first.correction_tests)
+    second = _build(_with_fresh(400, "a"), sealed_holdout=first.holdout_candidate.rows, trained_on=read_snapshots(tmp_path),
+                    seen=read_seen(tmp_path), suffix="b")
+    hold2 = second.holdout_candidate.rows
+    assert hold2
+    assert not _seen_keys(hold2) & seen
+    assert not ({r["id"] for r in hold2} & {k[0] for k in seen} or {r["input_ref"] for r in hold2} & {k[1] for k in seen})
+    p = second.proof["pairs"]["holdout-seen"]
+    assert p["rows"][1] == len(read_seen(tmp_path)) >= len(seen)
+    assert p["shared_interactions"] == p["shared_inputs"] == p["shared_row_hashes"] == p["near_pairs"] == 0
+    assert second.report["counts"]["seen_before"] >= len(seen)
+
+
+def test_a_second_build_on_the_same_rows_refuses_rather_than_holding_out_the_golden_set(tmp_path):
+    """The verifier's reproduction: with nothing new, the only unpinned rows were the first golden set."""
+    rows = _resolve(events("interactions"), events("verdicts"), events("outcomes"))
+    first = _build(rows)
+    first.write(tmp_path)
+    with pytest.raises(ValueError, match="no rows are eligible for the holdout"):
+        _build(rows, sealed_holdout=first.holdout_candidate.rows, trained_on=read_snapshots(tmp_path), seen=read_seen(tmp_path), suffix="b")
+
+
+def test_rows_dropped_from_golden_between_builds_stay_excluded(tmp_path):
+    first = _build(_resolve(events("interactions"), events("verdicts"), events("outcomes")))
+    first.write(tmp_path)
+    golden1 = _seen_keys(first.golden)
+    second = build(_with_fresh(300, "a"), slices(), EvalPolicy(), SEED + 3, as_of=AS_OF, output_schema=output_schema(),
+                   sealed_holdout=first.holdout_candidate.rows, trained_on=read_snapshots(tmp_path), seen=read_seen(tmp_path), suffix="b")
+    second.write(tmp_path)
+    dropped = golden1 - _seen_keys(second.golden)
+    assert dropped, "the probe needs golden rows of build 1 that build 2 did not keep in golden"
+    record = _seen_keys(read_seen(tmp_path))
+    assert golden1 <= record and _seen_keys(second.golden) <= record  # append-only
+    firsts = {r["first_seen"] for r in read_seen(tmp_path)}
+    assert firsts == {"S-2026-11-01", "S-2026-11-01-b"}
+    third = _build(_with_fresh(600, "a"), sealed_holdout=first.holdout_candidate.rows, trained_on=read_snapshots(tmp_path),
+                   seen=read_seen(tmp_path), suffix="c")
+    assert third.holdout_candidate.rows
+    assert not _seen_keys(third.holdout_candidate.rows) & record
+    assert not {r["id"] for r in third.holdout_candidate.rows} & {k[0] for k in dropped}
+
+
+def test_write_refuses_a_candidate_that_holds_a_row_seen_in_an_eval_set(tmp_path):
+    """A library caller that forgets `seen` cannot write the build: the candidate would leak at seal time."""
+    rows = _resolve(events("interactions"), events("verdicts"), events("outcomes"))
+    first = _build(rows)
+    first.write(tmp_path)
+    second = _build(rows, sealed_holdout=first.holdout_candidate.rows, trained_on=read_snapshots(tmp_path), suffix="b")
+    assert _seen_keys(second.holdout_candidate.rows) & _seen_keys(first.golden)
+    with pytest.raises(LeakageError, match="seen"):
+        second.write(tmp_path)
+    assert not (tmp_path / "data" / "snapshots" / "2026-11-01-b").exists()
+    assert _seen_keys(read_seen(tmp_path)) == _seen_keys(first.golden) | _seen_keys(first.correction_tests)
+
+
+def _append_fresh(ev, n, tag):
+    ints, vds = fresh(n, tag)
+    for name, extra in (("interactions", ints), ("verdicts", vds)):
+        with gzip.open(ev / f"{name}.jsonl.gz", "rt", encoding="utf-8") as f:
+            have = [json.loads(x) for x in f if x.strip()]
+        (ev / f"{name}.jsonl.gz").unlink()
+        (ev / f"{name}.jsonl").write_text("".join(json.dumps(x) + "\n" for x in have + extra))
+    return {i["interaction_id"] for i in ints}
+
+
+def _eval_keys(root):
+    g = [json.loads(x) for x in (root / "evals" / "golden.jsonl").read_text().splitlines()]
+    c = [json.loads(x) for x in (root / "evals" / "correction_tests.jsonl").read_text().splitlines()]
+    return _seen_keys(g) | _seen_keys(c)
+
+
+def test_cli_second_build_never_holds_out_golden_or_correction_test_rows_of_the_first(tmp_path):
+    root, ev = _asset(tmp_path)
+    legacy = _eval_keys(root)  # the example asset's own eval rows, from before the record existed
+    first = CliRunner().invoke(app, [*ARGS, "--asset", str(root), "--events", str(ev), "--holdout-out", str(tmp_path / "v1"), "--json"])
+    assert first.exit_code == 0, first.output
+    seen1 = _eval_keys(root)
+    assert "evals/seen.jsonl" in json.loads(first.output)["files"]
+    assert _seen_keys(read_seen(root)) == legacy | seen1
+    cand = (tmp_path / "v1" / "candidate.jsonl").read_bytes()
+    d = root / "data" / "holdout" / "H-A"
+    d.mkdir()
+    (d / "holdout.jsonl").write_bytes(cand)
+    (d / "SEAL.json").write_text(json.dumps({"sha256": hashlib.sha256(cand).hexdigest(), "synthetic": True}))
+    new = _append_fresh(ev, 300, "cli")
+    second = CliRunner().invoke(app, [*ARGS, "--suffix", "b", "--asset", str(root), "--events", str(ev), "--holdout-out", str(tmp_path / "v2"), "--json"])
+    assert second.exit_code == 0, second.output
+    o = json.loads(second.output)
+    hold2 = [json.loads(x) for x in (tmp_path / "v2" / "candidate.jsonl").read_text().splitlines()]
+    assert hold2 and {r["id"] for r in hold2} <= new
+    assert not _seen_keys(hold2) & (legacy | seen1)
+    assert o["seen_rows"] == len(legacy | seen1) and o["proof"]["pairs"]["holdout-seen"]["shared_inputs"] == 0
+    assert _seen_keys(read_seen(root)) == legacy | seen1 | _eval_keys(root)
+
+
+# ---------------------------------------------------------------- minor 2: trained_on keyed on an unchecked row_hash
+
+
+def test_trained_on_rows_with_empty_hashes_still_pin_every_row():
+    rows = _resolve(events("interactions"), events("verdicts"), events("outcomes"))
+    first = _build(rows)
+    trained = {r["interaction_id"] for r in first.snapshot.rows}
+    nxt = _build(rows, trained_on=[dict(r, row_hash="") for r in first.snapshot.rows], suffix="b")
+    held = {r["id"] for r in nxt.holdout_candidate.rows} | {r["id"] for r in nxt.golden}
+    assert held and not held & trained
+    assert nxt.proof["pairs"]["holdout-trained_on"]["rows"][1] == len(trained)
+    assert nxt.report["counts"]["trained_before"] >= len(trained)
+
+
+def test_trained_on_rows_with_a_forged_hash_are_refused():
+    rows = _resolve(events("interactions"), events("verdicts"), events("outcomes"))
+    first = _build(rows)
+    forged = [dict(r, row_hash="a" * 64) for r in first.snapshot.rows]
+    with pytest.raises(ValueError, match="row_hash"):
+        _build(rows, trained_on=forged, suffix="b")
+
+
+# ---------------------------------------------------------------- minor 3: the synthetic flag of a sealed holdout
+
+
+def _real_rows():
+    return [dict(r, synthetic=False, interaction_id="real-" + r["interaction_id"].removeprefix("syn-"),
+                 verdict_id="v" + r["interaction_id"], outcome_id=None)
+            for r in _resolve(events("interactions"), events("verdicts")) if r["use"] != "quarantine"]
+
+
+def test_a_real_build_cannot_go_into_an_asset_with_only_a_synthetic_sealed_holdout(tmp_path):
+    root = tmp_path / "asset"
+    syn = _build(_resolve(events("interactions"), events("verdicts")))
+    seal_candidate(syn.holdout_candidate, root, "H-syn", sealed_by="vik", sealed_at="2026-11-01T09:02:00Z", audit_seq=1,
+                   store=ObjectStore(tmp_path / "bucket"))
+    assert not (root / "data" / "snapshots").exists() and not (root / "evals").exists()
+    out = _build(_real_rows(), suffix="real")
+    with pytest.raises(ValueError, match="one asset, one synthetic flag"):
+        out.write(root)
+    assert not (root / "data" / "snapshots").exists() and not (root / "evals").exists()
+
+
+def test_build_refuses_rows_whose_flag_differs_from_the_seals():
+    with pytest.raises(ValueError, match="one asset, one synthetic flag"):
+        _build(_real_rows(), sealed_synthetic=True, suffix="real")
+    assert _build(_real_rows(), sealed_synthetic=False, suffix="real").report["synthetic"] is False
+
+
+def test_read_sealed_surfaces_the_synthetic_flag_and_refuses_disagreeing_seals(tmp_path):
+    root, _ = _asset(tmp_path)
+    rows, flag = read_sealed(root, "data/holdout/H-2026-11-01")
+    assert rows and flag is True
+    seal = root / "data" / "holdout" / "H-2026-10-01" / "SEAL.json"
+    seal.write_text(json.dumps({**json.loads(seal.read_text()), "synthetic": False}))
+    with pytest.raises(ValueError, match="synthetic flag"):
+        read_sealed(root, "data/holdout/H-2026-11-01")

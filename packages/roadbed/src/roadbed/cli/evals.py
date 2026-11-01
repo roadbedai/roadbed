@@ -17,7 +17,7 @@ from rich.text import Text
 from roadbed.asset import AssetValidationError, ObjectStore, sha256_file, validate
 from roadbed.cli.asset import AssetError, find_root, open_asset
 from roadbed.cli.output import EXIT_OK, EXIT_USAGE, console, error, print_json
-from roadbed.evals import EvalPolicy, LeakageError, build, read_snapshots, write_candidate
+from roadbed.evals import EvalPolicy, LeakageError, build, read_seen, read_snapshots, write_candidate
 from roadbed.evals.build import check_candidate_dir
 from roadbed.labels import LABEL_RULES_V1, ResolveError, RulesNotPinned, resolve
 from roadbed.labels import summary as resolve_summary
@@ -56,21 +56,27 @@ def read_tombstones(root: Path) -> set[str]:
     return tokens
 
 
-def read_sealed(root: Path, configured: str | None) -> list[dict[str, Any]]:
-    """Rows of every sealed holdout: data/holdout/*/ and the configured data.holdout.path. Each holdout.jsonl must
-    match the sha256 in its SEAL.json, or the build stops. Rows are read, never printed."""
+def read_sealed(root: Path, configured: str | None) -> tuple[list[dict[str, Any]], bool | None]:
+    """Rows of every sealed holdout (data/holdout/*/ and the configured data.holdout.path) and the seals' synthetic
+    flag (None without seals; seals that disagree stop the build). Each holdout.jsonl must match the sha256 in its
+    SEAL.json, or the build stops. Rows are read, never printed."""
     dirs = {p.parent.resolve() for p in (root / "data" / "holdout").glob("*/holdout.jsonl")}
     if configured and (root / configured / "holdout.jsonl").is_file():
         dirs.add((root / configured).resolve())
     rows: list[dict[str, Any]] = []
+    flags: set[bool] = set()
     for d in sorted(dirs):
         seal = d / "SEAL.json"
         if not seal.is_file():
             raise ValueError(f"{d.name}: holdout.jsonl without SEAL.json")
-        if sha256_file(d / "holdout.jsonl") != json.loads(seal.read_text(encoding="utf-8")).get("sha256"):
+        doc = json.loads(seal.read_text(encoding="utf-8"))
+        if sha256_file(d / "holdout.jsonl") != doc.get("sha256"):
             raise ValueError(f"{d.name}: holdout.jsonl does not match the sha256 in SEAL.json")
+        flags.add(bool(doc.get("synthetic")))
         rows += [json.loads(x) for x in (d / "holdout.jsonl").read_text(encoding="utf-8").splitlines() if x.strip()]
-    return rows
+    if len(flags) > 1:
+        raise ValueError("the sealed holdouts disagree on the synthetic flag (one asset, one synthetic flag)")
+    return rows, (flags.pop() if flags else None)
 
 
 def _now() -> str:
@@ -99,12 +105,14 @@ def build_cmd(
         ints, vds, ocs = (read_events(events, n) for n in EVENT_FILES)
         erased = read_tombstones(a.root)  # SPEC.md: deletion is a tombstone plus a new snapshot without the rows
         rows = resolve(ints, vds, ocs, LABEL_RULES_V1, as_of=as_of, output_schema=schema, erased_subjects=erased)
-        sealed = read_sealed(a.root, (a.cfg["data"].get("holdout") or {}).get("path"))
+        sealed, sealed_synthetic = read_sealed(a.root, (a.cfg["data"].get("holdout") or {}).get("path"))
         snaps = a.cfg["data"].get("verdicts") or "data/snapshots"
         store = ObjectStore(objects) if objects else None
         prior = read_snapshots(a.root, snaps, store)  # rows a model may have trained on: never holdout or golden
+        seen = read_seen(a.root)  # rows ever in golden or correction tests (developer-visible): never holdout
         out = build(rows, a.slices, EvalPolicy.from_gate(a.policy), seed, as_of=as_of, output_schema=schema,
-                    created_at=created_at or _now(), sealed_holdout=sealed, trained_on=prior, suffix=suffix, parent=parent)
+                    created_at=created_at or _now(), sealed_holdout=sealed, sealed_synthetic=sealed_synthetic, trained_on=prior,
+                    seen=seen, suffix=suffix, parent=parent)
         written = out.write(a.root, snapshots_dir=snaps, store=store)
         cand = write_candidate(out.holdout_candidate, holdout_out, asset_root=a.root) if holdout_out else []
     except (AssetError, FileNotFoundError, FileExistsError, ValueError, ResolveError, RulesNotPinned, LeakageError) as e:
@@ -120,7 +128,7 @@ def build_cmd(
                 "row hash and input only for them (the gate's MinHash check still runs at rebase)"] if exact_only else []
     if as_json:
         print_json({"ok": True, "exit_code": EXIT_OK, "snapshot": out.snapshot.manifest, "resolve": resolve_summary(rows),
-                    "erased_subjects": len(erased), "sealed_holdout_rows": len(sealed), "warnings": warnings,
+                    "erased_subjects": len(erased), "sealed_holdout_rows": len(sealed), "seen_rows": len(seen), "warnings": warnings,
                     "report": out.report, "proof": out.proof, "files": written,
                     "holdout_candidate": {"rows": len(out.holdout_candidate), "written": [str(p) for p in cand]}})
         return

@@ -75,3 +75,11 @@ def verdict(iid: str, action: str, *, ts: str = "2026-10-02T10:00:00Z", vid: str
 def outcome(iid: str, body: dict, *, observed_at: str = "2026-10-20T10:00:00Z", oid: str | None = None) -> dict:
     return {"outcome_id": oid or f"oc-{iid}-{observed_at}", "interaction_id": iid, "outcome": body, "source": "system_of_record",
             "observed_at": observed_at}
+
+
+def fresh(n: int, tag: str) -> tuple[list[dict], list[dict]]:
+    """n new approved interactions with texts that share no shingles with anything else: new labelled data."""
+    lines, states, channels = ("property", "auto_physical", "liability"), ("CA", "TX", "FL"), ("direct", "broker", "partner")
+    ints = [interaction(f"new-{tag}-{k:04d}", narrative=f"new {tag} claim {k} " + " ".join(f"{tag}{k}x{j}" for j in range(12)),
+                        line=lines[k % 3], state=states[k % 3], channel=channels[(k // 3) % 3]) for k in range(n)]
+    return ints, [verdict(i["interaction_id"], "approve") for i in ints]

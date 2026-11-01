@@ -10,7 +10,7 @@ from collections import Counter
 
 import jsonschema
 import pytest
-from test_evals_support import AS_OF, SEED, events, output_schema, published_schema, slices
+from test_evals_support import AS_OF, SEED, events, fresh, output_schema, published_schema, slices
 
 from conftest import make_policy
 from roadbed.asset import ObjectStore, jaccard, merkle_root, shingles, validate_file
@@ -23,6 +23,7 @@ from roadbed.evals import (
     assert_disjoint,
     build,
     read_candidate,
+    read_seen,
     read_snapshots,
     seal_candidate,
     write_candidate,
@@ -72,7 +73,7 @@ def test_a_holdout_row_never_appears_in_the_snapshot_parts(out, tmp_path):
     assert not any(r["interaction_id"] in ids or r["row_hash"] in hashes or r["input_ref"] in refs for r in rows)
     out.write(tmp_path)
     blob = b"".join(p.read_bytes() for p in (tmp_path / "data" / "snapshots").rglob("*") if p.is_file())
-    blob += (tmp_path / "evals" / "golden.jsonl").read_bytes() + (tmp_path / "evals" / "correction_tests.jsonl").read_bytes()
+    blob += b"".join((tmp_path / "evals" / n).read_bytes() for n in ("golden.jsonl", "correction_tests.jsonl", "seen.jsonl"))
     for r in hold:  # no id, row hash or input address of a holdout row in any file written to the asset
         assert r["id"].encode() not in blob and r["row_hash"].encode() not in blob and r["input_ref"].encode() not in blob
 
@@ -297,23 +298,30 @@ def test_tampered_input_text_is_refused(resolved):
         build(rows, slices(), EvalPolicy(), SEED, as_of=AS_OF, output_schema=output_schema())
 
 
-def test_the_third_build_in_an_asset_counts_each_trained_row_once(out, resolved, tmp_path):
+def test_the_third_build_in_an_asset_counts_each_trained_row_once(out, tmp_path):
     """Snapshots repeat rows, and two seals can share rows. Repeats must not double shingle counts (a false near
-    pair, Jaccard above 1) or inflate the proof counts."""
+    pair, Jaccard above 1) or inflate the proof counts. Each later build gets new labelled rows: with everything
+    pinned (sealed, trained on, seen), the same rows leave nothing to hold out."""
     sealed = out.holdout_candidate.rows
     out.write(tmp_path)
-    second = build(resolved, slices(), EvalPolicy(), SEED, as_of=AS_OF, output_schema=output_schema(),
-                   sealed_holdout=sealed, trained_on=read_snapshots(tmp_path), suffix="b")
+
+    def more(n):
+        ints, vds = fresh(n, "x")
+        return resolve(events("interactions") + ints, events("verdicts") + vds, events("outcomes"), as_of=AS_OF, output_schema=output_schema())
+
+    second = build(more(300), slices(), EvalPolicy(), SEED, as_of=AS_OF, output_schema=output_schema(),
+                   sealed_holdout=sealed, trained_on=read_snapshots(tmp_path), seen=read_seen(tmp_path), suffix="b")
     second.write(tmp_path)
     prior = read_snapshots(tmp_path)
     unique = {r["row_hash"] for r in prior}
     assert len(prior) > len(unique), "the probe needs rows repeated across snapshots"
-    third = build(resolved, slices(), EvalPolicy(), SEED, as_of=AS_OF, output_schema=output_schema(),
-                  sealed_holdout=sealed + sealed, trained_on=prior, suffix="c")
+    third = build(more(600), slices(), EvalPolicy(), SEED, as_of=AS_OF, output_schema=output_schema(),
+                  sealed_holdout=sealed + sealed, trained_on=prior, seen=read_seen(tmp_path), suffix="c")
     pairs = third.proof["pairs"]
     for name in ("holdout-trained_on", "golden-trained_on"):
         assert pairs[name]["rows"][1] == len(unique)
         assert pairs[name]["near_pairs"] == 0
     for name in ("train-sealed", "golden-sealed"):
         assert pairs[name]["rows"][1] == len(sealed)
+    assert pairs["holdout-seen"]["rows"][1] == len(read_seen(tmp_path))
     assert all(p["max_jaccard"] <= 1 for p in pairs.values())

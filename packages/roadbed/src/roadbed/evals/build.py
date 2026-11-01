@@ -24,6 +24,11 @@ returned):
    gets no test (counted in `report["edits"]`).
 6. Rows of earlier snapshots (`trained_on`) and their near copies are never holdout or golden candidates: an
    incumbent model may have trained on them, and scoring it on them would flatter it.
+7. Rows that were ever in a golden set or a correction test (`seen`) and their near copies are never holdout
+   candidates: they are developer-visible, committed with their labels. `evals/golden.jsonl` and
+   `evals/correction_tests.jsonl` are replaced on each build, so `evals/seen.jsonl` keeps the cumulative record:
+   `read_seen` reads it (plus the two current files) and `EvalBuild.write` appends to it, never removes. A seen row
+   may be golden again (no new exposure), and `write` refuses a candidate that holds a seen row.
 """
 
 from __future__ import annotations
@@ -48,6 +53,8 @@ UTC_TS = re.compile(r"^(\d{4}-\d{2}-\d{2})T\d{2}:\d{2}:\d{2}Z$")
 SUFFIX = re.compile(r"^[a-z0-9]+$")
 UNATTRIBUTED = "unattributed"
 SYNTHETIC_TEXT = "# SYNTHETIC\n\nBuilt by roadbed evals build from a synthetic tenant. Illustrative data, not from any real tenant.\n"
+SEEN = "evals/seen.jsonl"  # cumulative, append-only: every row that was ever in golden.jsonl or correction_tests.jsonl
+SEEN_FIELDS = ("interaction_id", "input_ref", "row_hash", "first_seen")
 
 
 class LeakageError(AssertionError):
@@ -261,7 +268,9 @@ def build(
     created_at: str | None = None,
     rules: LabelRules = LABEL_RULES_V1,
     sealed_holdout: Sequence[Mapping[str, Any]] = (),
+    sealed_synthetic: bool | None = None,
     trained_on: Sequence[Mapping[str, Any]] = (),
+    seen: Sequence[Mapping[str, Any]] = (),
     suffix: str | None = None,
     parent: str | None = None,
 ) -> EvalBuild:
@@ -270,8 +279,11 @@ def build(
     resolved: rows from roadbed.labels.resolve. slices: evals/slices.yaml. seed: sampling seed (recorded).
     as_of: the resolver's cutoff; the snapshot id is S-<date of as_of>[-suffix]. created_at defaults to as_of.
     sealed_holdout: rows of a holdout that is already sealed (holdout-row shape); left out of everything.
+    sealed_synthetic: the synthetic flag of the seals (SEAL.json). Rows with the other flag are refused.
     trained_on: rows of earlier snapshots (snapshot-row shape). A model may already have trained on them, so they and
-        their near copies are never holdout or golden candidates. They may enter training again.
+        their near copies are never holdout or golden candidates. They may enter training again. A row that carries
+        a row_hash must hash to it.
+    seen: rows that were ever in a golden set or a correction test (`read_seen`): never holdout candidates.
     """
     policy = policy or EvalPolicy()
     check_pinned(rules)
@@ -303,6 +315,9 @@ def build(
                if any(str(r.get(k) or "").startswith("syn-") for k in ("interaction_id", "verdict_id", "outcome_id"))]
         if syn:
             raise ValueError(f"{len(syn)} rows have syn- ids but synthetic is not true (first {syn[0]}): refusing to label them real")
+    if sealed_synthetic is not None and sealed_synthetic != synthetic:
+        raise ValueError(f"the sealed holdout is {'synthetic' if sealed_synthetic else 'real'} and these rows are "
+                         f"{'synthetic' if synthetic else 'real'}: they cannot share an asset (one asset, one synthetic flag)")
     profile = _one(((r["profile_id"], r["hmac_key_id"]) for r in live), "pseudonymisation profile and HMAC key")
 
     texts = _Texts(policy.shingle)
@@ -337,22 +352,31 @@ def build(
     pool = [r for r in live if r["use"] == "train"]
     eval_only = [r for r in live if r["use"] == "eval"]
     ref_n = Counter(r["input_ref"] for r in pool)
-    prior = list({r["row_hash"]: dict(r) for r in trained_on}.values())  # snapshots repeat rows: each counts once
-    p_ids, p_refs, p_hashes = ({r[k] for r in prior} for k in ("interaction_id", "input_ref", "row_hash"))
-    by_ref = {r["input_ref"]: r["interaction_id"] for r in live}
-    p_text = sorted({i for i in p_ids if i in texts.sets} | {by_ref[f] for f in p_refs if f in by_ref})
     candidates = [r for r in pool if ref_n[r["input_ref"]] == 1]
-    _, ppairs = texts.near([r["interaction_id"] for r in candidates], p_text, policy.purge_threshold)
-    trained_before = {a for a, _, _ in ppairs} | {
-        r["interaction_id"] for r in candidates if r["interaction_id"] in p_ids or r["input_ref"] in p_refs or r["row_hash"] in p_hashes}
+    by_ref = {r["input_ref"]: r["interaction_id"] for r in live}
+
+    # 6-7. rows an incumbent may have trained on, and rows that were ever in an eval set, with their near copies
+    def pinned(rows: Sequence[Mapping[str, Any]]) -> set[str]:
+        ids, refs, hashes = ({r[k] for r in rows} for k in ("interaction_id", "input_ref", "row_hash"))
+        with_text = sorted({i for i in ids if i in texts.sets} | {by_ref[f] for f in refs if f in by_ref})
+        _, pairs = texts.near([r["interaction_id"] for r in candidates], with_text, policy.purge_threshold)
+        return {a for a, _, _ in pairs} | {
+            r["interaction_id"] for r in candidates if r["interaction_id"] in ids or r["input_ref"] in refs or r["row_hash"] in hashes}
+
+    prior = _pinned_rows(trained_on, "trained_on", check_hash=True)
+    seen_rows = _pinned_rows(seen, "seen", check_hash=False)  # the record keeps no fields to re-derive the hash from
+    trained_before = pinned(prior)
+    seen_before = pinned(seen_rows)
     eligible = sorted((r for r in candidates if r["interaction_id"] not in trained_before), key=lambda r: r["interaction_id"])
-    if not eligible:
-        raise ValueError("no rows are eligible for the holdout (every labelled row shares an input or was trained on before)")
-    hold_ids = draw(eligible, keys, policy.holdout_fraction, seed, "holdout")
+    hold_pool = [r for r in eligible if r["interaction_id"] not in seen_before]
+    if not hold_pool:
+        raise ValueError("no rows are eligible for the holdout (every labelled row shares an input, was trained on before "
+                         "or was in a golden set or correction test before)")
+    hold_ids = draw(hold_pool, keys, policy.holdout_fraction, seed, "holdout")
     rest = [r for r in eligible if r["interaction_id"] not in hold_ids]
     g_frac = policy.golden_fraction / (1 - policy.holdout_fraction)
     gold_ids = draw(rest, keys, g_frac, seed, "golden") if policy.golden_fraction > 0 else set()
-    holdout = [r for r in eligible if r["interaction_id"] in hold_ids]
+    holdout = [r for r in hold_pool if r["interaction_id"] in hold_ids]
     golden = [r for r in rest if r["interaction_id"] in gold_ids]
     train = sorted((r for r in pool if r["interaction_id"] not in hold_ids | gold_ids), key=lambda r: r["interaction_id"])
 
@@ -380,9 +404,9 @@ def build(
     for name, a, b in (("train-holdout", train, holdout), ("train-golden", train, golden), ("golden-holdout", golden, holdout),
                        ("eval_only-holdout", eval_only, holdout), ("train-sealed", train, sealed_side),
                        ("golden-sealed", golden, sealed_side), ("holdout-trained_on", holdout, prior),
-                       ("golden-trained_on", golden, prior)):
+                       ("golden-trained_on", golden, prior), ("holdout-seen", holdout, seen_rows)):
         p = _pair_proof(a, b, texts, th)
-        if name.endswith(("sealed", "trained_on")):
+        if name.endswith(("sealed", "trained_on", "seen")):
             p["without_text"] = 0  # rows not in this event stream: exact checks only, counted here
             p["exact_only"] = len(b) - sum(1 for r in b if r["interaction_id"] in texts.sets)
         _require_clean(name, p, th)
@@ -440,7 +464,7 @@ def build(
         "counts": {
             "resolved": len(resolved), "quarantined": len(quarantined), "excluded_by_seal": len(out_by_seal),
             "labelled": len(pool), "shared_input_rows": len(pool) - len(candidates), "trained_before": len(trained_before),
-            "eligible": len(eligible), "eval_only": len(ev),
+            "seen_before": len(seen_before), "eligible": len(hold_pool), "eval_only": len(ev),
             "holdout_candidate": len(hrows), "golden": len(grows), "train": len(snap_rows), "correction_tests": len(cts),
             "outcome_overrides": sum(1 for r in train if r["label_source"] == "outcome"),
         },
@@ -453,7 +477,7 @@ def build(
         },
         "stratification": {
             "keys": keys, "method": "proportional",
-            "holdout_max_share_gap": round(max_share_gap(holdout, eligible, keys), 6),
+            "holdout_max_share_gap": round(max_share_gap(holdout, hold_pool, keys), 6),
             "golden_max_share_gap": round(max_share_gap(golden, eligible, keys), 6),
         },
         "quarantined": quarantined,
@@ -463,8 +487,25 @@ def build(
                      proof=proof, report=report)
 
 
+def _pinned_rows(rows: Iterable[Mapping[str, Any]], what: str, *, check_hash: bool) -> list[dict[str, Any]]:
+    """Rows to pin out of the holdout, each (interaction_id, input_ref, row_hash) once: snapshots repeat rows, and
+    the dedup must not key on the hash alone (an empty or forged hash would collapse them to one row). With
+    check_hash, a row that carries a row_hash must hash to it."""
+    out: dict[tuple[str, str, str], dict[str, Any]] = {}
+    for r in rows:
+        iid, h = r.get("interaction_id") or r["id"], r.get("row_hash") or ""
+        if check_hash and h and row_hash(r) != h:
+            raise ValueError(f"{what}: row {iid} does not match its row_hash")
+        out.setdefault((iid, r["input_ref"], h), {**r, "interaction_id": iid, "row_hash": h})
+    return list(out.values())
+
+
 def _jsonl(rows: Iterable[Mapping[str, Any]]) -> bytes:
     return "".join(json.dumps(r, ensure_ascii=False, separators=(",", ":")) + "\n" for r in rows).encode("utf-8")
+
+
+def _read_jsonl(p: Path) -> list[dict[str, Any]]:
+    return [json.loads(x) for x in p.read_text(encoding="utf-8").splitlines() if x.strip()]
 
 
 def _parts(rows: Sequence[Mapping[str, Any]], limit: int, snap_id: str) -> list[Part]:
@@ -490,16 +531,26 @@ def _parts(rows: Sequence[Mapping[str, Any]], limit: int, snap_id: str) -> list[
 
 
 def _check_one_flag(root: Path, snapshots_dir: str, synthetic: bool) -> None:
-    """One asset, one synthetic flag: refuse a real build into a synthetic asset and the other way round."""
+    """One asset, one synthetic flag: refuse a real build into a synthetic asset and the other way round. The flag
+    is read from every snapshot manifest, every holdout seal and evals/SYNTHETIC.md."""
     base = root / snapshots_dir
-    flags = {bool(json.loads(m.read_text(encoding="utf-8")).get("synthetic"))
-             for m in (sorted(base.glob("*/MANIFEST.json")) if base.is_dir() else [])}
+    docs = (sorted(base.glob("*/MANIFEST.json")) if base.is_dir() else []) + sorted((root / "data" / "holdout").glob("*/SEAL.json"))
+    flags = {bool(json.loads(m.read_text(encoding="utf-8")).get("synthetic")) for m in docs}
     if (root / "evals" / "SYNTHETIC.md").exists():
         flags.add(True)
     if flags - {synthetic}:
         have = "synthetic" if True in flags else "real"
-        raise ValueError(f"the asset already holds {have} snapshots or evals; a {'synthetic' if synthetic else 'real'} "
-                         "build cannot go into it (one asset, one synthetic flag)")
+        raise ValueError(f"the asset already holds {have} snapshots, sealed holdouts or evals; a "
+                         f"{'synthetic' if synthetic else 'real'} build cannot go into it (one asset, one synthetic flag)")
+
+
+def _check_unseen(candidate: HoldoutCandidate, seen: Sequence[Mapping[str, Any]]) -> None:
+    """Rule 7 at write time: the candidate holds no row the asset's eval sets ever showed (exact keys)."""
+    for key, k in (("id", "interaction_id"), ("input_ref", "input_ref"), ("row_hash", "row_hash")):
+        shared = {r[key] for r in candidate.rows} & {r[k] for r in seen if r[k]}
+        if shared:
+            raise LeakageError(f"the holdout candidate holds {len(shared)} rows seen in golden or correction tests before "
+                               f"(shared {k}); pass seen=read_seen(root) to build()")
 
 
 def _write(b: EvalBuild, root: Path, snapshots_dir: str, store: ObjectStore | None) -> list[str]:
@@ -508,6 +559,8 @@ def _write(b: EvalBuild, root: Path, snapshots_dir: str, store: ObjectStore | No
     if d.exists():
         raise FileExistsError(f"{snap_rel} exists: a snapshot is frozen, build a new one (suffix) instead")
     _check_one_flag(root, snapshots_dir, bool(b.report["synthetic"]))
+    seen = read_seen(root)  # before the eval files are replaced
+    _check_unseen(b.holdout_candidate, seen)
     d.mkdir(parents=True)
     written = []
     manifest = dict(b.snapshot.manifest)
@@ -525,13 +578,40 @@ def _write(b: EvalBuild, root: Path, snapshots_dir: str, store: ObjectStore | No
     ev.mkdir(exist_ok=True)
     (ev / "golden.jsonl").write_bytes(_jsonl(b.golden))
     (ev / "correction_tests.jsonl").write_bytes(_jsonl(b.correction_tests))
-    written += ["evals/golden.jsonl", "evals/correction_tests.jsonl"]
+    # rule 7: append this build's eval rows to the record; rows already there keep their first_seen
+    have = {(r["interaction_id"], r["input_ref"], r["row_hash"]) for r in seen}
+    new = sorted({(r.get("interaction_id") or r["id"], r["input_ref"], r["row_hash"]) for r in [*b.golden, *b.correction_tests]} - have)
+    record = [{**r, "first_seen": r["first_seen"] or b.snapshot.id} for r in seen]
+    record += [dict(zip(SEEN_FIELDS, (*k, b.snapshot.id))) for k in new]
+    (root / SEEN).write_bytes(_jsonl(record))
+    written += ["evals/golden.jsonl", "evals/correction_tests.jsonl", SEEN]
     if b.report["synthetic"]:
         for x in (d, ev):
             if not (x / "SYNTHETIC.md").exists():
                 (x / "SYNTHETIC.md").write_text(SYNTHETIC_TEXT, encoding="utf-8")
                 written.append((x / "SYNTHETIC.md").relative_to(root).as_posix())
     return written
+
+
+def read_seen(root: str | Path) -> list[dict[str, Any]]:
+    """Every row that was ever in evals/golden.jsonl or evals/correction_tests.jsonl: the record evals/seen.jsonl plus
+    the two current files (a build from before the record existed left its rows only there). Each row is
+    (interaction_id, input_ref, row_hash, first_seen); first_seen is the id of the build that first recorded the row,
+    None for a row the record does not hold yet. Pass the result to build(seen=...)."""
+    root = Path(root)
+    out: dict[tuple[str, str, str], dict[str, Any]] = {}
+    p = root / SEEN
+    if p.is_file():
+        for n, r in enumerate(_read_jsonl(p), 1):
+            if any(not isinstance(r.get(k), str) for k in SEEN_FIELDS[:3]) or not isinstance(r.get("first_seen"), str):
+                raise ValueError(f"{SEEN} line {n}: expected {', '.join(SEEN_FIELDS)}")
+            out.setdefault((r["interaction_id"], r["input_ref"], r["row_hash"]), {k: r[k] for k in SEEN_FIELDS})
+    for name, idk in (("golden.jsonl", "id"), ("correction_tests.jsonl", "interaction_id")):
+        f = root / "evals" / name
+        for r in _read_jsonl(f) if f.is_file() else []:
+            row = {"interaction_id": r[idk], "input_ref": r["input_ref"], "row_hash": r.get("row_hash") or "", "first_seen": None}
+            out.setdefault((row["interaction_id"], row["input_ref"], row["row_hash"]), row)
+    return list(out.values())
 
 
 def read_snapshots(root: str | Path, snapshots_dir: str = "data/snapshots", store: ObjectStore | None = None) -> list[dict[str, Any]]:
