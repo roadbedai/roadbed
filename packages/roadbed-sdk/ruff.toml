@@ -1,0 +1,5 @@
+# Root settings, plus this package as first-party for import sorting.
+extend = "../../pyproject.toml"
+
+[lint.isort]
+known-first-party = ["roadbed", "roadbed_sdk", "conftest"]

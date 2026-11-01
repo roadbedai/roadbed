@@ -1,0 +1,24 @@
+[project]
+name = "roadbed-sdk"
+version = "0.0.1"
+description = "Roadbed capture SDK: wrap OpenAI and Anthropic clients, pseudonymise on the client, spool to SQLite and flush to the Roadbed control plane (prototype)."
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.12"
+dependencies = [
+    "roadbed",
+    "pydantic>=2",
+    "httpx>=0.28",  # allow_nan=False when encoding: a NaN row is refused, not sent
+    "rfc8785",
+]
+
+[project.optional-dependencies]
+# Named-entity redaction of free text. Needs a spaCy model, e.g. `python -m spacy download en_core_web_lg`.
+redact = ["presidio-analyzer>=2.2"]
+
+[dependency-groups]
+dev = ["pytest>=8", "respx>=0.21", "openai>=1.50", "anthropic>=0.40", "ruff>=0.8", "mypy>=1.13"]
+
+[build-system]
+requires = ["uv_build>=0.9,<0.14"]
+build-backend = "uv_build"
