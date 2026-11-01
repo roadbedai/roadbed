@@ -39,7 +39,7 @@ from roadbed.asset.files import (
     validate_file,
 )
 from roadbed.asset.hashing import jcs_sha256, merkle_root, row_hash, sha256_bytes, sha256_file
-from roadbed.asset.lock import check_lock
+from roadbed.asset.lock import check_lock, named_objects
 from roadbed.asset.objects import ObjectError, ObjectStore
 from roadbed.asset.overlap import (
     DEFAULT_NUM_PERM,
@@ -47,9 +47,11 @@ from roadbed.asset.overlap import (
     DEFAULT_THRESHOLD,
     Overlap,
     exact_overlap,
+    minhash,
     near_exact,
     near_minhash,
     parse_minhash_object,
+    shingles,
 )
 from roadbed.asset.seal import holdout_row_hash
 from roadbed.asset.signing import SignatureError, verify_signature
@@ -415,6 +417,19 @@ def _binding(c: _Ctx) -> Check:
     return Check("V-RECEIPT-MISMATCH", label, True, f"{len(rec['subject'])} subjects, recipe, snapshot, holdout")
 
 
+def _policy(c: _Ctx) -> Check:
+    """The gate policy in the asset is the one the gate ran with: sha256(JCS(policy)) of policy/gate.yaml, in the
+    form roadbed.gate writes, equals gate.json policy_sha256. The contamination threshold, num_perm and shingle that
+    the near check uses come from this policy, so an edit to them must not pass silently."""
+    label = "gate policy matches gate.json"
+    live = jcs_sha256(c.asset.policy.model_dump(mode="json", exclude_none=True))
+    stored = read_doc(c.d / "gate.json").get("policy_sha256")
+    if live != stored:
+        return Check("V-POLICY-MISMATCH", label, False,
+                     f"{c.asset.cfg['gate']} hashes to {live[:12]}, {c.rrel}/gate.json policy_sha256 is {str(stored)[:12]}")
+    return Check("V-POLICY-MISMATCH", label, True, f"{live[:12]} ({c.asset.cfg['gate']})")
+
+
 def _datasets(c: _Ctx) -> Check:
     label = "datasets re-hashed"
     seal, snap = c.seal, c.snapshot
@@ -552,6 +567,9 @@ def _near(c: _Ctx) -> Check:
             return c.skip_or_fail("V-OBJECT-MISSING", label, "raw training inputs are in the bucket only; pass --objects")
         hold = _texts(c, c.holdout_rows)
         if hold is not None:
+            bad = _minhash_matches_raw(c, hold, num_perm, shingle)
+            if bad is not None:
+                return Check("V-HASH-MISMATCH", label, False, bad)
             near_exact(train, hold, threshold, shingle, ov)
         else:
             assert c.store is not None
@@ -573,6 +591,23 @@ def _near(c: _Ctx) -> Check:
     return Check("V-HOLDOUT-OVERLAP", label, True, f"{ov.near_method}, max {ov.max_jaccard}")
 
 
+def _minhash_matches_raw(c: _Ctx, hold: list[tuple[str, str]], num_perm: int, shingle: int) -> str | None:
+    """With the raw holdout inputs at hand, the sealed MinHash object (when --objects holds it) must be their MinHash
+    under the policy's num_perm and shingle: pre-train checks that only see the object rely on it. A missing object
+    is reported by the bucket-objects check."""
+    assert c.store is not None and c.seal is not None
+    oid = c.seal.get("minhash_oid")
+    if not oid or not c.store.has(oid):
+        return None
+    n, k, sigs = parse_minhash_object(c.store.get(oid))
+    if (n, k) != (num_perm, shingle):
+        return f"MinHash object {oid[:12]} uses num_perm {n}, shingle {k}; policy says {num_perm}, {shingle}"
+    want = {h: minhash(shingles(text, k), n) for h, text in hold}
+    if sigs != want:
+        return f"MinHash object {oid[:12]} does not match the MinHash of the raw holdout inputs"
+    return None
+
+
 def _contamination(c: _Ctx) -> Check:
     """contamination.json and the gate's contamination check say what verify recomputed."""
     label = "contamination.json matches"
@@ -591,6 +626,10 @@ def _contamination(c: _Ctx) -> Check:
         return bad("train differs from the snapshot manifest")
     if ov is not None and (doc["exact"]["shared"] != len(ov.exact_row_hashes) or sorted(doc["exact"]["row_hashes"]) != ov.exact_row_hashes):
         return bad("exact overlap differs from the recomputed one")
+    threshold, num_perm, _ = _policy_contamination(c)
+    for key, want in (("threshold", threshold), ("num_perm", num_perm)):
+        if doc["near"][key] != want:
+            return bad(f"near.{key} is {doc['near'][key]}, {c.asset.cfg['gate']} says {want}")
     if ov is not None and ov.near_method == doc["near"]["method"]:
         got = sorted((p["holdout"], p["train"]) for p in doc["near"]["pairs"])
         if got != [(p.holdout, p.train) for p in ov.near_pairs]:
@@ -631,6 +670,22 @@ def _sod(c: _Ctx) -> Check:
     return Check("V-SOD", label, True, f"requester {requester}, sealer {seal.get('sealed_by')}")
 
 
+def _objects(c: _Ctx) -> Check:
+    """Every bucket object the asset names (lock objects: pointers, snapshot parts, MinHash objects, adapters, `oid:`
+    receipt subjects) is in --objects; the lock check re-hashed those present. A missing one is a skip, never a pass."""
+    label = "bucket objects re-hashed"
+    named: dict[str, str] = {}
+    for o in named_objects(c.root, c.files):
+        named.setdefault(o.oid, o.ref)
+    if c.store is None:
+        return c.skip_or_fail("V-OBJECT-MISSING", label, f"{len(named)} objects named by the asset not re-hashed; pass --objects")
+    missing = sorted(oid for oid in named if not c.store.has(oid))
+    if missing:
+        first = ", ".join(f"{oid[:12]} (named by {named[oid]})" for oid in missing[:3])
+        return c.skip_or_fail("V-OBJECT-MISSING", label, f"{len(missing)} of {len(named)} objects are not in --objects: {first}")
+    return Check("V-OBJECT-MISSING", label, True, f"{len(named)} objects")
+
+
 # ---------------------------------------------------------------- driver
 
 
@@ -668,6 +723,7 @@ def run(
             lambda: _evidence(ctx()),
             lambda: _chain(ctx()),
             lambda: _binding(ctx()),
+            lambda: _policy(ctx()),
             lambda: _schemas(d),
             lambda: _scores(asset, d, n),
             lambda: _seal(asset, d),
@@ -678,6 +734,7 @@ def run(
             lambda: _near(ctx()),
             lambda: _contamination(ctx()),
             lambda: _sod(ctx()),
+            lambda: _objects(ctx()),
         ]
     done: list[Check] = []
     for fn in steps:

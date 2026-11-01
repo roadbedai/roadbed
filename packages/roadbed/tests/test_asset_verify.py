@@ -7,14 +7,19 @@ the lock consistent again, so only the check under test can catch the change.
 from __future__ import annotations
 
 import json
+import re
 import shutil
 from pathlib import Path
 
 import pytest
+import yaml
 from typer.testing import CliRunner
 
-from roadbed.asset import read_doc, row_hash, verify
+from roadbed.asset import build_lock, read_doc, row_hash, verify, write_lock
+from roadbed.asset.hashing import jcs_sha256
+from roadbed.asset.overlap import minhash_object, parse_minhash_object
 from roadbed.cli.main import app
+from roadbed.contracts import GatePolicy
 from test_asset_support import EXAMPLES, REBASE, bucket, builder, clone, copy, edit_json, git, reseal
 
 runner = CliRunner()
@@ -45,16 +50,22 @@ def test_passes_in_place(asset):
     r = verify(EXAMPLES / asset / f"rebases/{REBASE[asset]}")
     assert r.ok and r.full
     skipped = sorted(c.label for c in r.checks if c.ok is None)
-    assert skipped == ["seal precedes training: git ancestry: skipped", "train and holdout disjoint: near (Jaccard < 0.8): skipped"]
+    assert skipped == ["bucket objects re-hashed: skipped", "seal precedes training: git ancestry: skipped",
+                       "train and holdout disjoint: near (Jaccard < 0.8): skipped"]
 
 
 @pytest.mark.parametrize("asset", ["pass", "blocked"])
 def test_passes_strict_on_bundle_clone(asset, tmp_path, store):
-    """The real history and the bucket: every check runs (none skipped), closed schemas, pinned keys."""
+    """The real history and the bucket: every check runs, closed schemas, pinned keys. The fixtures do not ship
+    adapter weights (their oids are stand-ins, spec/tools/build_examples.py oid()), so the last check, bucket objects,
+    fails under --strict naming exactly the two adapters; every check before it passes."""
     root = clone(asset, tmp_path / asset)
-    r = verify(root / f"rebases/{REBASE[asset]}", objects=store, strict=True, trusted_keyids=KEYS)
-    assert r.ok, r.failed
-    assert all(c.ok is True for c in r.checks)
+    n = REBASE[asset]
+    r = verify(root / f"rebases/{n}", objects=store, strict=True, trusted_keyids=KEYS)
+    assert all(c.ok is True for c in r.checks[:-1]), r.failed
+    adapters = [builder().oid("claims-triage v12 adapter"), builder().oid(f"claims-triage rebase {n} adapter")]
+    assert r.failed is r.checks[-1] and r.failed.code == "V-OBJECT-MISSING"
+    assert r.failed.detail.startswith("2 of ") and all(a[:12] in r.failed.detail for a in adapters)
     codes = {c.code for c in r.checks}
     assert {"V-SEAL-ORDER", "V-HOLDOUT-OVERLAP", "V-SIG-INVALID", "V-RECEIPT-CHAIN", "V-LOCK-INCOMPLETE"} <= codes
     near = next(c for c in r.checks if c.label.startswith("train and holdout disjoint: near"))
@@ -66,7 +77,8 @@ def test_minhash_fallback(tmp_path):
     root = clone("pass", tmp_path / "pass")
     b = bucket(tmp_path / "b", holdout_raw=False)
     r = verify(root / "rebases/13", objects=b.root, strict=True)
-    assert r.ok, r.failed
+    assert all(c.ok is True for c in r.checks[:-1]), r.failed
+    assert r.failed is r.checks[-1] and r.failed.code == "V-OBJECT-MISSING"  # raw holdout inputs and adapters
     assert any(c.detail.startswith("minhash, max") for c in r.checks)
 
 
@@ -78,6 +90,8 @@ def test_strict_fails_on_skips():
 def test_cli_exit_4_names_the_check(tmp_path, store):
     root = clone("pass", tmp_path / "pass")
     r = runner.invoke(app, ["verify", "rebases/13", "--asset", str(root), "--strict", "--objects", str(store), "--json"])
+    assert r.exit_code == 4 and json.loads(r.output)["failed"] == "V-OBJECT-MISSING", r.output  # stand-in adapters
+    r = runner.invoke(app, ["verify", "rebases/13", "--asset", str(root), "--objects", str(store), "--json"])
     assert r.exit_code == 0, r.output
     (root / "rebases/13/report.md").write_text("tampered\n")
     r = runner.invoke(app, ["verify", "rebases/13", "--asset", str(root), "--json"])
@@ -267,8 +281,6 @@ def test_near_duplicate_input(tmp_path, holdout_raw):
 
 
 def test_minhash_object_must_cover_the_holdout(tmp_path):
-    from roadbed.asset.overlap import minhash_object, parse_minhash_object
-
     store = bucket(tmp_path / "b", holdout_raw=False)
     seal = read_doc(EXAMPLES / f"pass/{HOLD}/SEAL.json")
     n, k, sigs = parse_minhash_object(store.get(seal["minhash_oid"]))
@@ -479,3 +491,113 @@ def test_rebase_number_must_match(tmp_path):
     shutil.copytree(root / "rebases/13", root / "rebases/15")
     f = _failed(root, n=15)
     assert f.code in ("V-MANIFEST-INCOMPLETE", "V-LOCK-INCOMPLETE", "V-RECEIPT-MISMATCH", "V-SCORES-MISMATCH")
+
+
+# ---------------------------------------------------------------- verifier round 2: policy anchor, MinHash, objects
+
+GATE = "policy/gate.yaml"
+
+
+def _set_policy(root: Path, **kw) -> None:
+    text = (root / GATE).read_text()
+    for k, v in kw.items():
+        text, n = re.subn(rf"^(\s+{k}:) .*$", rf"\g<1> {v}", text, flags=re.M)
+        assert n == 1, k
+    (root / GATE).write_text(text)
+
+
+def _near_dup_asset(tmp_path: Path, *, holdout_raw: bool):
+    """Training gets holdout row 7 with its last word changed: Jaccard 21/23 = 0.913 over 3-shingles."""
+    b = builder()
+    store = bucket(tmp_path / "b", holdout_raw=holdout_raw)
+    words = b.narrative("h", 7).split()
+    words[-1] = "zebra"
+    oid = store.put(" ".join(words).encode())
+    root = copy("pass", tmp_path / "a")
+    row = {**_holdout_source_row(7), "input_ref": f"sha256:{oid}", "ts": "2026-10-30T12:00:00Z", "interaction_id": "int-t-9998"}
+    _fix_snapshot(root, read_doc(root / f"{SNAP}/part-0000.jsonl") + [row])
+    return root, store
+
+
+@pytest.mark.parametrize("policy", [{"minhash_threshold": 0.95}, {"shingle": 30}, {"num_perm": 64}],
+                         ids=["threshold", "shingle", "num_perm"])
+def test_policy_tamper_hides_near_duplicate(tmp_path, policy):
+    """Raising the contamination threshold (or shingle) in policy/gate.yaml hides a 0.913 near duplicate.
+    gate.json policy_sha256 anchors the policy the gate ran with."""
+    root, store = _near_dup_asset(tmp_path, holdout_raw=True)
+    reseal(root, 13, chain=True)
+    f = _failed(root, objects=store.root)
+    assert f.code == "V-HOLDOUT-OVERLAP"  # baseline: caught at 0.8
+    _set_policy(root, **policy)
+    reseal(root, 13, chain=True)  # relock only; gate.json and contamination.json untouched
+    f = _failed(root, objects=store.root)
+    assert f.code == "V-POLICY-MISMATCH" and "policy_sha256" in f.detail
+
+
+def test_policy_tamper_in_git_clone_strict_pinned(tmp_path):
+    """Only gate.yaml and roadbed.lock change, committed; --strict, bundle clone, pinned keys."""
+    root = clone("pass", tmp_path / "a")
+    store = bucket(tmp_path / "b")
+    _set_policy(root, minhash_threshold=0.95)
+    lock = root / "roadbed.lock"
+    write_lock(root, build_lock(root, store=store, previous=json.loads(lock.read_text()), synthetic=True))
+    git(root, "add", "-A")
+    git(root, "commit", "-q", "-m", "raise contamination threshold")
+    f = _failed(root, objects=store.root, strict=True, trusted_keyids=KEYS)
+    assert f.code == "V-POLICY-MISMATCH"
+
+
+def test_policy_tamper_with_gate_hash_rewritten(tmp_path):
+    """The attacker also rewrites gate.json policy_sha256: contamination.json still says threshold 0.8."""
+    root, store = _near_dup_asset(tmp_path, holdout_raw=True)
+    _set_policy(root, minhash_threshold=0.95)
+    policy = GatePolicy.model_validate(yaml.safe_load((root / GATE).read_text()))
+    edit_json(root / "rebases/13/gate.json",
+              lambda d: d.update(policy_sha256=jcs_sha256(policy.model_dump(mode="json", exclude_none=True))))
+    reseal(root, 13, chain=True)
+    f = _failed(root, objects=store.root)
+    assert f.code == "V-CONTAMINATION-MISMATCH" and "near.threshold" in f.detail
+
+
+@pytest.mark.parametrize("field,value", [("threshold", 0.95), ("num_perm", 64)])
+def test_contamination_near_parameters_must_match_policy(tmp_path, field, value):
+    root = copy("pass", tmp_path / "a")
+    edit_json(root / "rebases/13/contamination.json", lambda d: d["near"].update({field: value}))
+    reseal(root, 13)
+    f = _failed(root)
+    assert f.code == "V-CONTAMINATION-MISMATCH" and f"near.{field}" in f.detail
+
+
+def test_policy_hash_known_answer():
+    """Both fixtures: sha256(JCS(policy)) of policy/gate.yaml is the gate.json policy_sha256."""
+    for asset, n in REBASE.items():
+        r = verify(EXAMPLES / asset / f"rebases/{n}")
+        pol = next(c for c in r.checks if c.code == "V-POLICY-MISMATCH")
+        assert pol.ok is True and pol.detail.startswith("db986e9ba495")
+
+
+def test_minhash_object_signatures_must_match_raw_inputs(tmp_path):
+    """A seal whose MinHash object has the right row hashes but garbage signatures: with the raw holdout inputs in
+    --objects, verify recomputes the signatures."""
+    store = bucket(tmp_path / "b", holdout_raw=True)
+    root = copy("pass", tmp_path / "a")
+    seal = read_doc(root / f"{HOLD}/SEAL.json")
+    n, k, sigs = parse_minhash_object(store.get(seal["minhash_oid"]))
+    forged = store.put(minhash_object({h: ["0" * 16] * n for h in sigs}, n, k))
+    edit_json(root / f"{HOLD}/SEAL.json", lambda d: d.update(minhash_oid=forged))
+    reseal(root, 13, store=store)
+    f = _failed(root, objects=store.root)
+    assert f.code == "V-HASH-MISMATCH" and "MinHash object" in f.detail
+
+
+def test_named_object_missing_from_objects(tmp_path, store):
+    """The receipt names an adapter (oid: subject) the bucket copy lacks: a skipped check, a failure with --strict."""
+    root = clone("pass", tmp_path / "a")
+    rec = read_doc(root / "rebases/13/receipt.json")
+    adapter = next(s["name"] for s in rec["subject"] if s["name"].startswith("oid:")).removeprefix("oid:")
+    r = verify(root / "rebases/13", objects=store)
+    assert r.ok
+    last = r.checks[-1]
+    assert last.code == "V-OBJECT-MISSING" and last.ok is None and adapter[:12] in last.detail
+    f = _failed(root, objects=store, strict=True, trusted_keyids=KEYS)
+    assert f.code == "V-OBJECT-MISSING" and "--strict" in f.detail
