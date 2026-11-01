@@ -21,10 +21,18 @@ FREE_TEXT_CHARS = 120
 FREE_TEXT_WORDS = 8
 PII_KEYS = frozenset({"email", "phone", "name", "first_name", "last_name", "full_name", "address", "ssn", "dob",
                       "birth_date", "note", "comment", "text", "message", "description", "narrative"})
+# A key that contains one of these names personal data (phone_number, ssn_last, claimant_email, home_address).
+PII_KEY_PARTS = ("email", "phone", "ssn", "name", "address", "dob", "birth")
+LONG_NUMBER = 10**8  # an integer with 9 or more digits is phone-, SSN- or card-shaped
+
+
+def pii_key(k: str) -> bool:
+    k = k.lower()
+    return k in PII_KEYS or any(part in k for part in PII_KEY_PARTS)
 
 
 def _strings(obj: Any, path: str = "") -> Iterator[tuple[str, str, str]]:
-    """(path, key, string value) for every string value, and ("key", key, key) for every key."""
+    """(path, key, value) for every string value and every number (as text), and (path, "<key>", key) for every key."""
     if isinstance(obj, dict):
         for k, v in obj.items():
             yield f"{path}/{k}", "<key>", str(k)
@@ -34,6 +42,8 @@ def _strings(obj: Any, path: str = "") -> Iterator[tuple[str, str, str]]:
             yield from _strings(v, f"{path}/{i}")
     elif isinstance(obj, str):
         yield path, path.rsplit("/", 1)[-1], obj
+    elif isinstance(obj, int | float) and not isinstance(obj, bool):
+        yield path, "<number>", str(obj)
 
 
 def contact_shaped(s: str) -> str | None:
@@ -56,13 +66,20 @@ def contact_shaped(s: str) -> str | None:
 def scan_label_fields(obj: Any, where: str) -> str | None:
     """Reason a label-side value (output, verdict, outcome, reason code) is refused, or None.
 
-    Refused: a contact-shaped string, a free-text string (more than 120 characters or 8 words), or a key that
-    names personal data or free text.
+    Refused: a contact-shaped string, a free-text string (more than 120 characters or 8 words), a number with 9 or
+    more integer digits, a contact-shaped key, or a key that names personal data or free text. The reason never
+    holds the value, and never a contact-shaped key.
     """
     for path, key, s in _strings(obj):
         if key == "<key>":
-            if s.lower() in PII_KEYS:
+            if (kind := contact_shaped(s)) is not None:
+                return f"{where}: {kind}-shaped key"
+            if pii_key(s):
                 return f"{where}{path}: key {s!r} names personal data or free text"
+            continue
+        if key == "<number>":
+            if abs(float(s)) >= LONG_NUMBER:
+                return f"{where}{path}: number with 9 or more digits (phone, SSN or card shaped)"
             continue
         if (kind := contact_shaped(s)) is not None:
             return f"{where}{path}: {kind}-shaped value"
@@ -80,7 +97,7 @@ def scan_outcome(obj: Any) -> str | None:
     if (why := scan_label_fields(obj, "outcome")) is not None:
         return why
     for path, key, s in _strings(obj):
-        if key != "<key>" and not TOKEN.match(s):
+        if key not in ("<key>", "<number>") and not TOKEN.match(s):
             return f"outcome{path}: not a token (free text or a name)"
     return None
 
@@ -88,6 +105,6 @@ def scan_outcome(obj: Any) -> str | None:
 def scan_input(obj: Any) -> str | None:
     """Reason a pseudonymised input is refused (contact-shaped string anywhere), or None. Free text is allowed."""
     for path, key, s in _strings(obj):
-        if key != "<key>" and (kind := contact_shaped(s)) is not None:
+        if key not in ("<key>", "<number>") and (kind := contact_shaped(s)) is not None:
             return f"input{path}: {kind}-shaped value"
     return None

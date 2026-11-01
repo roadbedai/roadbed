@@ -12,7 +12,11 @@ fields that never reach a snapshot part: `use` (train | eval | quarantine), `act
 `profile_id`, `hmac_key_id`, `synthetic` and `input_text` (the pseudonymised input as JCS text; its sha256 is the
 input_ref, and the MinHash disjointness check reads it).
 
-Quarantined rows keep only `interaction_id`, `use` and `reason`: they carry nothing that could leak.
+Quarantined rows keep only `interaction_id`, `use` and `reason`: they carry nothing that could leak. An
+interaction id that is itself contact-shaped is replaced by `redacted:<sha256 prefix>`.
+
+Every field that reaches an output file is scanned: the interaction id, the model version, the slices, the output,
+the label, the fix, the reason code and the outcome.
 """
 
 from __future__ import annotations
@@ -28,7 +32,7 @@ from pydantic import ValidationError
 
 from roadbed.asset.hashing import jcs, row_hash, sha256_bytes
 from roadbed.contracts import InteractionIn, OutcomeIn, VerdictIn
-from roadbed.labels.guard import scan_input, scan_label_fields, scan_outcome
+from roadbed.labels.guard import contact_shaped, scan_input, scan_label_fields, scan_outcome
 from roadbed.labels.rules import LABEL_RULES_V1, LabelRules, check_pinned
 
 # CONTRACT-CHANGE-REQUEST: VerdictIn has no reviewer id, but correction-test-row requires created_by. The control
@@ -157,6 +161,11 @@ def _assemble(
     out_validator: jsonschema.Draft202012Validator | None,
 ) -> dict[str, Any]:
     iid = it["interaction_id"]
+    if contact_shaped(iid) is not None:
+        return _quarantine("redacted:" + sha256_bytes(iid.encode("utf-8"))[:16], "interaction_id is contact-shaped")
+    for where, obj in (("version", {"version": it["version"]}), ("slices", dict(it.get("slices") or {}))):
+        if (why := scan_label_fields(obj, where)) is not None:
+            return _quarantine(iid, why)
     text = jcs(it["input"]).decode("utf-8")
     if "sha256:" + sha256_bytes(text.encode("utf-8")) != it["input_ref"]:
         return _quarantine(iid, "input_ref does not match the input")
