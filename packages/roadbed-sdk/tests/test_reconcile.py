@@ -67,3 +67,17 @@ def test_reconcile_skips_a_row_that_fails(spool_path: Path, tmp_path: Path, monk
     rep = roadbed_sdk.reconcile(csv_path)
     assert (rep.rows, rep.spooled, rep.skipped, rep.error) == (2, 1, 1, None)
     roadbed_sdk.shutdown()
+
+
+def test_reconcile_keeps_integers_beyond_2_53_as_text(ingest: FakeIngest, spool_path: Path, tmp_path: Path) -> None:
+    # JCS (rfc8785) has no form for an integer of 2**53 or more: such a cell stays text, like nan and inf.
+    roadbed_sdk.init(API, "test-token", TEST_KEY, "p@v1", keep=("ref", "small"), spool_path=spool_path, background=False)
+    ingest.interactions.update({"ix_1": {}})
+    csv_path = tmp_path / "sor.csv"
+    csv_path.write_text(f"interaction_id,observed_at,ref,small\nix_1,2026-11-02,{2**53},{2**53 - 1}\n")
+    rep = roadbed_sdk.reconcile(csv_path)
+    assert (rep.rows, rep.spooled, rep.skipped, rep.error) == (1, 1, 0, None)
+    roadbed_sdk.flush()
+    [o] = ingest.outcomes.values()
+    assert isinstance(o["outcome"]["ref"], str) and o["outcome"]["small"] == 2**53 - 1
+    roadbed_sdk.shutdown()

@@ -185,3 +185,27 @@ def test_a_colliding_gateway_id_gets_a_fresh_id(mock: respx.MockRouter, ingest: 
     assert ids[0] == "ix_gw_same" and ids[1] and ids[1] != "ix_gw_same"
     roadbed_sdk.flush()
     assert set(ingest.interactions) == set(ids)
+
+
+def test_a_non_string_host_id_is_used_as_text(mock: respx.MockRouter, ingest: FakeIngest, sdk: roadbed_sdk.Recorder, oai: openai.OpenAI) -> None:
+    gw = _openai(mock)
+    client = roadbed_sdk.wrap_openai(oai)
+    with roadbed_sdk.capture(interaction_id=12345) as cap:  # type: ignore[arg-type]
+        client.chat.completions.create(model="m", messages=[{"role": "user", "content": "hi"}])
+    assert cap.interaction_id == "12345"
+    assert gw.calls.last.request.headers["x-roadbed-interaction-id"] == "12345"
+    roadbed_sdk.flush()
+    assert "12345" in ingest.interactions
+
+
+def test_a_failed_prepare_is_logged_and_the_call_still_runs(mock: respx.MockRouter, ingest: FakeIngest, sdk: roadbed_sdk.Recorder,
+                                                           oai: openai.OpenAI, aoai: openai.AsyncOpenAI, monkeypatch: pytest.MonkeyPatch,
+                                                           caplog: pytest.LogCaptureFixture) -> None:
+    _openai(mock)
+    def boom() -> None:
+        raise TypeError("x")
+    monkeypatch.setattr(sdk, "prepare", boom)
+    resp = roadbed_sdk.wrap_openai(oai).chat.completions.create(model="m", messages=[{"role": "user", "content": "hi"}])
+    aresp = asyncio.run(roadbed_sdk.wrap_openai(aoai).chat.completions.create(model="m", messages=[{"role": "user", "content": "hi"}]))
+    assert resp.choices and aresp.choices
+    assert caplog.text.count("capture skipped: TypeError") == 2

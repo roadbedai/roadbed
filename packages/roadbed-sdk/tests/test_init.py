@@ -71,3 +71,10 @@ def test_calls_before_init_do_nothing_and_do_not_raise(caplog: pytest.LogCapture
     assert roadbed_sdk.outcome("ix_1", {"a": 1}) is None
     assert roadbed_sdk.reconcile("missing.csv").error == "not_initialised"
     assert roadbed_sdk.subject_token("x") is None
+
+
+def test_httpx_floor_has_allow_nan_false() -> None:
+    # httpx < 0.28 encodes NaN as a bare literal, so the not_json refusal in HttpSink would not exist there.
+    from importlib.metadata import requires
+
+    assert "httpx>=0.28" in (requires("roadbed-sdk") or [])

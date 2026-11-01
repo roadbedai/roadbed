@@ -46,9 +46,12 @@ def _cell(v: str) -> Any:
     if s.lower() in ("true", "false"):
         return s.lower() == "true"
     try:
-        return int(s)
+        n = int(s)
     except ValueError:
         pass
+    else:
+        # JCS (rfc8785) has no form for an integer of 2**53 or more: keep such a cell as text, like nan and inf.
+        return n if abs(n) < 2**53 else s
     try:
         f = float(s)
     except ValueError:

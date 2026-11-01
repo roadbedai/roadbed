@@ -71,7 +71,9 @@ def capture(*, interaction_id: str | None = None, subject: str | None = None, pi
     pii: values the host knows are personal data in this call (names, claim numbers); they become placeholders.
     slices: slice labels such as {"line": "bodily_injury"}.
     """
-    cap = Capture(interaction_id=interaction_id, subject=subject, pii=pii, slices=slices, model=model, synthetic=synthetic)
+    # A host may pass its own primary key (an int): use its text, so the id check and the header see a string.
+    ix = str(interaction_id) if interaction_id is not None else None
+    cap = Capture(interaction_id=ix, subject=subject, pii=pii, slices=slices, model=model, synthetic=synthetic)
     token = _current.set(cap)
     try:
         yield cap

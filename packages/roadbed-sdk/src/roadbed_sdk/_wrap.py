@@ -102,7 +102,8 @@ def _patch(resource: Any, extract: Extract) -> None:
             try:
                 prep = rec.prepare()
                 kw = _with_header(kwargs, prep.interaction_id)
-            except Exception:
+            except Exception as e:
+                log.warning("roadbed_sdk: capture skipped: %s", type(e).__name__)
                 return await orig(*args, **kwargs)
             raw = await raw_create(*args, **kw)
             resp = await raw.parse() if inspect.iscoroutinefunction(raw.parse) else raw.parse()
@@ -121,7 +122,8 @@ def _patch(resource: Any, extract: Extract) -> None:
         try:
             prep = rec.prepare()
             kw = _with_header(kwargs, prep.interaction_id)
-        except Exception:
+        except Exception as e:
+            log.warning("roadbed_sdk: capture skipped: %s", type(e).__name__)
             return orig(*args, **kwargs)
         raw = raw_create(*args, **kw)
         resp = raw.parse()
