@@ -35,6 +35,7 @@ def _private_file(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     fd = os.open(path, os.O_RDWR | os.O_CREAT, 0o600)
     os.close(fd)
+    os.chmod(path, 0o600)  # the mode in os.open applies only on create: narrow a file that already existed
 
 
 class Spool:

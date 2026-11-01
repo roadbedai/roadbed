@@ -55,6 +55,16 @@ def test_spool_file_is_private(spool_path: Path) -> None:
     roadbed_sdk.shutdown()
 
 
+def test_a_pre_existing_spool_file_is_made_private(spool_path: Path) -> None:
+    spool_path.parent.mkdir(parents=True, mode=0o700)
+    spool_path.touch()
+    spool_path.chmod(0o644)
+    roadbed_sdk.init(API, "t", TEST_KEY, "p@v1", spool_path=spool_path, background=False)
+    assert roadbed_sdk.outcome("ix_1", {"a": 1})
+    assert spool_path.stat().st_mode & 0o777 == 0o600
+    roadbed_sdk.shutdown()
+
+
 def test_calls_before_init_do_nothing_and_do_not_raise(caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level(logging.WARNING)
     assert roadbed_sdk.verdict("ix_1", "approve") is None
