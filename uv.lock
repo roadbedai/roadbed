@@ -2142,6 +2142,7 @@ dev = [
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "ruff" },
+    { name = "vcrpy" },
 ]
 
 [package.metadata]
@@ -2155,6 +2156,7 @@ dev = [
     { name = "pytest", specifier = ">=8" },
     { name = "pytest-cov", specifier = ">=5" },
     { name = "ruff", specifier = ">=0.8" },
+    { name = "vcrpy", specifier = ">=7" },
 ]
 
 [[package]]
@@ -2624,6 +2626,19 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/e3/05/b17359e1cefb4f909b5e40b1b90a496d987258916dbbf88e842c729f510e/urllib3-2.8.0.tar.gz", hash = "sha256:63bf2ead4c879426ebf22ef2a781eeb4aa3b4ae798a0435506f8687fd5bb9b63", size = 458972, upload-time = "2026-09-15T19:29:36.253Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/92/9d/c4e665119135114480843e7ab388fa94d8480650450e6f8e26b70d323a4c/urllib3-2.8.0-py3-none-any.whl", hash = "sha256:0cf3cae568d36aa9576b28dfb35f11328f1cb974ca7647d9475ebb86c75ac6e3", size = 135717, upload-time = "2026-09-15T19:29:34.577Z" },
+]
+
+[[package]]
+name = "vcrpy"
+version = "9.4.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pyyaml" },
+    { name = "wrapt" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e8/b9/9abf7df54f4d30d2b6ce47f12ab94ed4820395a953da30dd451af86dab9d/vcrpy-9.4.0.tar.gz", hash = "sha256:af6cb65abb1a0a5c1d25954b9a52f033b85c6f80679f3f91c9e7301da4107e74", size = 122146, upload-time = "2026-11-01T00:31:39.251Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/21/91/7bb14a9806dfa22cf9b3fb28587c3e5d697434ca06ecb4d8b63c7f7db01d/vcrpy-9.4.0-py3-none-any.whl", hash = "sha256:7f2e9c90bf996ed36a423c675119ddae7dd658571c55cfa8b1c954746a99702b", size = 57627, upload-time = "2026-11-01T00:31:37.771Z" },
 ]
 
 [[package]]
