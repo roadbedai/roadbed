@@ -157,7 +157,12 @@ class Recorder:
                 "synthetic": self._synthetic(cap),
             }
             body = {k: v for k, v in body.items() if v is not None}
-            self._spool("interaction", InteractionIn, body)
+            if not self._spool("interaction", InteractionIn, body):
+                # An interaction id is never reused: a colliding id (from the gateway or the host) would drop this
+                # interaction and bind later verdicts to the earlier one. Record it under a fresh id instead.
+                log.warning("roadbed_sdk: interaction id %s already spooled; using a generated id", ix)
+                ix = body["interaction_id"] = new_id("ix")
+                self._spool("interaction", InteractionIn, body)
             if cap is not None:
                 cap.interaction_ids.append(ix)
                 cap.interaction_id = ix
@@ -214,16 +219,19 @@ class Recorder:
         """Deterministic id from content, keyed with the tenant key (a plain hash of raw values could be reversed)."""
         return f"{prefix}_" + hmac_hex(self.pseudo.key, prefix, rfc8785.dumps(obj).decode())[:32]
 
-    def _spool(self, kind: Kind, model: type[BaseModel], body: dict[str, Any]) -> None:
+    def _spool(self, kind: Kind, model: type[BaseModel], body: dict[str, Any]) -> bool:
+        """Validate and store. False when the id was already spooled (the first body is kept)."""
         try:
             model.model_validate(body)
         except ValidationError as e:
             # The pydantic message holds the values: log the field names only.
             fields = ",".join(".".join(str(p) for p in err["loc"]) for err in e.errors())
             raise ValueError(f"invalid {kind}: {fields}") from None
-        if not self.spool.put(kind, body[ID_FIELD[kind]], json.dumps(body, separators=(",", ":"), sort_keys=True)):
+        stored = self.spool.put(kind, body[ID_FIELD[kind]], json.dumps(body, separators=(",", ":"), sort_keys=True))
+        if not stored:
             log.info("roadbed_sdk: %s %s already spooled; kept the first", kind, body[ID_FIELD[kind]])
         self._wake.set()
+        return stored
 
     # ------------------------------------------------------------ flush
 

@@ -171,3 +171,17 @@ def test_wrapping_twice_and_before_init_is_harmless(mock: respx.MockRouter, inge
     assert roadbed_sdk.flush() == {}
     assert API
     _ = TEST_KEY
+
+
+def test_a_colliding_gateway_id_gets_a_fresh_id(mock: respx.MockRouter, ingest: FakeIngest, sdk: roadbed_sdk.Recorder,
+                                                oai: openai.OpenAI) -> None:
+    _openai(mock, {"x-roadbed-interaction-id": "ix_gw_same"})
+    client = roadbed_sdk.wrap_openai(oai)
+    ids = []
+    for text in ("Claim 1: hail.", "Claim 2: flood."):
+        with roadbed_sdk.capture() as cap:
+            client.chat.completions.create(model="m", messages=[{"role": "user", "content": text}])
+        ids.append(cap.interaction_id)
+    assert ids[0] == "ix_gw_same" and ids[1] and ids[1] != "ix_gw_same"
+    roadbed_sdk.flush()
+    assert set(ingest.interactions) == set(ids)
