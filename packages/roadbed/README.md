@@ -57,3 +57,42 @@ PYTHONPATH=packages/roadbed/tests/watch uv run pytest -q -p no_network packages/
 ```
 
 Re-record on a machine with network: delete `tests/cassettes/hub_*.yaml`, then `ROADBED_VCR_RECORD=once uv run pytest packages/roadbed/tests/watch`. Recording keeps only the `accept` request header and the `content-type`, `etag`, `x-repo-commit` response headers. `ROADBED_NETWORK=1` runs one live test.
+
+## CLI (`roadbed`)
+
+| Command | Where it runs | What it does |
+|---|---|---|
+| `roadbed init --url URL [--token-file F] [--trust-key KEYID] [--check]` | local | Writes `~/.config/roadbed/config.toml` (mode 0600). The token stays in its own file. |
+| `roadbed seal --snapshot S --rows N --seed K --by KEY` | control plane | `POST /v1/holdouts` (validators only). Prints the seal. |
+| `roadbed watch --base GLOB` | Hub | New bases and the license decision (W04). |
+| `roadbed rebase MODEL --on REPO [--revision SHA]` | control plane | Starts a rebase and streams its timeline. Ends with `opened rebase #N → awaiting MRM sign-off` or `blocked: <slice> <delta> ...`. |
+| `roadbed rebase MODEL --from-predictions rebases/N` | local | Day 0 mode: scores supplied predictions and writes the rebase files. |
+| `roadbed status [--remote]` | local or control plane | Model, alias, base and recent rebases. |
+| `roadbed verify rebases/N` | offline | Full asset verify (W02). |
+| `roadbed eval reproduce rebases/N` | offline | Recomputes `scores.json` from the two prediction files with the stored seed. |
+| `roadbed audit verify --export F [--anchor A]` | offline | Seq order, `prev_hash` links, every event hash, anchored heads. |
+| `roadbed evidence verify rebases/N/evidence` | offline | Evidence manifest signature and hashes, coverage of the rebase, `approvals.json`. |
+| `roadbed promote N`, `roadbed rollback --reason CODE [--to vN]` | control plane | Alias change with an `Idempotency-Key`. |
+
+Every command takes `--json` (or `roadbed --json <command>`). Mock, replay and synthetic results are labelled in text and in JSON.
+
+| Exit | Meaning |
+|---|---|
+| 0 | OK. |
+| 2 | Usage: bad arguments, no asset repo, no config, a local file missing or not valid, no Hub match. |
+| 3 | Remote error: the control plane or the Hub is unreachable or returned an error (401, 403 with the SoD rule and audit seq, 409, 422, 5xx). |
+| 4 | A check failed and is named (`V-...`), or the gate blocked the rebase. |
+
+Day 0 used exit 1 for input errors and 3 for a blocked gate. They are now 2 and 4.
+
+Config (`$ROADBED_CONFIG`, else `$XDG_CONFIG_HOME/roadbed/config.toml`, else `~/.config/roadbed/config.toml`):
+
+```toml
+url = "https://cp.example"          # https; plain http only for localhost
+token_file = "~/.config/roadbed/token"
+trust_keys = ["<64-hex key id>"]    # verify and evidence verify accept only these keys
+```
+
+`ROADBED_URL` and `ROADBED_TOKEN_FILE` override the file. The client ignores proxy settings and does not follow redirects.
+
+Tests: `uv run pytest -q packages/roadbed/tests/test_cli_*.py packages/roadbed/tests/cli`. Remote commands run against a respx fake of the control plane that serves the spec fixtures. The fake's bodies are checked against `tests/cli_fixtures/openapi.yaml`, a copy of `platform/contracts/openapi.yaml`.

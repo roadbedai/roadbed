@@ -31,7 +31,7 @@ SpecVersion = Annotated[Literal["roadbed/v0.1"], Field(description="Spec version
 Oid = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$", description="Bucket object id: lowercase hex sha256 of the object bytes.")]
 ImageDigest = Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$", description="OCI image digest, sha256:<hex>.")]
 Revision = Annotated[str, Field(pattern=r"^[0-9a-f]{40}$", description="40-hex commit sha.")]
-InputRef = Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$", description="sha256:<hex> of the raw input bytes; also its bucket oid.")]
+InputRef = Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$", description="sha256:<hex> of JCS(pseudonymised input); also its bucket oid.")]
 HoldoutId = Annotated[str, Field(pattern=r"^H-[A-Za-z0-9-]{1,64}$", description="Holdout id, e.g. H-2026-11-01.")]
 SnapshotId = Annotated[str, Field(pattern=r"^S-\d{4}-\d{2}-\d{2}(-[a-z0-9]+)?$", description="Snapshot id, S-<date>.")]
 DatasetId = Annotated[str, Field(pattern=r"^[SH]-[A-Za-z0-9-]{1,64}$", description="Snapshot id (S-...) or holdout id (H-...).")]
@@ -129,6 +129,10 @@ class _Request(BaseModel):
 class Task(_Model):
     type: Literal["structured-classification"] = Field(description="Kind of task the model does.")
     output_schema: str = Field(description="Path (from asset root) to the JSON Schema of one model output.")
+    text_field: str | None = Field(
+        default=None, min_length=1,
+        description="Optional. Input field that holds the free text for the near-overlap check (SPEC.md). Default narrative.",
+    )
 
 
 class Base(_Model):
@@ -205,6 +209,7 @@ class HoldoutRow(_Model):
         default=None,
         description="Optional. Row hash of the source verdict row (see SPEC.md, hashing). When absent, sha256(JCS(row)).",
     )
+    synthetic: bool | None = Field(default=None, description="True when the row is synthetic.")
 
 
 class PredictionRow(_Model):
@@ -552,6 +557,7 @@ class SnapshotRow(_Model):
     ts: UtcTs = Field(description="Verdict time.")
     slices: dict[str, str]
     row_hash: Sha256Hex = Field(description="sha256(JCS({interaction_id, input_ref, output, verdict, reason_code, outcome, ts})).")
+    synthetic: bool | None = Field(default=None, description="True when the row is synthetic.")
 
 
 # ---------------------------------------------------------------- data/holdout/<id>/SEAL.json
@@ -630,6 +636,7 @@ class GoldenRow(_Model):
     input_ref: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
     expected: dict[str, Any]
     row_hash: Sha256Hex | None = None
+    synthetic: bool | None = Field(default=None, description="True when the row is synthetic.")
 
 
 class CorrectionTestRow(_Model):
@@ -648,6 +655,7 @@ class CorrectionTestRow(_Model):
     created_by: ActorId
     created_at: UtcTs
     row_hash: Sha256Hex | None = None
+    synthetic: bool | None = Field(default=None, description="True when the row is synthetic.")
 
 
 # ---------------------------------------------------------------- recipes/*.yaml
@@ -712,16 +720,28 @@ class ExecutorRef(_Model):
     host: str | None = None
 
 
+_DATA_UNLESS_BENCH: Any = {
+    "if": {"not": {"properties": {"job": {"properties": {"kind": {"const": "bench"}}}}}},
+    "then": {"required": ["snapshot", "holdout"],
+             "properties": {"snapshot": {"type": "object"}, "holdout": {"type": "object"}}},
+}
+
+
 class RunPredicate(_Model):
-    model_config = ConfigDict(extra="ignore", json_schema_extra={"allOf": [_EXECUTOR_NO_GPU]})
+    model_config = ConfigDict(extra="ignore", json_schema_extra={"allOf": [_EXECUTOR_NO_GPU, _DATA_UNLESS_BENCH]})
 
     job: JobRef
     model: str
     rebase: int | None = None
     base: PinnedBase = Field(description="Base model repo and exact revision sha.")
     recipe: RecipeRef = Field(description="Recipe path and file hash.")
-    snapshot: DatasetRef = Field(description="Training snapshot id and Merkle root.")
-    holdout: HoldoutSealRef = Field(description="Sealed holdout: id, Merkle root, seal seq, sealed_at and seal commit.")
+    snapshot: DatasetRef | None = Field(
+        default=None, description="Training snapshot id and Merkle root. Required unless job.kind is bench.",
+    )
+    holdout: HoldoutSealRef | None = Field(
+        default=None,
+        description="Sealed holdout: id, Merkle root, seal seq, sealed_at and seal commit. Required unless job.kind is bench.",
+    )
     image_digest: ImageDigest
     uv_lock_sha256: Sha256Hex = Field(description="sha256 of the runner uv.lock bytes.")
     gpu: Gpu
@@ -740,6 +760,12 @@ class RunPredicate(_Model):
             self.gpu.name != "none" or self.gpu.count or self.cost.gpu_hours or self.cost.price_per_hour_eur or self.cost.eur
         ):
             raise ValueError("a mock or replay run has gpu 'none' and zero cost")
+        return self
+
+    @model_validator(mode="after")
+    def _data_unless_bench(self) -> RunPredicate:
+        if self.job.kind != "bench" and (self.snapshot is None or self.holdout is None):
+            raise ValueError(f"a {self.job.kind} receipt names its snapshot and holdout; only bench may leave them out")
         return self
 
 
@@ -764,7 +790,7 @@ class Signature(_Model):
     alg: Literal["ed25519"]
     keyid: Sha256Hex = Field(description="sha256 of the raw 32-byte public key.")
     key: str = Field(description="Public key path from asset root, e.g. policy/keys/receipt.pub.")
-    signed: str = Field(description="Path of the signed file from asset root.")
+    signed: str = Field(description="Path of the signed file from asset root. For a run receipt, the job's receipt_path.")
     payload: Literal["jcs", "raw"] = Field(description="jcs: the JCS bytes of the signed JSON file; raw: its bytes.")
     sig: str = Field(pattern=r"^[A-Za-z0-9+/]{86}==$", description="Base64 (RFC 4648, padded) 64-byte signature.")
 
@@ -1271,6 +1297,9 @@ class EvalSpec(_Model):
     adapter: ObjectRef | None = Field(default=None, description="Adapter object; absent runs the base model alone.")
     role: Literal["incumbent", "candidate"]
     holdout: HoldoutInput = Field(description="Includes file: the runner reads the rows (SoD-05 runner exemption).")
+    snapshot: DatasetRef | None = Field(
+        default=None, description="Optional. Training snapshot of the adapter (id, Merkle root); the receipt copies it.",
+    )
     output_schema: ObjectRef = Field(description="evals/output.schema.json bytes; used for guided JSON.")
     max_tokens: int = Field(ge=1)
     temperature: float = Field(ge=0)
@@ -1289,6 +1318,10 @@ class BenchSpec(_Model):
     concurrency: int = Field(ge=1, description="Plan value 32.")
     max_tokens: int = Field(ge=1)
     price_per_hour_eur: float = Field(ge=0)
+    snapshot: DatasetRef | None = Field(default=None, description="Optional. Training snapshot of the adapter; the receipt copies it.")
+    holdout: HoldoutSealRef | None = Field(
+        default=None, description="Optional. Sealed holdout of the rebase (no rows); the receipt copies it.",
+    )
     outputs: list[BenchOutput] = Field(description="Artifacts the result must name: bench (cost.json input) and receipt.")
 
 
@@ -1305,6 +1338,10 @@ class ExecutorJob(_Model):
     cost_cap_eur: float | None = Field(default=None, gt=0)
     created_at: UtcTs
     requested_by: ActorId
+    receipt_path: str | None = Field(
+        default=None, pattern=r"^(versions/v\d+|rebases/\d+)/receipt\.json$",
+        description="Asset path the receipt is stored at, versions/vN/receipt.json or rebases/N/receipt.json.",
+    )
 
 
 class JobLease(_Model):
@@ -1317,6 +1354,10 @@ class JobLease(_Model):
     attempt: int = Field(ge=1)
     max_attempts: int = Field(ge=1)
     lease_until: UtcTs = Field(description="The lease ends here unless a heartbeat or status extends it.")
+    audit_seq: int | None = Field(default=None, ge=1, description="Audit seq of the job start event.")
+    prev_receipt: Sha256Hex | None = Field(
+        default=None, description="sha256(JCS(previous receipt.json)) in this asset; null for the first receipt.",
+    )
 
 
 class LeaseState(_Model):
@@ -1466,7 +1507,7 @@ class InteractionIn(_Request):
     alias: str | None = None
     version: str
     ts: UtcTs
-    input_ref: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
+    input_ref: InputRef
     input: dict[str, Any] = Field(description="Pseudonymised input (tokens and placeholders such as <PERSON_1>).")
     output: dict[str, Any]
     profile_id: str = Field(min_length=1, description="Pseudonymisation profile applied by the SDK.")
@@ -1496,6 +1537,7 @@ class VerdictIn(_Request):
     verdict: dict[str, Any] | None = Field(default=None, description="Required when action is fix.")
     reason_code: str | None = Field(default=None, pattern=r"^[a-z_]{1,64}$", description="Required when action is fix.")
     ts: UtcTs
+    synthetic: bool | None = Field(default=None, description="True when the row is synthetic.")
 
     @model_validator(mode="after")
     def _fix_carries_verdict(self) -> VerdictIn:
@@ -1514,6 +1556,7 @@ class OutcomeIn(_Request):
     outcome: dict[str, Any]
     source: Literal["system_of_record", "csv"]
     observed_at: UtcTs
+    synthetic: bool | None = Field(default=None, description="True when the row is synthetic.")
 
 
 # ---------------------------------------------------------------- schema export

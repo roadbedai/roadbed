@@ -35,7 +35,7 @@
       "rows": 60,
       "seal_seq": 640,
       "sealed_at": "2026-10-01T09:00:00Z",
-      "seal_commit": "ac51eea4be783c65ce9bf2f7b08b8406bc27ea8b"
+      "seal_commit": "a40ecdb65acc1189cd455db5a4ff2c0bcaf78a16"
     },
     "image_digest": "sha256:78e4867e2399b4460a21db5944f52e0eca9ac4cca7a460a7664a1b99d637752b",
     "uv_lock_sha256": "530fe078b35eb3ef0580b27b9b0c7788f7e11beff1febb1a87233c5e49560b56",

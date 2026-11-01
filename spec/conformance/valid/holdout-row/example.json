@@ -10,5 +10,6 @@
     "route": "fast_track",
     "severity": 1
   },
-  "row_hash": "8774b85e6deaac7817defe06959300f4450092aacb2845acbd65eea6453b6bbc"
+  "row_hash": "8774b85e6deaac7817defe06959300f4450092aacb2845acbd65eea6453b6bbc",
+  "synthetic": true
 }

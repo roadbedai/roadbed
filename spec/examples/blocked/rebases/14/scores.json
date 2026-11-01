@@ -9,7 +9,7 @@
   "holdout": {
     "id": "H-2026-11-01",
     "rows": 60,
-    "sha256": "752d5a6c04b207baedbd4d258a1c29ea3977b5fccff05a979b71ad04ac595d01"
+    "sha256": "f5a68469607562cb6f0e153c21e76055720f5d5698e1654f2fc40472d3149bff"
   },
   "predictions": {
     "incumbent": {

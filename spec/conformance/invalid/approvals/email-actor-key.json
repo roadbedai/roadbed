@@ -1,14 +1,26 @@
 {
   "spec": "roadbed/v0.1",
   "rebase": 13,
-  "status": "awaiting_signoff",
-  "status_text": "awaiting MRM sign-off",
+  "status": "approved",
+  "status_text": "approved: MRM sign-off complete",
   "required": [
     "validator",
     "approver"
   ],
-  "pack_version": 2,
+  "pack_version": 3,
   "approvals": {
+    "ana": {
+      "role": "approver",
+      "decision": "approved",
+      "reason_code": "findings_noted",
+      "refs": [
+        "rebase:13",
+        "audit:1402"
+      ],
+      "at": "2026-11-01T11:05:30Z",
+      "audit_seq": 1405,
+      "pack_version": 2
+    },
     "jane.doe@acme.example": {
       "role": "validator",
       "decision": "validated_with_findings",
@@ -36,6 +48,20 @@
       "at": "2026-11-01T11:05:00Z",
       "audit_seq": 1402,
       "pack_version": 1
+    },
+    {
+      "rebase": 13,
+      "actor": "ana",
+      "role": "approver",
+      "decision": "approved",
+      "reason_code": "findings_noted",
+      "refs": [
+        "rebase:13",
+        "audit:1402"
+      ],
+      "at": "2026-11-01T11:05:30Z",
+      "audit_seq": 1405,
+      "pack_version": 2
     }
   ],
   "synthetic": true

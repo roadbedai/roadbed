@@ -43,6 +43,19 @@
       "default": null,
       "description": "Optional. Row hash of the source verdict row (see SPEC.md, hashing). When absent, sha256(JCS(row)).",
       "title": "Row Hash"
+    },
+    "synthetic": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "True when the row is synthetic.",
+      "title": "Synthetic"
     }
   },
   "required": [

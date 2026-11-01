@@ -404,12 +404,17 @@ def test_dataset_roots_and_disjointness(asset):
     assert man["parts"][0]["oid"] == sha256_file(root / man["parts"][0]["path"])
 
 
-def test_blocked_has_finding_and_pass_awaits_signoff():
+def test_blocked_has_finding_and_pass_is_signed_off():
     gate = json.loads((EXAMPLES / "blocked/rebases/14/gate.json").read_text())
     assert gate["status"] == "blocked" and [f["id"] for f in gate["findings"]] == ["F-0001"]
     assert io.read_yaml(EXAMPLES / "blocked/findings/F-0001.yaml")["slice"] == "line=bodily_injury"
     appr = json.loads((EXAMPLES / "pass/rebases/13/evidence/approvals.json").read_text())
-    assert appr["status_text"] == "awaiting MRM sign-off"
+    assert appr["status"] == "approved" and appr["status_text"] == "approved: MRM sign-off complete"
+    chain = [(a["actor"], a["role"], a["decision"]) for a in appr["history"]]
+    assert chain == [("vik", "validator", "validated_with_findings"), ("ana", "approver", "approved")]
+    assert io.read_yaml(EXAMPLES / "pass/rebases/13/rebase.yaml")["requested_by"] == "dana"
+    blocked = json.loads((EXAMPLES / "blocked/rebases/14/evidence/approvals.json").read_text())
+    assert blocked["approvals"] == {} and blocked["history"] == []
     assert json.loads((EXAMPLES / "pass/rebases/13/gate.json").read_text())["status"] == "pass"
 
 
@@ -524,3 +529,31 @@ def test_executor_protocol_shape():
 
     assert isinstance(Dummy(), Executor)
     assert not isinstance(Missing(), Executor)
+
+
+# ---------------------------------------------------------------- W01b amendments
+
+
+def test_fixture_rows_are_flagged_synthetic_outside_the_row_hash():
+    root = EXAMPLES / "pass"
+    for rel in ("data/holdout/H-2026-11-01/holdout.jsonl", "data/snapshots/2026-11-01/part-0000.jsonl",
+                "evals/golden.jsonl", "evals/correction_tests.jsonl"):
+        rows = io.read_jsonl(root / rel)
+        assert rows and all(r["synthetic"] is True for r in rows), rel
+    for r in io.read_jsonl(root / "data/snapshots/2026-11-01/part-0000.jsonl"):
+        assert ref.row_hash(r) == r["row_hash"]  # the flag is stored, but not a row-hash key
+
+
+def test_only_bench_receipts_may_omit_snapshot_and_holdout():
+    from roadbed.contracts import Receipt
+
+    rec = json.loads((EXAMPLES / "pass/rebases/13/receipt.json").read_text())
+    for kind, ok in (("bench", True), ("train", False), ("eval", False), ("rebase", False)):
+        r = json.loads(json.dumps(rec))
+        r["predicate"]["job"]["kind"] = kind
+        del r["predicate"]["snapshot"], r["predicate"]["holdout"]
+        if ok:
+            Receipt.model_validate(r)
+        else:
+            with pytest.raises(ValueError):
+                Receipt.model_validate(r)

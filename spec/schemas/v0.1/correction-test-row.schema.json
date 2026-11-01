@@ -69,6 +69,19 @@
       ],
       "default": null,
       "title": "Row Hash"
+    },
+    "synthetic": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "True when the row is synthetic.",
+      "title": "Synthetic"
     }
   },
   "required": [

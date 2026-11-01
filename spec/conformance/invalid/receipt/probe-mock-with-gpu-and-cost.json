@@ -47,7 +47,7 @@
       "rows": 60,
       "seal_seq": 1204,
       "sealed_at": "2026-11-01T09:02:00Z",
-      "seal_commit": "dd401870bd807f82614d7a95326c72ecb1b2c62c"
+      "seal_commit": "cabbfc1b70a1844d6bd6d10d20443d4df31b601d"
     },
     "image_digest": "sha256:78e4867e2399b4460a21db5944f52e0eca9ac4cca7a460a7664a1b99d637752b",
     "uv_lock_sha256": "530fe078b35eb3ef0580b27b9b0c7788f7e11beff1febb1a87233c5e49560b56",
@@ -59,7 +59,7 @@
     "started_at": "2026-11-01T10:20:00Z",
     "ended_at": "2026-11-01T10:20:07Z",
     "audit_seq": 1377,
-    "prev_receipt": "ee525882581e3fb6ac68123817dc30fd5560fa650823d88e09fc5246d5ad80a2",
+    "prev_receipt": "187c1d135c4c7b75fa838e1a9b544f7a309c84d6700aa402fcd6dcaaaefe9faa",
     "cost": {
       "gpu_hours": 0.3,
       "price_per_hour_eur": 2.5,
