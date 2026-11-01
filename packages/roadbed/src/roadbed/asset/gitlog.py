@@ -1,6 +1,6 @@
 """Read-only git queries for the seal order (SPEC.md, Seal precedes training, leg 3).
 
-Only plumbing that runs no repo-configured commands: log, rev-parse, merge-base, hash-object --no-filters.
+Only plumbing that runs no repo-configured commands: log, rev-parse, merge-base, hash-object --no-filters, cat-file.
 Hooks and fsmonitor are switched off on every call, and the system config is ignored.
 """
 
@@ -70,6 +70,16 @@ def matches_head(root: Path, path: str) -> bool:
         return False
     work = git(root, "hash-object", "--no-filters", "--", path, check=False)
     return work.returncode == 0 and work.stdout.strip() == head.stdout.strip()
+
+
+def blob(root: Path, rev: str, path: str) -> bytes | None:
+    """The raw bytes of path at rev (no filters), or None when rev does not have it."""
+    try:
+        r = subprocess.run(["git", *_SAFE, "-C", str(root), "cat-file", "blob", f"{rev}:{path}"], capture_output=True,
+                           env=_env(), timeout=60)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        raise GitError(f"git cat-file: {e}") from None
+    return r.stdout if r.returncode == 0 else None
 
 
 def is_ancestor(root: Path, a: str, b: str) -> bool:

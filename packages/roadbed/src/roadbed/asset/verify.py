@@ -417,6 +417,61 @@ def _binding(c: _Ctx) -> Check:
     return Check("V-RECEIPT-MISMATCH", label, True, f"{len(rec['subject'])} subjects, recipe, snapshot, holdout")
 
 
+CONFIG_FILES = ("roadbed_yaml_sha256", "slices_sha256", "scorers_sha256", "gate_policy_sha256", "seal_sha256")
+
+
+def _config(c: _Ctx) -> Check:
+    """predicate.config binds the files the job ran against (SPEC.md, Receipt, Config). Each field present is checked.
+    The five config files must match in the working tree, because verify and the gate read them there, and in the
+    commit that added the receipt when git history has it. lock_sha256 is the lock that commit holds; without that
+    history the working tree lock is checked when it does not list the receipt (it is then still the starting lock),
+    else the lock binding is a skipped check."""
+    label = "receipt binds its config"
+    cfg = ((c.receipt or {}).get("predicate") or {}).get("config")
+    if not cfg:
+        return Check("V-HASH-MISMATCH", label, True, "no config in the receipt (compatibility)")
+    a = c.asset.cfg
+    paths = dict(zip(CONFIG_FILES, ("roadbed.yaml", a["evals"]["slices"], a["evals"]["scorers"], a["gate"], c.seal_rel),
+                     strict=True))
+    receipt_rel = f"{c.rrel}/{RECEIPT}"
+    commit: str | None = None
+    if c.git:
+        try:
+            commit = gitlog.added_in(c.root, receipt_rel)
+        except gitlog.GitError:
+            commit = None  # not committed, or changed after: the seal order check reports that
+    where = f"the commit that added {receipt_rel} ({commit[:12]})" if commit else "the working tree"
+    for key, rel in paths.items():
+        want = cfg.get(key)
+        if want is None:
+            continue
+        f = c.root / rel
+        if not safe_rel(rel) or f.is_symlink() or not f.is_file():
+            return Check("V-HASH-MISSING", label, False, f"{rel} bound by {receipt_rel} config.{key} not found")
+        if sha256_file(f) != want:
+            return Check("V-HASH-MISMATCH", label, False, f"{rel} does not match {receipt_rel} config.{key}")
+        if commit is not None:
+            old = gitlog.blob(c.root, commit, rel)
+            if old is None or sha256_bytes(old) != want:
+                return Check("V-HASH-MISMATCH", label, False, f"{rel} in {where} does not match {receipt_rel} config.{key}")
+    checked = [k for k in CONFIG_FILES if cfg.get(k) is not None]
+    want = cfg.get("lock_sha256")
+    if want is None:
+        return Check("V-HASH-MISMATCH", label, True, f"{len(checked)} files")
+    if commit is not None:
+        lock = gitlog.blob(c.root, commit, LOCK)
+    else:
+        lock = (c.root / LOCK).read_bytes() if (c.root / LOCK).is_file() else None
+        if lock is not None and receipt_rel in {e.get("path") for e in json.loads(lock).get("files", [])}:
+            return c.skip_or_fail("V-HASH-MISMATCH", label, f"{len(checked)} files match; config.lock_sha256 needs the "
+                                  f"lock from the commit that added {receipt_rel} (the working tree lock lists it)")
+    if lock is None:
+        return Check("V-HASH-MISSING", label, False, f"{LOCK} in {where} not found")
+    if sha256_bytes(lock) != want:
+        return Check("V-HASH-MISMATCH", label, False, f"{LOCK} in {where} does not match {receipt_rel} config.lock_sha256")
+    return Check("V-HASH-MISMATCH", label, True, f"{len(checked)} files and {LOCK} from {where}")
+
+
 def _policy(c: _Ctx) -> Check:
     """The gate policy in the asset is the one the gate ran with: sha256(JCS(policy)) of policy/gate.yaml, in the
     form roadbed.gate writes, equals gate.json policy_sha256. The contamination threshold, num_perm and shingle that
@@ -730,6 +785,7 @@ def run(
             lambda: _datasets(ctx()),
             lambda: _seal_order(ctx()),
             lambda: _seal_git(ctx()),
+            lambda: _config(ctx()),
             lambda: _exact(ctx()),
             lambda: _near(ctx()),
             lambda: _contamination(ctx()),
