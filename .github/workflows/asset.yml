@@ -1,0 +1,34 @@
+name: asset-library
+
+on:
+  pull_request:
+    paths:
+      - "packages/roadbed/src/roadbed/asset/**"
+      - "packages/roadbed/src/roadbed/cli/verify.py"
+      - "packages/roadbed/tests/test_asset_*.py"
+      - "spec/examples/**"
+      - "spec/conformance/**"
+      - ".github/workflows/asset.yml"
+  push:
+    branches: [main]
+    paths:
+      - "packages/roadbed/src/roadbed/asset/**"
+      - "packages/roadbed/tests/test_asset_*.py"
+
+permissions:
+  contents: read
+
+jobs:
+  asset:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - name: Lint (ruff)
+        run: uv run ruff check packages/roadbed/src/roadbed/asset packages/roadbed/tests
+      - name: Type check (mypy)
+        run: uv run mypy
+      - name: Asset library tests
+        run: uv run pytest -q packages/roadbed/tests/test_asset_hashing.py packages/roadbed/tests/test_asset_signing.py packages/roadbed/tests/test_asset_lock.py packages/roadbed/tests/test_asset_seal.py packages/roadbed/tests/test_asset_verify.py packages/roadbed/tests/test_asset_conformance.py

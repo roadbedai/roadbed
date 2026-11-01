@@ -189,8 +189,11 @@ def verify(
     path: Annotated[str, typer.Argument(help="Rebase directory, e.g. rebases/13.")],
     asset: AssetOpt = None,
     as_json: JsonOpt = False,
+    objects: Annotated[Path | None, typer.Option("--objects", help="Local copy of the bucket (objects/sha256/ab/cd/<oid>).")] = None,
+    strict: Annotated[bool, typer.Option("--strict", help="Fail on every skipped check; require the closed schemas.")] = False,
+    trust_key: Annotated[list[str] | None, typer.Option("--trust-key", help="Key id (sha256 of the raw ed25519 key) to accept. Repeatable.")] = None,
 ) -> None:
-    """Offline check: re-hash files, re-validate schemas, recompute every score."""
+    """Offline check: re-hash files, re-validate schemas, check signatures, seal order and disjointness, recompute every score."""
     con = console()
     checks: list[dict[str, Any]] = []
 
@@ -215,7 +218,7 @@ def verify(
         raise _fail(str(e), as_json)
 
     try:
-        verify_mod.run(a, d, n, on_check)
+        verify_mod.run(a, d, n, on_check, objects=objects, strict=strict, trusted_keyids=trust_key)
     except verify_mod.VerifyFailed as e:
         if as_json:
             print_json({"ok": False, "rebase": n, "failed": e.check.code, "detail": e.check.detail,

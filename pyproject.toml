@@ -36,7 +36,7 @@ ignore = ["B904", "B905", "E731"]
 "packages/roadbed/tests/**" = ["F811"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["roadbed", "conftest", "cli_asset"]
+known-first-party = ["roadbed", "conftest", "cli_asset", "test_asset_support"]
 
 [tool.mypy]
 python_version = "3.12"
