@@ -9,7 +9,9 @@ from test_evals_support import FIXTURE, SCHEMAS
 from typer.testing import CliRunner
 
 from roadbed.asset import validate_file
+from roadbed.cli import evals as evals_cli
 from roadbed.cli.main import app
+from roadbed.evals import LeakageError
 
 PASS = SCHEMAS.parents[1] / "examples" / "pass"
 
@@ -77,3 +79,18 @@ def test_second_build_never_holds_out_what_the_first_snapshot_trained_on(tmp_pat
     held = {json.loads(x)["id"] for x in (tmp_path / "vik" / "candidate.jsonl").read_text().splitlines()}
     golden = {json.loads(x)["id"] for x in (root / "evals" / "golden.jsonl").read_text().splitlines()}
     assert held and not held & trained and not golden & trained
+
+
+def test_a_leakage_refusal_exits_4_and_other_failures_exit_2(tmp_path, monkeypatch):
+    """Exit codes follow W21: a leakage refusal is a failed check (4, like roadbed verify); bad input is 2."""
+    root, ev = _asset(tmp_path)
+
+    def refuse(*a, **k):
+        raise LeakageError("train-holdout not disjoint (threshold 0.9): probe")
+
+    monkeypatch.setattr(evals_cli, "build", refuse)
+    r = CliRunner().invoke(app, [*ARGS, "--asset", str(root), "--events", str(ev), "--json"])
+    assert r.exit_code == 4, r.output
+    o = json.loads(r.output)
+    assert o == {"ok": False, "error": "train-holdout not disjoint (threshold 0.9): probe", "exit_code": 4}
+    assert not (root / "data" / "snapshots" / "2026-11-02").exists()

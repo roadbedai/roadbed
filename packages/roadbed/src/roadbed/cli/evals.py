@@ -16,7 +16,7 @@ from rich.text import Text
 
 from roadbed.asset import AssetValidationError, ObjectStore, sha256_file, validate
 from roadbed.cli.asset import AssetError, find_root, open_asset
-from roadbed.cli.output import EXIT_OK, EXIT_USAGE, console, error, print_json
+from roadbed.cli.output import EXIT_OK, EXIT_USAGE, EXIT_VERIFY_FAILED, console, error, print_json
 from roadbed.evals import EvalPolicy, LeakageError, build, read_seen, read_snapshots, write_candidate
 from roadbed.evals.build import check_candidate_dir
 from roadbed.labels import LABEL_RULES_V1, ResolveError, RulesNotPinned, resolve
@@ -116,11 +116,13 @@ def build_cmd(
         written = out.write(a.root, snapshots_dir=snaps, store=store)
         cand = write_candidate(out.holdout_candidate, holdout_out, asset_root=a.root) if holdout_out else []
     except (AssetError, FileNotFoundError, FileExistsError, ValueError, ResolveError, RulesNotPinned, LeakageError) as e:
+        # a leakage refusal is a failed check (exit 4, like roadbed verify); everything else is bad local input (exit 2)
+        code = EXIT_VERIFY_FAILED if isinstance(e, LeakageError) else EXIT_USAGE
         if as_json:
-            print_json({"ok": False, "error": str(e), "exit_code": EXIT_USAGE})
+            print_json({"ok": False, "error": str(e), "exit_code": code})
         else:
             error(str(e))
-        raise typer.Exit(EXIT_USAGE)
+        raise typer.Exit(code)
 
     c = out.report["counts"]
     exact_only = out.proof["pairs"]["train-sealed"]["exact_only"]
