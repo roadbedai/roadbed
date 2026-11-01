@@ -17,6 +17,7 @@ from roadbed.evals.build import (
     assert_disjoint,
     build,
     read_candidate,
+    read_seen,
     read_snapshots,
     seal_candidate,
     write_candidate,
@@ -24,5 +25,5 @@ from roadbed.evals.build import (
 
 __all__ = [
     "EvalBuild", "EvalPolicy", "HoldoutCandidate", "LeakageError", "Part", "Snapshot", "assert_disjoint", "build",
-    "read_candidate", "read_snapshots", "seal_candidate", "write_candidate",
+    "read_candidate", "read_seen", "read_snapshots", "seal_candidate", "write_candidate",
 ]
