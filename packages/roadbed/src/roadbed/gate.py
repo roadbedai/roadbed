@@ -1,21 +1,28 @@
-"""Release gate: turns scores plus policy into pass or blocked, with findings."""
+"""Release gate: scores, contamination and license decision plus policy give pass or blocked, with reasons and findings."""
 
 from __future__ import annotations
 
 from collections.abc import Iterable
+from typing import Literal
 
+from roadbed.contamination import problems as contamination_problems
 from roadbed.contracts import (
     SPEC,
     Check,
+    ContaminationReport,
     GateContaminationInput,
     GateFinding,
     GateLicenseInput,
     GatePolicy,
     GateResult,
+    LicenseDecisionRecord,
     LicensePolicy,
     Scores,
 )
 from roadbed.hashing import sha256_canonical
+from roadbed.stats import below_margin
+
+Gate = GateResult
 
 
 def decide_license(license_id: str, policy: LicensePolicy, source: str = "policy/license.yaml") -> GateLicenseInput:
@@ -36,24 +43,73 @@ def _fmt(x: float) -> str:
     return f"{x:+.1f}" if x else "0.0"
 
 
+def _consistent(scores: Scores, policy: GatePolicy) -> None:
+    """The gate's policy must be the one the scores were computed under; else policy_sha256 would mislead."""
+    for name in ("seed", "n_boot", "ci"):
+        if getattr(scores, name) != getattr(policy, name):
+            raise ValueError(f"scores.{name} is {getattr(scores, name)} but the policy has {getattr(policy, name)}")
+    for s in scores.slices:
+        if s.low_n != (s.n < policy.min_n) or s.below_margin != below_margin(s.delta, s.n, policy):
+            raise ValueError(f"slice {s.key}={s.value}: low_n/below_margin do not follow from the policy margin and min_n")
+
+
+def _license_check(lic: GateLicenseInput | LicenseDecisionRecord, rebase: int, failed) -> Check:
+    if isinstance(lic, LicenseDecisionRecord):
+        if lic.rebase != rebase:
+            raise ValueError(f"license.json is for rebase {lic.rebase}, scores are for rebase {rebase}")
+        decision, source = lic.decision, lic.policy
+    else:
+        decision, source = ("allow" if lic.allowed else "deny"), lic.source
+    if decision == "allow":
+        return Check(name="license", status="pass", detail=f"{lic.license} allowed by {source}")
+    if decision == "review":  # a human has not cleared it yet: fail closed
+        return Check(name="license", status=failed("license_denied"), detail=f"{lic.license} needs review under {source}")
+    return Check(name="license", status=failed("license_denied"), detail=f"{lic.license} denied by {source}")
+
+
+def _contamination_check(cont: GateContaminationInput | ContaminationReport, rebase: int, failed) -> Check:
+    if isinstance(cont, GateContaminationInput):  # Day 0 / W01 input: shared row ids only
+        k = len(cont.shared_ids)
+        return Check(name="contamination", status=failed("contamination") if k else "pass",
+                     detail=f"{k} shared row ids between train manifest and holdout")
+    if cont.rebase != rebase:
+        raise ValueError(f"contamination.json is for rebase {cont.rebase}, scores are for rebase {rebase}")
+    bad = contamination_problems(cont)
+    if bad:
+        return Check(name="contamination", status=failed("contamination"),
+                     detail="contamination.json is inconsistent: " + "; ".join(bad))
+    detail = f"{cont.exact.shared} shared row ids between train manifest and holdout"
+    if cont.near.pairs:
+        detail += (f"; {len(cont.near.pairs)} near-duplicate pairs ({cont.near.method} Jaccard >= {cont.near.threshold}, "
+                   f"max {cont.near.max_jaccard})")
+    if not cont.seal_order.ok:
+        legs = [leg for leg in ("audit_seq", "timestamp", "git_ancestor") if not getattr(cont.seal_order, leg)]
+        detail += "; seal does not precede training (" + ", ".join(legs) + ")"
+    # SPEC.md: the gate's contamination check has the same status as contamination.json.
+    return Check(name="contamination", status="pass" if cont.status == "pass" else failed("contamination"), detail=detail)
+
+
 def evaluate(
     scores: Scores,
+    contamination: ContaminationReport | GateContaminationInput | None,
+    license: GateLicenseInput | LicenseDecisionRecord | None,
     policy: GatePolicy,
-    license_decision: GateLicenseInput | None = None,
-    contamination: GateContaminationInput | None = None,
     *,
     finding_offset: int = 0,
 ) -> GateResult:
-    """Apply the gate policy to scores.
+    """Apply the gate policy to scores, the contamination report and the license decision (spec/METHOD.md).
 
-    A check that fails gets status "fail" when its reason is in policy.block_on,
-    else "warn". Status is "blocked" when any check has status "fail".
-    Findings are the below-margin slices in scores.slices order, with ids
-    F-{finding_offset + 1:04d}, F-{finding_offset + 2:04d}, ... Pass the number of
-    findings already logged in the asset repo as finding_offset.
+    Checks, in order: slice_margin, license, contamination, then one skipped check per stub stage.
+    A check that fails gets status "fail" when its reason is in policy.block_on, else "warn".
+    Status is "blocked" when any check has status "fail". A missing input gives a skipped check.
+    Findings are the below-margin slices in scores.slices order, with ids F-{finding_offset + 1:04d},
+    F-{finding_offset + 2:04d}, ... Pass the number of findings already logged in the asset repo as finding_offset.
+    Raises ValueError when the inputs disagree: scores computed under another seed, n_boot, ci, margin
+    or min_n, or a contamination or license record for another rebase.
     """
+    _consistent(scores, policy)
 
-    def failed(reason: str) -> str:
+    def failed(reason: str) -> Literal["fail", "warn"]:
         return "fail" if reason in policy.block_on else "warn"
 
     checks: list[Check] = []
@@ -66,29 +122,15 @@ def evaluate(
     detail += f"; {low_n} flagged low-n"
     checks.append(Check(name="slice_margin", status=failed("slice_below_margin") if below else "pass", detail=detail))
 
-    if license_decision is None:
+    if license is None:
         checks.append(Check(name="license", status="skipped", detail="no license decision supplied"))
     else:
-        verb = "allowed" if license_decision.allowed else "denied"
-        checks.append(
-            Check(
-                name="license",
-                status="pass" if license_decision.allowed else failed("license_denied"),
-                detail=f"{license_decision.license} {verb} by {license_decision.source}",
-            )
-        )
+        checks.append(_license_check(license, scores.rebase, failed))
 
     if contamination is None:
         checks.append(Check(name="contamination", status="skipped", detail="train manifest absent: skipped"))
     else:
-        k = len(contamination.shared_ids)
-        checks.append(
-            Check(
-                name="contamination",
-                status=failed("contamination") if k else "pass",
-                detail=f"{k} shared row ids between train manifest and holdout",
-            )
-        )
+        checks.append(_contamination_check(contamination, scores.rebase, failed))
 
     for name, stage in policy.stages.model_dump().items():
         if stage["stub"]:
