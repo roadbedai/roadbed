@@ -14,7 +14,7 @@ from typing import Annotated, Any
 import typer
 from rich.text import Text
 
-from roadbed.asset import ObjectStore
+from roadbed.asset import AssetValidationError, ObjectStore, sha256_file, validate
 from roadbed.cli.asset import AssetError, find_root, open_asset
 from roadbed.cli.output import EXIT_ERROR, EXIT_OK, console, error, print_json
 from roadbed.evals import EvalPolicy, LeakageError, build, read_snapshots, write_candidate
@@ -37,6 +37,40 @@ def read_events(d: Path, name: str) -> list[dict[str, Any]]:
     if name == "outcomes":
         return []
     raise FileNotFoundError(f"{d}/{name}.jsonl not found")
+
+
+def read_tombstones(root: Path) -> set[str]:
+    """Subject tokens in data/tombstones.jsonl (each line checked against tombstone-row). Their rows stay out."""
+    p = root / "data" / "tombstones.jsonl"
+    if not p.is_file():
+        return set()
+    tokens = set()
+    for n, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
+        if line.strip():
+            row = json.loads(line)
+            try:
+                validate(row, "tombstone-row", strict=True)
+            except AssetValidationError as e:
+                raise ValueError(f"data/tombstones.jsonl line {n}: {e}") from None
+            tokens.add(row["subject_token"])
+    return tokens
+
+
+def read_sealed(root: Path, configured: str | None) -> list[dict[str, Any]]:
+    """Rows of every sealed holdout: data/holdout/*/ and the configured data.holdout.path. Each holdout.jsonl must
+    match the sha256 in its SEAL.json, or the build stops. Rows are read, never printed."""
+    dirs = {p.parent.resolve() for p in (root / "data" / "holdout").glob("*/holdout.jsonl")}
+    if configured and (root / configured / "holdout.jsonl").is_file():
+        dirs.add((root / configured).resolve())
+    rows: list[dict[str, Any]] = []
+    for d in sorted(dirs):
+        seal = d / "SEAL.json"
+        if not seal.is_file():
+            raise ValueError(f"{d.name}: holdout.jsonl without SEAL.json")
+        if sha256_file(d / "holdout.jsonl") != json.loads(seal.read_text(encoding="utf-8")).get("sha256"):
+            raise ValueError(f"{d.name}: holdout.jsonl does not match the sha256 in SEAL.json")
+        rows += [json.loads(x) for x in (d / "holdout.jsonl").read_text(encoding="utf-8").splitlines() if x.strip()]
+    return rows
 
 
 def _now() -> str:
@@ -63,11 +97,9 @@ def build_cmd(
             check_candidate_dir(holdout_out, a.root)
         schema = json.loads((a.root / a.cfg["task"]["output_schema"]).read_text(encoding="utf-8"))
         ints, vds, ocs = (read_events(events, n) for n in EVENT_FILES)
-        rows = resolve(ints, vds, ocs, LABEL_RULES_V1, as_of=as_of, output_schema=schema)
-        sealed: list[dict[str, Any]] = []
-        hp = a.root / a.cfg["data"]["holdout"]["path"] / "holdout.jsonl"
-        if hp.is_file():  # leave the sealed holdout out of everything; its rows are read, never printed
-            sealed = [json.loads(x) for x in hp.read_text(encoding="utf-8").splitlines() if x.strip()]
+        erased = read_tombstones(a.root)  # SPEC.md: deletion is a tombstone plus a new snapshot without the rows
+        rows = resolve(ints, vds, ocs, LABEL_RULES_V1, as_of=as_of, output_schema=schema, erased_subjects=erased)
+        sealed = read_sealed(a.root, (a.cfg["data"].get("holdout") or {}).get("path"))
         snaps = a.cfg["data"].get("verdicts") or "data/snapshots"
         store = ObjectStore(objects) if objects else None
         prior = read_snapshots(a.root, snaps, store)  # rows a model may have trained on: never holdout or golden
@@ -83,8 +115,12 @@ def build_cmd(
         raise typer.Exit(EXIT_ERROR)
 
     c = out.report["counts"]
+    exact_only = out.proof["pairs"]["train-sealed"]["exact_only"]
+    warnings = [f"{exact_only} sealed holdout rows have no input text in these events: train vs sealed is checked by id, "
+                "row hash and input only for them (the gate's MinHash check still runs at rebase)"] if exact_only else []
     if as_json:
         print_json({"ok": True, "exit_code": EXIT_OK, "snapshot": out.snapshot.manifest, "resolve": resolve_summary(rows),
+                    "erased_subjects": len(erased), "sealed_holdout_rows": len(sealed), "warnings": warnings,
                     "report": out.report, "proof": out.proof, "files": written,
                     "holdout_candidate": {"rows": len(out.holdout_candidate), "written": [str(p) for p in cand]}})
         return
@@ -94,6 +130,8 @@ def build_cmd(
     root12 = out.snapshot.manifest["merkle_root"][:12]
     con.print(Text("snapshot ", style="bold") + Text(f"{out.snapshot.id}: {c['train']} rows, merkle {root12}, {LABEL_RULES_V1.version}"))
     con.print(f"golden {c['golden']}, correction tests {c['correction_tests']}, eval-only {c['eval_only']}, quarantined {c['quarantined']}")
+    for w in warnings:
+        con.print(Text("warning ", style="bold yellow") + Text(w))
     th = out.proof["pairs"]["train-holdout"]
     con.print(f"train vs holdout: 0 shared rows, 0 shared inputs, max Jaccard {th['max_jaccard']} (< {out.proof['purge_threshold']})")
     if cand:
