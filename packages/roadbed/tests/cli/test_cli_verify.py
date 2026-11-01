@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 from pathlib import Path
 
 import pytest
@@ -26,6 +27,9 @@ def test_verify_passes(asset: Path, n: int, monkeypatch):
     assert r.exit_code == 0, r.output
     for label in ("hashes OK", "schemas OK", "scores recomputed: match", "seal precedes rebase: OK"):
         assert label in r.output
+    assert "MOCK" not in r.output and "executor" not in r.output  # Day 0: no receipt
+    data = json.loads(runner.invoke(app, ["verify", f"rebases/{n}", "--json"]).output)
+    assert data["executors"] == [] and data["mock"] is False
 
 
 def test_verify_flipped_byte(asset: Path):
@@ -87,3 +91,38 @@ def test_verify_seal_after_rebase(asset: Path):
 def test_verify_no_manifest(asset: Path):
     r = runner.invoke(app, ["verify", "rebases/13", "--asset", str(asset)])
     assert r.exit_code == 4 and "V-MANIFEST-MISSING" in r.output
+
+
+# ---------------------------------------------------------------- executor in the transcript
+
+EXAMPLES = Path(__file__).resolve().parents[4] / "spec" / "examples"
+RECEIPT_KEYID = "cb54bac00a078e10310f8766a331895c9c69a8e4350ea81af133f66ea84955b0"
+
+
+@pytest.mark.parametrize("name,n", [("pass", 13), ("blocked", 14)])
+def test_verify_names_the_executor(name: str, n: int):
+    r = runner.invoke(app, ["verify", f"rebases/{n}", "--asset", str(EXAMPLES / name)])
+    assert r.exit_code == 0, r.output
+    lines = r.output.strip().splitlines()
+    chain = next(i for i, x in enumerate(lines) if x.startswith("receipt chain OK"))
+    assert lines[chain + 1] == f"receipt rebases/{n}/receipt.json: executor mock, signed by {RECEIPT_KEYID[:12]}"
+    assert lines[chain + 2] == f"receipt versions/v12/receipt.json: executor mock, signed by {RECEIPT_KEYID[:12]}"
+    assert "evidence manifest OK  (2 files; approvals only, no rendered evidence pack)" in lines
+    assert lines[-2] == f"verified rebase #{n}"
+    assert lines[-1] == "MOCK: no model was trained"
+    data = json.loads(runner.invoke(app, ["verify", f"rebases/{n}", "--asset", str(EXAMPLES / name), "--json"]).output)
+    assert data["mock"] is True
+    assert data["executors"] == [
+        {"receipt": f"rebases/{n}/receipt.json", "executor": "mock", "keyid": RECEIPT_KEYID},
+        {"receipt": "versions/v12/receipt.json", "executor": "mock", "keyid": RECEIPT_KEYID},
+    ]
+
+
+def test_verify_failure_still_ends_with_mock(tmp_path: Path):
+    root = tmp_path / "pass"
+    shutil.copytree(EXAMPLES / "pass", root)
+    (root / "rebases/13/report.md").write_text("tampered\n")
+    r = runner.invoke(app, ["verify", "rebases/13", "--asset", str(root)])
+    assert r.exit_code == 4, r.output
+    lines = r.output.strip().splitlines()
+    assert lines[-2] == "verify failed: V-HASH-MISMATCH" and lines[-1] == "MOCK: no model was trained"

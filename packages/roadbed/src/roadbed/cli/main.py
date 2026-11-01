@@ -27,7 +27,15 @@ from roadbed.cli import reproduce as reproduce_mod
 from roadbed.cli import verify as verify_mod
 from roadbed.cli import watch as watch_mod
 from roadbed.cli.api import Api, ApiError, new_key, seg
-from roadbed.cli.asset import LICENSE_POLICY, AssetError, find_root, open_asset, read_meta, rebase_dir
+from roadbed.cli.asset import (
+    LICENSE_POLICY,
+    NO_TRAINING_EXECUTORS,
+    AssetError,
+    find_root,
+    open_asset,
+    read_meta,
+    rebase_dir,
+)
 from roadbed.cli.evals import app as evals_app
 from roadbed.cli.output import (
     EXIT_OK,
@@ -355,6 +363,7 @@ def verify(
     as_json = _json(as_json)
     con = console()
     checks: list[dict[str, Any]] = []
+    executors: list[dict[str, str | None]] = []
 
     def on_check(c: verify_mod.Check) -> None:
         status = "ok" if c.ok else "skipped" if c.ok is None else "fail"
@@ -368,6 +377,10 @@ def verify(
             if c.detail:
                 line.append(f"  ({c.detail})", style="dim")
         con.print(line)
+        if c.code == "V-RECEIPT-CHAIN" and c.ok:
+            for r in executors:
+                kid = r["keyid"][:12] if r["keyid"] else "no readable signature"
+                con.print(Text(f"receipt {r['receipt']}: executor {r['executor']}, signed by {kid}"))
 
     try:
         p = Path(path)
@@ -376,20 +389,28 @@ def verify(
         trusted = _trusted(trust_key)
     except INPUT_ERRORS as e:
         raise _fail(str(e), as_json)
+    executors = verify_mod.receipt_executors(a.root) if verify_mod.is_full(a.root, d) else []
+    mock = any(r["executor"] in NO_TRAINING_EXECUTORS for r in executors)
+
+    def mock_line() -> None:
+        if mock:
+            con.print(Text("MOCK: no model was trained", style="bold"))
 
     try:
         verify_mod.run(a, d, n, on_check, objects=objects, strict=strict, trusted_keyids=trusted)
     except verify_mod.VerifyFailed as e:
         if as_json:
             print_json({"ok": False, "rebase": n, "failed": e.check.code, "detail": e.check.detail,
-                        "checks": checks, "exit_code": EXIT_VERIFY_FAILED})
+                        "checks": checks, "executors": executors, "mock": mock, "exit_code": EXIT_VERIFY_FAILED})
         else:
             con.print(Text("verify failed: ", style="bold red") + Text(e.check.code, style="bold"))
+            mock_line()
         raise typer.Exit(EXIT_VERIFY_FAILED)
     if as_json:
-        print_json({"ok": True, "rebase": n, "checks": checks, "exit_code": EXIT_OK})
+        print_json({"ok": True, "rebase": n, "checks": checks, "executors": executors, "mock": mock, "exit_code": EXIT_OK})
     else:
         con.print(Text("verified ", style="bold green") + Text(f"rebase #{n}", style="bold"))
+        mock_line()
 
 
 # ---------------------------------------------------------------- status
