@@ -14,7 +14,7 @@ import jsonschema
 
 from roadbed.asset.files import safe_rel
 from roadbed.cli.asset import MANIFEST, PRED_FILES, Asset, bound_files, load_rows, read_meta, seal_time
-from roadbed.contracts import HoldoutDigest, PredictionDigests, json_schema
+from roadbed.contracts import HoldoutDigest, PredictionDigests, Scores, json_schema
 from roadbed.hashing import sha256_file
 from roadbed.stats import compare
 
@@ -118,11 +118,12 @@ def _diff(a: Any, b: Any, path: str = "") -> str | None:
     return None if a == b else path
 
 
-def _scores(asset: Asset, d: Path, n: int) -> Check:
+def _recompute(asset: Asset, d: Path) -> Scores:
+    """scores.json recomputed from the prediction files and the holdout, with the stored seed, n_boot and ci."""
     stored = json.loads((d / "scores.json").read_text(encoding="utf-8"))
     policy = asset.policy.model_copy(update={"seed": stored["seed"], "n_boot": stored["n_boot"], "ci": stored["ci"]})
     hold, inc, cand = load_rows(asset, d)
-    recomputed = compare(
+    return compare(
         inc, cand, hold, asset.slices, policy,
         scorers=asset.scorers, synthetic=stored["synthetic"], model=stored["model"], rebase=stored["rebase"],
         holdout_digest=HoldoutDigest(id=stored["holdout"]["id"], rows=len(hold), sha256=sha256_file(asset.holdout_file)),
@@ -132,6 +133,12 @@ def _scores(asset: Asset, d: Path, n: int) -> Check:
         }),
         notice=stored.get("notice"),
     )
+
+
+def _scores(asset: Asset, d: Path, n: int, recomputed: Scores | None = None) -> Check:
+    stored = json.loads((d / "scores.json").read_text(encoding="utf-8"))
+    if recomputed is None:
+        recomputed = _recompute(asset, d)
     if stored["rebase"] != n:
         return Check("V-SCORES-MISMATCH", "scores recomputed: match", False, f"rebase {stored['rebase']} in a directory named {n}")
     where = _diff(stored, json.loads(recomputed.model_dump_json(exclude_none=True)))
