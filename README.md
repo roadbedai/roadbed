@@ -58,6 +58,7 @@ On a laptop, `verify` cannot prove these facts:
 - That roles were enforced. The person who seals is whoever types the command.
 - Which model, if any, made the predictions.
 - That the person who made the predictions did not see the holdout labels. They sit in the same repository, so commit order is not blindness.
+- That nobody rewrote the repository. The hashes and the git history are in the same repository. Record the Merkle root and the seal commit outside it.
 
 ## Your own verdicts
 

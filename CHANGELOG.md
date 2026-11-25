@@ -46,6 +46,7 @@ The versions follow [Semantic Versioning](https://semver.org/). See [docs/VERSIO
 - When every row is quarantined, `roadbed evals build` names the quarantine count and the first reason.
 - The run line of `examples/sdk/openai_local_sink.py` sets `ROADBED_TENANT_KEY`.
 - A local rebase no longer says "train manifest absent" for its skipped contamination check. The detail is "not computed by a local rebase; roadbed verify checks disjointness". The summary line names the skipped checks, for example `rebase #1: gate pass (license, contamination skipped), local, not attested`.
+- The README says that a local `verify` cannot prove that nobody rewrote the repository.
 
 ### Removed
 
