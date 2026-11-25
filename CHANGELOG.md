@@ -48,6 +48,7 @@ The versions follow [Semantic Versioning](https://semver.org/). See [docs/VERSIO
 - The run line of `examples/sdk/openai_local_sink.py` sets `ROADBED_TENANT_KEY`.
 - A local rebase no longer says "train manifest absent" for its skipped contamination check. The detail is "not computed by a local rebase; roadbed verify checks disjointness". The summary line names the skipped checks, for example `rebase #1: gate pass (license, contamination skipped), local, not attested`.
 - The README says that a local `verify` cannot prove that nobody rewrote the repository.
+- `examples/sdk/reconcile_outcomes.py` uses `init_local` and writes `outcomes.jsonl`. It needs no control plane. A test runs it.
 
 ### Removed
 
