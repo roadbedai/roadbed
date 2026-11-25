@@ -277,5 +277,6 @@ def test_roadbed_yaml_without_holdout_validates():
 
 def test_conformance_has_the_w01d_cases():
     for rel in ("valid/seal/local.json", "valid/roadbed/unsealed.json", "invalid/seal/local-with-audit-seq.json",
-                "invalid/seal/local-day0.json", "invalid/seal/bad-provenance.json", "invalid/seal/missing-audit-seq.json"):
+                "invalid/seal/local-day0.json", "invalid/seal/bad-provenance.json", "invalid/seal/missing-audit-seq.json",
+                "invalid/seal/control-plane-without-audit-seq.json"):
         assert (CONFORMANCE / rel).is_file(), rel

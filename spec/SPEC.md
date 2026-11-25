@@ -193,7 +193,7 @@ The MinHash object lives in the local object store (`--objects`). The raw holdou
 
 The anchor for the order is git: the seal commit must be a strict ancestor of the commits that added the rebase's prediction files.
 This proves commit order, not when the predictions were made. `sealed_at` and `rebase.yaml` `created_at` are self-declared.
-A receipt cannot bind a local seal, because `predicate.holdout.seal_seq` is required. The control plane trains only on holdouts it sealed.
+A control-plane receipt cannot bind a local seal (`predicate.holdout.seal_seq` is required), so a run over a local seal cannot be attested.
 
 `roadbed verify` names each check that it cannot run on a local asset as a skip. `--strict` fails on the first skip.
 Record the Merkle root and the seal commit outside the repository.
@@ -270,7 +270,7 @@ These are the full lock, the receipt chain, the git ancestry, `contamination.jso
 - The eval sets: no row that was ever in `evals/golden.jsonl` or `evals/correction_tests.jsonl` shares an id, input or row hash with the holdout.
 - Exact and near disjointness from the snapshot that the seal names.
 
-A control-plane seal gets the same checks plus a line for its audit seq. The signed receipt binds the audit seq at rebase time.
+A control-plane seal gets the same checks plus a named skip for its audit seq. A signed receipt binds the audit seq at rebase time, and only `roadbed verify rebases/N` checks it.
 With a git clone and `--objects`, a local seal passes `--strict` with no skip:
 
 ```
@@ -280,7 +280,7 @@ holdout re-hashed  (296 rows, sha256 and Merkle root match SEAL.json)
 holdout rows OK  (holdout-row schema, closed form: no raw input field)
 no personal data (email) in the holdout  (SEAL.json and holdout.jsonl scanned)
 synthetic flags OK  (SYNTHETIC)
-seal committed and unchanged  (commit 5bb7398638e4)
+seal committed and unchanged  (commit 16de07c8b391)
 MinHash object covers the sealed rows  (1bed66c23fd2, num_perm 128, shingle 3)
 eval sets disjoint from the holdout  (281 rows ever in golden or correction tests: 0 shared ids, inputs, row hashes)
 datasets re-hashed  (S-2026-11-02 1579 rows, H-2026-11-02 296 rows, Merkle roots match)
@@ -290,8 +290,11 @@ verified seal H-2026-11-02
 LOCAL seal: sealed by vik; no audit chain; no role enforcement
 ```
 
-A full rebase is **local** when the asset's holdout has a local seal and the rebase has no `receipt.json`, `receipt.sig`, `evidence/` or `receipts/` (on disk, in the manifest or in git history). Its predictions came from a laptop. It gets the seal checks, and the scores and the gate recomputed.
-It also gets the seal time before `rebase.yaml` `created_at`, and the git ancestry of the seal before both prediction files.
+A full rebase is **local** when the asset's holdout has a local seal and the asset has no control-plane file. That is: no `roadbed.lock`, `policy/keys/`, version or rebase receipt, receipt signature, `evidence/` or `receipts/`, on disk, in the manifest or in git history. Its predictions came from a laptop.
+
+A local rebase gets the seal checks, and the scores and the gate recomputed.
+It also gets the personal-data scan of the asset and the seal time not after `rebase.yaml` `created_at`.
+The git ancestry of the seal before both prediction files is a check too.
 Last, it gets exact and near disjointness from the training snapshot (`roadbed.yaml` `data.snapshot`).
 Each check that only the control plane can supply is a named skip.
 
@@ -300,12 +303,13 @@ A local rebase never passes `--strict`: it fails at "receipts signed", and the s
 ```
 $ roadbed verify rebases/1 --objects ../objects
 hashes OK  (10 files)
+no personal data (email) in the asset  (23 files scanned)
 seal schema OK  (reader form)
 holdout re-hashed  (296 rows, sha256 and Merkle root match SEAL.json)
 holdout rows OK  (holdout-row schema, closed form: no raw input field)
 no personal data (email) in the holdout  (SEAL.json and holdout.jsonl scanned)
 synthetic flags OK  (SYNTHETIC)
-seal committed and unchanged  (commit 5bb7398638e4)
+seal committed and unchanged  (commit 16de07c8b391)
 MinHash object covers the sealed rows  (1bed66c23fd2, num_perm 128, shingle 3)
 eval sets disjoint from the holdout  (281 rows ever in golden or correction tests: 0 shared ids, inputs, row hashes)
 receipts signed: skipped  (no receipt: predictions supplied, no run attested)
@@ -317,9 +321,9 @@ schemas OK  (scores.json, gate.json)
 predictions cover the sealed holdout  (H-2026-11-02 296 rows, Merkle root matches; both prediction files)
 scores recomputed: match  (overall + 14 slices, 6 decimals)
 gate recomputed: match  (status pass, 6 checks, 0 findings)
-seal precedes rebase: OK  (sealed_at before rebase.yaml created_at; both are self-declared)
+seal precedes rebase: OK  (sealed_at not after rebase.yaml created_at; both are self-declared)
 seal precedes training: audit seq: skipped  (no audit chain in a local asset)
-seal precedes predictions: git ancestry  (5bb7398638e4 < 135cc03e73cf; commit order only)
+seal precedes predictions: git ancestry  (16de07c8b391 < 2c79944a052d; commit order only)
 datasets re-hashed  (S-2026-11-02 1579 rows, H-2026-11-02 296 rows, Merkle roots match)
 train and holdout disjoint: exact  (0 shared row hashes, 0 shared inputs (1579 x 296))
 train and holdout disjoint: near (Jaccard < 0.8)  (minhash, max 0.507812)
@@ -353,7 +357,7 @@ A full rebase gets every check below. Without git history or `--objects`, the gi
 | `V-RECEIPT-MISMATCH` | The receipt names predictions, a recipe, a snapshot or a holdout that is not the one in the asset. |
 | `V-POLICY-MISMATCH` | `gate.json` `policy_sha256` is not `sha256(JCS(policy/gate.yaml))`. |
 | `V-SCORES-MISMATCH` | `scores.json` differs from the recomputed scores. |
-| `V-SEAL-AFTER-REBASE` | The holdout was sealed after the rebase was created (Day 0 check). |
+| `V-SEAL-AFTER-REBASE` | The holdout was sealed after the rebase was created. A local rebase also passes when both times are in the same second. |
 | `V-SEAL-INCOMPLETE` | Row hashes, Merkle roots or snapshot parts do not re-hash to the sealed values. |
 | `V-SEAL-ORDER` | A leg of "Seal precedes training" (audit seq, timestamp, git ancestry) fails, a receipt names a local seal, or a seal or prediction file changed after its commit. |
 | `V-HOLDOUT-OVERLAP` | Train and holdout share a row hash or an input, or a pair is near (Jaccard ≥ threshold). |

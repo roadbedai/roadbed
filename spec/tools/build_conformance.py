@@ -310,6 +310,8 @@ INVALID: dict[str, list[tuple[str, Mut, str]]] = {
                                  _del("snapshot"), _del("stratification")),
               "a local seal is a full seal: merkle_root, minhash_oid, snapshot and stratification (W01d)"),
              ("bad-provenance", _set("laptop", "provenance"), "provenance is control_plane or local (W01d)"),
+             ("control-plane-without-audit-seq", _all(_set("control_plane", "provenance"), _del("audit_seq")),
+              "a control-plane seal needs audit_seq (W01d)"),
              ("short-commit", _set("5e41c0a", "seal_commit"), "seal_commit must be a 40-hex commit")],
     "tombstone-row": [("raw-email-subject", _set("jane@example.com", "subject_token"),
                        "subject_token must be an HMAC token tok_<hex>, never a raw identifier")],

@@ -38,6 +38,7 @@ A case whose only fault is an unknown field fails the published (closed) schema;
 | `invalid/seal/local-with-audit-seq.json` | `seal.schema.json` | a local seal has no audit_seq: no audit chain on a laptop (W01d) |
 | `invalid/seal/local-day0.json` | `seal.schema.json` | a local seal is a full seal: merkle_root, minhash_oid, snapshot and stratification (W01d) |
 | `invalid/seal/bad-provenance.json` | `seal.schema.json` | provenance is control_plane or local (W01d) |
+| `invalid/seal/control-plane-without-audit-seq.json` | `seal.schema.json` | a control-plane seal needs audit_seq (W01d) |
 | `invalid/seal/short-commit.json` | `seal.schema.json` | seal_commit must be a 40-hex commit |
 | `invalid/tombstone-row/raw-email-subject.json` | `tombstone-row.schema.json` | subject_token must be an HMAC token tok_<hex>, never a raw identifier |
 | `invalid/golden-row/extra-field.json` | `golden-row.schema.json` | unknown fields are rejected |
