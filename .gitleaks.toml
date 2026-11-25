@@ -7,5 +7,11 @@ useDefault = true
 
 [[allowlists]]
 description = "synthetic fixture values"
-regexTarget = "match"
-regexes = ['''tok_[0-9a-f]{8,32}''', '''rbt_test_[0-9a-f]+''', '''AKIA/secret\+key=''', '''key: Ed25519PrivateKey''']
+regexTarget = "secret"
+regexes = [
+    '''^tok_[0-9a-f]{8}$''',
+    '''^tok_[0-9a-f]{32}$''',
+    '''^rbt_test_0123456789abcdef$''',
+    '''^AKIA/secret\+key=$''',
+    '''^Ed25519PrivateKey$''',
+]
