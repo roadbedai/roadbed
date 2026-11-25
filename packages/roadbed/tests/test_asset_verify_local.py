@@ -280,3 +280,18 @@ def test_rebase_over_a_local_seal_says_local_not_attested(template):
     assert "MRM" not in report
     gate = GateResult.model_validate(json.loads((template / REBASE / "gate.json").read_text()))
     assert final_line(LOCAL_N, gate, -2.0) == f"opened rebase #{LOCAL_N} → awaiting MRM sign-off"  # control-plane seal
+
+
+@pytest.mark.parametrize("rel", ["evals/scorers.yaml", "evals/golden.jsonl"])
+def test_an_unflagged_file_or_row_fails_v_synthetic_flag(asset, rel):
+    f = asset / rel
+    if rel.endswith(".jsonl"):
+        lines = f.read_text().splitlines()
+        row = json.loads(lines[0])
+        del row["synthetic"]
+        f.write_text("\n".join([json.dumps(row), *lines[1:]]) + "\n")
+    else:
+        f.write_text(f.read_text().replace("synthetic: true\n", ""))
+    git(asset, "commit", "-q", "-am", "drop a flag")
+    fail = _failed(asset)
+    assert fail.code == "V-SYNTHETIC-FLAG" and rel in fail.detail

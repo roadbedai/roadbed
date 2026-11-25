@@ -19,7 +19,7 @@ predictions (commit order only). Receipts, the audit seq, the lock and the contr
 local rebase never passes `strict=True`.
 
 `roadbed verify data/holdout/<id>` checks one sealed holdout on its own (run_seal): the seal schema, the holdout
-re-hashed, its rows, personal data, synthetic flags, the seal commit, the MinHash object, the eval sets and the
+re-hashed, its rows, personal data, the synthetic flags of the asset, the seal commit, the MinHash object, the eval sets and the
 snapshot the seal names (exact and near). A local seal (provenance local) and a control-plane seal take the same checks.
 
 Data verify cannot see (bucket objects, git history outside a clone) is a skipped check, never a pass. With
@@ -1074,24 +1074,6 @@ def _seal_pii(c: _Ctx) -> Check:
     return Check("V-PII", label, True, "SEAL.json and holdout.jsonl scanned")
 
 
-def _seal_synthetic(c: _Ctx) -> Check:
-    """SEAL.json carries the asset's flag; no row says the opposite; a synthetic holdout has a SYNTHETIC.md."""
-    label = "synthetic flags OK"
-    flag = c.asset.cfg.get("synthetic") is True
-    seal = c.seal or {}
-    if seal.get("synthetic") is not flag:
-        return Check("V-SYNTHETIC-FLAG", label, False, f"{c.seal_rel}: synthetic is {json.dumps(seal.get('synthetic'))}, "
-                     f"roadbed.yaml says {json.dumps(flag)}")
-    for i, row in enumerate(c.holdout_rows or [], 1):
-        if "synthetic" in row and row["synthetic"] is not flag:
-            return Check("V-SYNTHETIC-FLAG", label, False, f"{c.holdout_rel} line {i}: synthetic is {json.dumps(row['synthetic'])}")
-    if flag:
-        parts = c.holdout_rel.split("/")[:-1]
-        if not any((c.root / "/".join(parts[:i]) / SYNTHETIC_MD).is_file() for i in range(len(parts), -1, -1)):
-            return Check("V-SYNTHETIC-FLAG", label, False, f"no {SYNTHETIC_MD} next to {c.holdout_rel}")
-    return Check("V-SYNTHETIC-FLAG", label, True, "SYNTHETIC" if flag else "not synthetic")
-
-
 def _seal_committed(c: _Ctx) -> Check:
     label = "seal committed and unchanged"
     if not c.git:
@@ -1189,7 +1171,7 @@ def run_seal(
         lambda: _seal_rehash(ctx()),
         lambda: _seal_rows(ctx()),
         lambda: _seal_pii(ctx()),
-        lambda: _seal_synthetic(ctx()),
+        lambda: _synthetic(ctx()),
         lambda: _seal_committed(ctx()),
         lambda: _seal_minhash(ctx()),
         lambda: _seal_eval_sets(ctx()),
@@ -1301,7 +1283,7 @@ def _local_steps(asset: Asset, d: Path, n: int, ctx: Callable[[], _Ctx]) -> list
         lambda: _seal_rehash(ctx()),
         lambda: _seal_rows(ctx()),
         lambda: _seal_pii(ctx()),
-        lambda: _seal_synthetic(ctx()),
+        lambda: _synthetic(ctx()),
         lambda: _seal_committed(ctx()),
         lambda: _seal_minhash(ctx()),
         lambda: _seal_eval_sets(ctx()),

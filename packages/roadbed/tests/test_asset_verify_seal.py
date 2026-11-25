@@ -186,3 +186,20 @@ def test_minhash_object_not_in_the_given_store(asset):
     assert skip.detail == f"MinHash object {oid[:12]} is not in --objects"
     skip = next(c for c in _run(asset, objects=False)[0] if c.label == "MinHash object covers the sealed rows: skipped")
     assert skip.detail == f"MinHash object {oid[:12]} not checked; pass --objects"
+
+
+def test_seal_mode_checks_every_synthetic_flag(asset):
+    f = asset / "evals/golden.jsonl"
+    lines = f.read_text().splitlines()
+    row = json.loads(lines[0])
+    del row["synthetic"]
+    f.write_text("\n".join([json.dumps(row), *lines[1:]]) + "\n")
+    _, failed = _run(asset)
+    assert failed is not None and failed.code == "V-SYNTHETIC-FLAG" and "evals/golden.jsonl" in failed.detail
+
+
+def test_seal_mode_refuses_flagged_rows_in_a_real_asset(asset):
+    y = asset / "roadbed.yaml"
+    y.write_text(y.read_text().replace("synthetic: true", "synthetic: false"))
+    _, failed = _run(asset)
+    assert failed is not None and failed.code == "V-SYNTHETIC-FLAG" and "roadbed.yaml does not" in failed.detail
