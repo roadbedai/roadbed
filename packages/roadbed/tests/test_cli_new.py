@@ -123,3 +123,10 @@ def test_bad_input_shapes_exit_2_and_name_the_file(tmp_path):
                       (["--slices", str(slices), "--output-schema", str(FIXTURE / "output.schema.json")], slices)):
         r = cli.invoke(app, ["new", str(tmp_path / "acme"), "--model", "m", "--synthetic", *args])
         assert r.exit_code == 2 and bad.name in r.output and not (tmp_path / "acme").exists(), r.output
+
+
+def test_a_dangling_symlink_is_refused_and_not_followed(tmp_path):
+    (tmp_path / "acme").symlink_to(tmp_path / "elsewhere" / "made_by_new")
+    r = _new(tmp_path, "--synthetic")
+    assert r.exit_code == 2 and isinstance(r.exception, SystemExit) and "exists" in r.output, r.output
+    assert not (tmp_path / "elsewhere").exists()

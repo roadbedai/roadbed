@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Annotated
 
@@ -39,6 +40,8 @@ def sample(
         raise _fail("give a sample name and a new directory, or use --list", as_json)
     if name not in names:
         raise _fail(f"no sample named {name}; samples: {', '.join(names)}", as_json)
+    if os.path.lexists(dest):  # also a dangling symlink: resolve() would follow it
+        raise _fail(f"{dest} exists; give a new directory", as_json)
     out = dest.resolve()
     if out.exists():
         raise _fail(f"{dest} exists; give a new directory", as_json)
