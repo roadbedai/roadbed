@@ -14,7 +14,7 @@ from roadbed.asset.overlap import minhash_object, parse_minhash_object
 from roadbed.asset.verify import run_seal
 from roadbed.cli.asset import open_asset
 from roadbed.cli.main import app
-from test_asset_support import LOCAL_HID, bucket, clone, edit_json, local_asset
+from test_asset_support import LOCAL_HID, bucket, clone, copy, edit_json, local_asset
 
 cli = CliRunner()
 HDIR = f"data/holdout/{LOCAL_HID}"
@@ -143,3 +143,20 @@ def test_cli_seal_mode_failure_exits_4(asset):
     r = cli.invoke(app, ["verify", HDIR, "--asset", str(asset), "--json"])
     o = json.loads(r.output)
     assert r.exit_code == 4 and o["failed"] == "V-HASH-MISMATCH"
+
+
+def test_a_seal_copied_into_a_rebase_dir_does_not_switch_to_seal_mode(tmp_path):
+    root = copy("pass", tmp_path / "pass")
+    edit_json(root / "rebases/13/scores.json", lambda s: s["overall"].update(candidate=s["overall"]["candidate"] + 20))
+    for f in ("SEAL.json", "holdout.jsonl"):
+        shutil.copy(root / "data/holdout/H-2026-11-01" / f, root / "rebases/13" / f)
+    r = cli.invoke(app, ["verify", "rebases/13", "--asset", str(root), "--json"])
+    o = json.loads(r.output)
+    assert r.exit_code == 4 and o["failed"] == "V-HASH-MISMATCH" and "scores.json" in o["detail"] and "rebase" in o
+
+
+def test_seal_mode_only_under_data_holdout(asset, tmp_path):
+    other = asset / "evals/H-copy"
+    shutil.copytree(asset / HDIR, other)
+    r = cli.invoke(app, ["verify", "evals/H-copy", "--asset", str(asset)])
+    assert r.exit_code == 2 and "verified seal" not in r.output

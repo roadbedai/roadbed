@@ -401,7 +401,7 @@ def verify(
         hdir = p if p.is_absolute() else a.root / p
         if not hdir.is_dir() and p.is_dir():
             hdir = p.resolve()
-        if (hdir / "SEAL.json").is_file():
+        if hdir.resolve().parent == (a.root / "data" / "holdout").resolve():  # seal mode only for data/holdout/<id>
             _verify_seal(a, hdir.resolve(), on_check, checks, objects, strict, as_json, con)
             return
         _need_holdout(a.cfg)
