@@ -1199,32 +1199,46 @@ CONTROL_PLANE = re.compile(r"^(roadbed\.lock|policy/keys/.*|versions/[^/]+/recei
                            r"rebases/[^/]+/(receipt\.(json|sig)|evidence/.*|receipts/.*))$")
 
 
-def is_local(root: Path, d: Path) -> bool:
-    """True when roadbed.yaml's holdout has a local seal (provenance local) and nothing in the asset comes from the
-    control plane: no roadbed.lock, policy/keys/, version receipt or rebase receipt, receipt signature, evidence/ or
-    receipts/, on disk, in the rebase manifest or in git history. A control-plane asset stripped of those files and
-    relabelled stays full or engine-scored."""
+def _local_seal(root: Path) -> bool:
+    """True when roadbed.yaml's holdout has a local seal (provenance local)."""
     try:
         cfg = read_doc(root / "roadbed.yaml")
         hdir = str(((cfg.get("data") or {}).get("holdout") or {}).get("path") or "").rstrip("/")
         seal = _try_doc(root / hdir / "SEAL.json") if hdir and safe_rel(f"{hdir}/SEAL.json") else None
     except Exception:  # noqa: BLE001  (an unreadable roadbed.yaml is reported by the checks)
         return False
-    if (seal or {}).get("provenance") != "local":
-        return False
-    if any(CONTROL_PLANE.match(rel) for rel in tree_files(root)):
-        return False
+    return (seal or {}).get("provenance") == "local"
+
+
+def _control_plane_file(root: Path, d: Path) -> str | None:
+    """The first file from the control plane that the asset holds, its rebase manifest names, or its git history
+    (merges included) ever held, said in words; None when there is none."""
+    for rel in tree_files(root):
+        if CONTROL_PLANE.match(rel):
+            return f"{rel} is in the asset"
     rrel = d.resolve().relative_to(root.resolve()).as_posix()
     m = d / MANIFEST
     if m.is_file():
         text = m.read_text(encoding="utf-8", errors="replace")
-        if any(f"{rrel}/{f}" in text for f in (RECEIPT, RECEIPT_SIG, f"{EVIDENCE}/", f"{RECEIPTS}/")):
-            return False
+        for f in (RECEIPT, RECEIPT_SIG, f"{EVIDENCE}/", f"{RECEIPTS}/"):
+            if f"{rrel}/{f}" in text:
+                return f"{rrel}/{MANIFEST} names {rrel}/{f}"
     if gitlog.is_repo_root(root):
         r = gitlog.git(root, "log", "-m", "--format=", "--name-only", check=False)  # -m: merges list their files too
-        if r.returncode != 0 or any(CONTROL_PLANE.match(rel) for rel in r.stdout.splitlines()):
-            return False
-    return True
+        if r.returncode != 0:
+            return "git history cannot be read"
+        for rel in r.stdout.splitlines():
+            if CONTROL_PLANE.match(rel):
+                return f"{rel} is in git history"
+    return None
+
+
+def is_local(root: Path, d: Path) -> bool:
+    """True when roadbed.yaml's holdout has a local seal (provenance local) and nothing in the asset comes from the
+    control plane: no roadbed.lock, policy/keys/, version receipt or rebase receipt, receipt signature, evidence/ or
+    receipts/, on disk, in the rebase manifest or in git history. A control-plane asset stripped of those files and
+    relabelled stays full or engine-scored."""
+    return _local_seal(root) and _control_plane_file(root, d) is None
 
 
 def _local_required(c: _Ctx) -> list[str]:
@@ -1336,9 +1350,10 @@ def run(
             holder.append(_Ctx(asset, d, n, store, strict, trusted))
         return holder[0]
 
+    blocker = _control_plane_file(asset.root, d) if _local_seal(asset.root) else None
     if not is_full(asset.root, d):
         steps = [lambda: _hashes(asset, d), lambda: _schemas(d), lambda: _scores(asset, d, n), lambda: _seal(asset, d)]
-    elif is_local(asset.root, d):
+    elif _local_seal(asset.root) and blocker is None:
         steps = _local_steps(asset, d, n, ctx)
     elif is_engine_scored(asset.root, d):
         steps = _engine_steps(asset, d, n, ctx)
@@ -1373,6 +1388,8 @@ def run(
             c = fn()
         except (OSError, ValueError, KeyError, TypeError, IndexError, AttributeError) as e:
             c = Check("V-CHECK-ERROR", "", False, f"{type(e).__name__}: {e}")
+        if c.ok is False and blocker is not None:  # a local seal under full or engine mode: say what refused local mode
+            c = Check(c.code, c.label, False, f"local mode refused: {blocker}; {c.detail}")
         done.append(c)
         on_check(c)
         if c.ok is False:

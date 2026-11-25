@@ -316,3 +316,20 @@ def test_a_receipt_added_and_removed_only_in_merge_commits_is_never_local(asset)
     assert "rebases/2/receipt.json" not in git(asset, "log", "--format=", "--name-only")  # merges list no files
     assert not is_local(asset, asset / REBASE)
     assert not _verify(asset).ok
+
+
+def test_a_control_plane_file_in_history_is_named(asset):
+    (asset / "roadbed.lock").write_text("{}\n")
+    git(asset, "add", "roadbed.lock")
+    git(asset, "commit", "-q", "-m", "a lock")
+    git(asset, "rm", "-q", "roadbed.lock")
+    git(asset, "commit", "-q", "-m", "drop the lock")
+    f = _failed(asset)
+    assert f.detail.startswith("local mode refused: roadbed.lock is in git history; "), f.detail
+
+
+def test_a_control_plane_file_on_disk_is_named(asset):
+    (asset / "policy/keys").mkdir()
+    (asset / "policy/keys/receipt.pub").write_text("x\n")
+    f = _failed(asset)
+    assert f.detail.startswith("local mode refused: policy/keys/receipt.pub is in the asset; "), f.detail
