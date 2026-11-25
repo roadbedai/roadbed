@@ -16,6 +16,7 @@ $ roadbed [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
+* `new`: Create a new asset repo: roadbed.yaml, the...
 * `sample`: Copy a synthetic sample event stream into...
 * `watch`: Report new Hugging Face Hub bases matching...
 * `rebase`: Start a rebase on the control plane and...
@@ -29,6 +30,33 @@ $ roadbed [OPTIONS] COMMAND [ARGS]...
 * `eval`: Evaluation commands.
 * `audit`: Audit log commands.
 * `evidence`: Evidence pack commands.
+
+## `roadbed new`
+
+Create a new asset repo: roadbed.yaml, the gate and license policies, slices, scorers and the output schema.
+
+**Usage**:
+
+```console
+$ roadbed new [OPTIONS] {path}
+```
+
+**Arguments**:
+
+* `path <path>`: Directory to create. It must not exist.  [required]
+
+**Options**:
+
+* `--model <str>`: Name of the fine-tuned model this asset governs.  [required]
+* `--slices <path>`: Slice keys and values (slices.yaml) to copy into evals/.  [required]
+* `--output-schema <path>`: JSON Schema of one model output, copied into evals/.  [required]
+* `--synthetic`: Mark every file synthetic: true and write SYNTHETIC.md.
+* `--tenant <str>`: Display name of the tenant.  [default: unset]
+* `--base <str>`: Hugging Face repo of the base model.  [default: unset]
+* `--margin <float>`: Most negative allowed slice delta, in score points.  [default: -2.0]
+* `--min-n <int range>`: Slices with fewer rows never block.  [default: 30; x&gt;=1]
+* `--json`: Print one JSON object instead of text.
+* `--help`: Show this message and exit.
 
 ## `roadbed sample`
 
@@ -107,7 +135,8 @@ $ roadbed rebase [OPTIONS] {model}
 
 Offline check: re-hash files, re-validate schemas, check signatures, seal order and disjointness, recompute every score.
 
-Without --trust-key, the key ids in config trust_keys (if any) are the trusted keys.
+A holdout directory gets the seal checks only. Without --trust-key, the key ids in config trust_keys (if any) are
+the trusted keys.
 
 **Usage**:
 
@@ -117,7 +146,7 @@ $ roadbed verify [OPTIONS] {path}
 
 **Arguments**:
 
-* `path <str>`: Rebase directory, e.g. rebases/13.  [required]
+* `path <str>`: Rebase directory, e.g. rebases/13, or a sealed holdout, e.g. data/holdout/H-2026-11-02.  [required]
 
 **Options**:
 
@@ -249,6 +278,7 @@ $ roadbed evals [OPTIONS] COMMAND [ARGS]...
 **Commands**:
 
 * `build`: Resolve labels (label_rules@v1) and build...
+* `seal`: Seal the holdout candidate locally: write...
 
 ### `roadbed evals build`
 
@@ -267,10 +297,31 @@ $ roadbed evals build [OPTIONS]
 * `--seed <int>`: Sampling seed for the holdout and golden draw (recorded).  [default: 0]
 * `--asset <path>`: Asset repo root (default: search up from cwd).
 * `--holdout-out <path>`: Validator directory for the holdout candidate (outside the asset).
-* `--objects <path>`: Local bucket; snapshot parts are also stored there.
+* `--objects <path>`: Local bucket; snapshot parts and raw training inputs are also stored there.
 * `--suffix <str>`: Snapshot id suffix: S-&lt;date&gt;-&lt;suffix&gt;.
 * `--parent <str>`: Snapshot this one replaces.
 * `--created-at <str>`: Snapshot created_at (default: now, UTC).
+* `--json`: Print one JSON object instead of text.
+* `--help`: Show this message and exit.
+
+### `roadbed evals seal`
+
+Seal the holdout candidate locally: write holdout.jsonl and SEAL.json, put the MinHash object in --objects,
+and point roadbed.yaml at the holdout. A local seal names a person and has no audit seq. It runs no git.
+
+**Usage**:
+
+```console
+$ roadbed evals seal [OPTIONS]
+```
+
+**Options**:
+
+* `--candidate <path>`: Directory that evals build --holdout-out wrote.  [required]
+* `--sealed-by <str>`: User id of the person who seals (lowercase, no email).  [required]
+* `--objects <path>`: Local bucket for the MinHash object (outside the asset).  [required]
+* `--id <str>`: Holdout id (default: H-&lt;snapshot date&gt;).
+* `--asset <path>`: Asset repo root (default: search up from cwd).
 * `--json`: Print one JSON object instead of text.
 * `--help`: Show this message and exit.
 
