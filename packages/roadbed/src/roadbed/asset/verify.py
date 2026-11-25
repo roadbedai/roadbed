@@ -1289,6 +1289,7 @@ def _local_steps(asset: Asset, d: Path, n: int, ctx: Callable[[], _Ctx]) -> list
 
     return [
         lambda: _hashes(asset, d, _local_required(ctx())),
+        lambda: _pii(ctx()),
         lambda: _seal_schema(ctx()),
         lambda: _seal_rehash(ctx()),
         lambda: _seal_rows(ctx()),

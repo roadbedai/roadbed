@@ -247,3 +247,12 @@ def test_lock_in_git_history_is_never_local(asset):
     git(asset, "rm", "-q", "roadbed.lock")
     git(asset, "commit", "-q", "-m", "drop the lock")
     assert not is_local(asset, asset / REBASE)
+
+
+def test_an_email_in_rebase_yaml_fails_v_pii(asset):
+    y = asset / REBASE / "rebase.yaml"
+    y.write_text(y.read_text() + "note: call jane.doe@acme-mutual.com\n")
+    _rehash_manifest(asset)
+    git(asset, "commit", "-q", "-am", "an email")
+    f = _failed(asset)
+    assert f.code == "V-PII" and "rebase.yaml" in f.detail
