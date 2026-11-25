@@ -42,8 +42,8 @@ $ roadbed sample [OPTIONS] [name] [dest]
 
 **Arguments**:
 
-* `name`: Sample name, for example acme-2k.
-* `dest`: New directory to copy the sample into.
+* `name <str>`: Sample name, for example acme-2k.
+* `dest <path>`: New directory to copy the sample into.
 
 **Options**:
 
@@ -88,7 +88,7 @@ $ roadbed rebase [OPTIONS] {model}
 
 **Arguments**:
 
-* `model`: Model name; must match roadbed.yaml in local mode.  [required]
+* `model <str>`: Model name; must match roadbed.yaml in local mode.  [required]
 
 **Options**:
 
@@ -117,7 +117,7 @@ $ roadbed verify [OPTIONS] {path}
 
 **Arguments**:
 
-* `path`: Rebase directory, e.g. rebases/13.  [required]
+* `path <str>`: Rebase directory, e.g. rebases/13.  [required]
 
 **Options**:
 
@@ -125,7 +125,7 @@ $ roadbed verify [OPTIONS] {path}
 * `--json`: Print one JSON object instead of text.
 * `--objects <path>`: Local copy of the bucket (objects/sha256/ab/cd/&lt;oid&gt;).
 * `--strict`: Fail on every skipped check; require the closed schemas.
-* `--trust-key <str>`: Key id (sha256 of the raw ed25519 key) to accept. Repeatable.
+* `--trust-key <list[str]>`: Key id (sha256 of the raw ed25519 key) to accept. Repeatable.
 * `--help`: Show this message and exit.
 
 ## `roadbed status`
@@ -161,7 +161,7 @@ $ roadbed init [OPTIONS]
 
 * `--url <str>`: Control plane URL (https; http only for localhost).  [required]
 * `--token-file <str>`: File that holds the API token (chmod 600).
-* `--trust-key <str>`: Key id verify accepts. Repeatable.
+* `--trust-key <list[str]>`: Key id verify accepts. Repeatable.
 * `--force`: Overwrite an existing config.
 * `--check`: Then call GET /v1/models to test the url and token.
 * `--json`: Print one JSON object instead of text.
@@ -182,7 +182,7 @@ $ roadbed seal [OPTIONS]
 * `--snapshot <str>`: Snapshot to draw from, e.g. S-2026-10-31.  [required]
 * `--rows <int range>`: Holdout rows.  [x&gt;=1; required]
 * `--seed <int range>`: Sampling seed.  [x&gt;=0; required]
-* `--by <str>`: Slice key to stratify on. Repeatable.  [required]
+* `--by <list[str]>`: Slice key to stratify on. Repeatable.  [required]
 * `--method <str>`: proportional or equal.  [default: proportional]
 * `--model <str>`: Model (default: roadbed.yaml model).
 * `--asset <path>`: Asset repo root (default: search up from cwd).
@@ -202,7 +202,7 @@ $ roadbed promote [OPTIONS] {REBASE}
 
 **Arguments**:
 
-* `REBASE`: Rebase number whose candidate becomes the alias version.  [required]
+* `REBASE <int>`: Rebase number whose candidate becomes the alias version.  [required]
 
 **Options**:
 
@@ -304,7 +304,7 @@ $ roadbed eval reproduce [OPTIONS] {path}
 
 **Arguments**:
 
-* `path`: Rebase directory, e.g. rebases/13.  [required]
+* `path <str>`: Rebase directory, e.g. rebases/13.  [required]
 
 **Options**:
 
@@ -343,7 +343,7 @@ $ roadbed audit verify [OPTIONS]
 **Options**:
 
 * `--export <path>`: Audit export (GET /v1/audit/export.jsonl), one event per line.  [required]
-* `--anchor <path>`: audit/anchors/&lt;date&gt;.json to check the head against. Repeatable.
+* `--anchor <list[Path]>`: audit/anchors/&lt;date&gt;.json to check the head against. Repeatable.
 * `--strict`: Fail on every skipped check.
 * `--json`: Print one JSON object instead of text.
 * `--help`: Show this message and exit.
@@ -378,11 +378,11 @@ $ roadbed evidence verify [OPTIONS] {path}
 
 **Arguments**:
 
-* `path`: rebases/N/evidence (or rebases/N).  [required]
+* `path <path>`: rebases/N/evidence (or rebases/N).  [required]
 
 **Options**:
 
 * `--asset <path>`: Asset repo root (default: search up from cwd).
-* `--trust-key <str>`: Key id to accept. Repeatable. Default: config trust_keys.
+* `--trust-key <list[str]>`: Key id to accept. Repeatable. Default: config trust_keys.
 * `--json`: Print one JSON object instead of text.
 * `--help`: Show this message and exit.
