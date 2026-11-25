@@ -1,0 +1,23 @@
+name: Spec question
+description: Ask about the Roadbed spec, or report a case where the spec is unclear.
+labels: [spec]
+body:
+  - type: input
+    id: section
+    attributes:
+      label: Spec section or file
+      description: "For example: spec/SPEC.md, section Verify."
+    validations:
+      required: true
+  - type: textarea
+    id: question
+    attributes:
+      label: Question or unclear point
+      description: Say what you read and what is not clear.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Suggested change
+      description: Optional. Say how the text could be clearer.
