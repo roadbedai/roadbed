@@ -21,6 +21,7 @@ from roadbed import watch as hub_watch
 from roadbed.cli import audit as audit_mod
 from roadbed.cli import config as config_mod
 from roadbed.cli import evidence as evidence_mod
+from roadbed.cli import new as new_mod
 from roadbed.cli import rebase as rebase_mod
 from roadbed.cli import remote
 from roadbed.cli import reproduce as reproduce_mod
@@ -61,6 +62,7 @@ app = typer.Typer(
     pretty_exceptions_enable=False,
 )
 app.add_typer(evals_app, name="evals")
+app.command("new")(new_mod.new_cmd)
 app.command("sample")(sample_mod.sample)
 
 AssetOpt = Annotated[Path | None, typer.Option("--asset", help="Asset repo root (default: search up from cwd).")]
