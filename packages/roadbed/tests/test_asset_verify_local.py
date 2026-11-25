@@ -256,3 +256,16 @@ def test_an_email_in_rebase_yaml_fails_v_pii(asset):
     git(asset, "commit", "-q", "-am", "an email")
     f = _failed(asset)
     assert f.code == "V-PII" and "rebase.yaml" in f.detail
+
+
+def test_created_in_the_same_second_as_the_seal_passes(asset):
+    import re
+
+    sealed = json.loads((asset / SEAL).read_text())["sealed_at"]
+    y = asset / REBASE / "rebase.yaml"
+    y.write_text(re.sub(r"created_at: .*", f"created_at: '{sealed}'", y.read_text()))
+    _rehash_manifest(asset)
+    git(asset, "commit", "-q", "-am", "same second")
+    r = _verify(asset)
+    assert r.ok, r.failed
+    assert any(c.label == "seal precedes rebase: OK" and "not after" in c.detail for c in r.checks)

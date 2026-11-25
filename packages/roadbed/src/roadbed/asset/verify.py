@@ -40,7 +40,7 @@ import jsonschema
 from pydantic import ValidationError as PydanticError
 
 from roadbed.asset import gitlog
-from roadbed.asset.day0 import Check, VerifyFailed, _diff, _hashes, _recompute, _schemas, _scores, _seal
+from roadbed.asset.day0 import Check, VerifyFailed, _diff, _hashes, _recompute, _schemas, _scores, _seal, _when
 from roadbed.asset.files import (
     LOCK,
     MANIFEST,
@@ -71,7 +71,7 @@ from roadbed.asset.overlap import (
 )
 from roadbed.asset.seal import holdout_row_hash
 from roadbed.asset.signing import SignatureError, verify_signature
-from roadbed.cli.asset import PRED_FILES, Asset, open_asset
+from roadbed.cli.asset import PRED_FILES, Asset, open_asset, seal_time
 from roadbed.cli.rebase import FINDING_RE
 from roadbed.contracts import SCHEMA_MODELS, Scores
 from roadbed.gate import decide_license, evaluate
@@ -1253,10 +1253,15 @@ def _local_required(c: _Ctx) -> list[str]:
 
 
 def _local_seal_time(c: _Ctx) -> Check:
-    r = _seal(c.asset, c.d)
-    if r.ok:
-        return Check(r.code, r.label, True, "sealed_at before rebase.yaml created_at; both are self-declared")
-    return r
+    """sealed_at not after rebase.yaml created_at. Both are self-declared with seconds precision, so a script that seals
+    and rebases in the same second passes; the git ancestry check carries the order."""
+    label = "seal precedes rebase: OK"
+    if not c.meta or "created_at" not in c.meta:
+        return Check("V-SEAL-AFTER-REBASE", "seal precedes rebase: skipped (no rebase.yaml)", None)
+    sealed, created = _when(seal_time(c.asset)), _when(c.meta["created_at"])
+    if sealed > created:
+        return Check("V-SEAL-AFTER-REBASE", label, False, f"holdout sealed {sealed.isoformat()} is after rebase created {created.isoformat()}")
+    return Check("V-SEAL-AFTER-REBASE", label, True, "sealed_at not after rebase.yaml created_at; both are self-declared")
 
 
 def _local_ancestry(c: _Ctx) -> Check:
