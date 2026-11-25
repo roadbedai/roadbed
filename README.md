@@ -44,7 +44,7 @@ The `seal` step writes the seal. The `verify` step checks the seal again from th
 On a laptop, `verify` can prove these facts:
 
 - The files are intact.
-- The holdout shares no row with the training data.
+- The holdout shares no row with the training snapshot. The near-duplicate check needs readable text. With the SDK default text="tokenize" it finds nothing. Use text="redact" for text that goes to training.
 - The seal commit comes before the commits with the predictions.
 - The asset holds no email address.
 - Every synthetic flag agrees with `roadbed.yaml`.
@@ -71,7 +71,7 @@ client = roadbed_sdk.wrap_openai(OpenAI())
 roadbed_sdk.flush()
 ```
 
-Then run `roadbed new` and `roadbed evals build --events events` as in the quickstart. The SDK pseudonymises free text by default. The tenant key never leaves your process.
+Then run `roadbed new` and `roadbed evals build --events events` as in the quickstart. The SDK pseudonymises free text by default. Tokens hide near-copies, so verify cannot find near-duplicates in tokenized text. Use text="redact" if the near check must work. The tenant key never leaves your process.
 
 ## What is in this repo
 

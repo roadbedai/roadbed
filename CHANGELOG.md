@@ -38,6 +38,10 @@ The versions follow [Semantic Versioning](https://semver.org/). See [docs/VERSIO
 - A receipt over a local seal fails `V-SEAL-ORDER`, not `V-CHECK-ERROR`.
 - The package descriptions and the CLI help no longer say `(prototype)`.
 
+### Fixed
+
+- The near-duplicate check no longer passes on inputs that the SDK tokenised (`text="tokenize"`). `roadbed evals build` warns and writes `near_check: not_applicable_tokenised` in `build.json`. `roadbed verify` reports the near check as a named skip, so `--strict` fails.
+
 ### Removed
 
 - The unused `huggingface_hub` dependency.

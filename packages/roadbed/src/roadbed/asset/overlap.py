@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections import defaultdict
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
@@ -23,6 +24,28 @@ import numpy as np
 from roadbed.asset.hashing import jcs
 
 DEFAULT_THRESHOLD, DEFAULT_NUM_PERM, DEFAULT_SHINGLE = 0.8, 128, 3
+TEXT_TOKEN = re.compile(r"^<TEXT:tok_[0-9a-f]{8,64}>$")  # the SDK's text="tokenize" form of a free text
+TOKENISED = 'near-duplicate check not possible: inputs are tokens, not text (SDK text="tokenize")'
+
+
+def _leaves(v: Any) -> list[str]:
+    if isinstance(v, str):
+        return [v]
+    if isinstance(v, dict):
+        return [s for x in v.values() for s in _leaves(x)]
+    if isinstance(v, list):
+        return [s for x in v for s in _leaves(x)]
+    return []
+
+
+def is_tokenised(text: str) -> bool:
+    """True when an input (its JCS text) holds no readable text to shingle: its free text is only SDK text tokens
+    (<TEXT:tok_...>) and no other string has more than one word. Such inputs are compared by exact equality only."""
+    try:
+        leaves = _leaves(json.loads(text))
+    except ValueError:
+        leaves = [text.strip()]
+    return any(TEXT_TOKEN.match(s) for s in leaves) and not any(len(s.split()) > 1 for s in leaves)
 
 
 def shingles(text: str, k: int = DEFAULT_SHINGLE) -> frozenset[str]:

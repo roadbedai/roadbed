@@ -16,6 +16,7 @@ import typer
 from rich.text import Text
 
 from roadbed.asset import AssetValidationError, ObjectStore, SealError, sha256_file, validate
+from roadbed.asset.overlap import TOKENISED
 from roadbed.cli.asset import AssetError, find_root, open_asset
 from roadbed.cli.output import EXIT_OK, EXIT_USAGE, EXIT_VERIFY_FAILED, console, error, print_json
 from roadbed.cli.remote import seal_line
@@ -136,6 +137,9 @@ def build_cmd(
     exact_only = out.proof["pairs"]["train-sealed"]["exact_only"]
     warnings = [f"{exact_only} sealed holdout rows have no input text in these events: train vs sealed is checked by id, "
                 "row hash and input only for them (the gate's MinHash check still runs at rebase)"] if exact_only else []
+    if out.report["near_check"] == "not_applicable_tokenised":
+        n_in = c["resolved"] - c["quarantined"]
+        warnings.append(f'{TOKENISED}; use text="redact" for text that goes to training ({c["tokenised_inputs"]} of {n_in} inputs are tokens)')
     if as_json:
         print_json({"ok": True, "exit_code": EXIT_OK, "snapshot": out.snapshot.manifest, "resolve": resolve_summary(rows),
                     "erased_subjects": len(erased), "sealed_holdout_rows": len(sealed), "seen_rows": len(seen), "warnings": warnings,
@@ -151,7 +155,9 @@ def build_cmd(
     for w in warnings:
         con.print(Text("warning ", style="bold yellow") + Text(w))
     th = out.proof["pairs"]["train-holdout"]
-    con.print(f"train vs holdout: 0 shared rows, 0 shared inputs, max Jaccard {th['max_jaccard']} (< {out.proof['purge_threshold']})")
+    near = "near check not run" if out.report["near_check"] == "not_applicable_tokenised" else \
+        f"max Jaccard {th['max_jaccard']} (< {out.proof['purge_threshold']})"
+    con.print(f"train vs holdout: 0 shared rows, 0 shared inputs, {near}")
     if cand:
         seal_hint = "seal it: roadbed evals seal --candidate <dir>"
         con.print(Text("holdout candidate ", style="bold") + Text(f"{len(out.holdout_candidate)} rows -> {holdout_out} ({seal_hint})"))

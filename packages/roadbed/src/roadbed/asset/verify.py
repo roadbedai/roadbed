@@ -61,8 +61,10 @@ from roadbed.asset.overlap import (
     DEFAULT_NUM_PERM,
     DEFAULT_SHINGLE,
     DEFAULT_THRESHOLD,
+    TOKENISED,
     Overlap,
     exact_overlap,
+    is_tokenised,
     minhash,
     near_exact,
     near_minhash,
@@ -687,6 +689,11 @@ def _near(c: _Ctx) -> Check:
         if train is None:
             return c.skip_or_fail("V-OBJECT-MISSING", label, "raw training inputs are in the bucket only; pass --objects")
         hold = _texts(c, c.holdout_rows)
+        tok = sum(1 for _, t in train + (hold or []) if is_tokenised(t))
+        if tok:  # one shingle per row: the check would find nothing and report a pass
+            n = len(train) + len(hold or [])
+            return c.skip_or_fail("V-HOLDOUT-OVERLAP", label, f'{TOKENISED}; use text="redact" for text that goes to training '
+                                  f"({tok} of {n} inputs are tokens)")
         if hold is not None:
             bad = _minhash_matches_raw(c, hold, num_perm, shingle)
             if bad is not None:
