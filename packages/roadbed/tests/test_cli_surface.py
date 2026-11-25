@@ -12,7 +12,7 @@ from test_cli_fakeapi import Fixture
 
 cli = CliRunner()
 COMMANDS = [["init"], ["sample"], ["seal"], ["watch"], ["rebase"], ["status"], ["verify"], ["eval", "reproduce"], ["audit", "verify"],
-            ["evidence", "verify"], ["promote"], ["rollback"]]
+            ["evidence", "verify"], ["promote"], ["rollback"], ["new"], ["evals", "seal"]]
 
 
 @pytest.mark.parametrize("cmd", COMMANDS, ids=" ".join)
