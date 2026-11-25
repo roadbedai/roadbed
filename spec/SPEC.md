@@ -31,6 +31,11 @@ A change to the format is a pull request to spec/. A maintainer approves it. See
 | Gate | The policy check that passes or blocks a rebase (`gate.json`). |
 | Receipt | A signed record of one run: inputs, environment, cost, executor. |
 | Evidence pack | The signed files a model-risk team reads before sign-off (`rebases/N/evidence/`). |
+| SoD-01 | Separation of duties: the user who sealed the holdout cannot request the run. |
+| SoD-02 | The user who requested the rebase cannot approve or promote it. |
+| SoD-03 | The validator and the approver of a rebase are different users. |
+| SoD-04 | An admin never approves or validates a rebase. The control plane enforces it. A local asset has no roles. |
+| SoD-05 | Only a validator seals a holdout or reads holdout rows. The runner service reads rows for eval jobs only. |
 
 ## The asset tree
 
