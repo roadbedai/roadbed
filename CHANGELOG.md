@@ -23,6 +23,7 @@ The versions follow [Semantic Versioning](https://semver.org/). See [docs/VERSIO
 - SDK: `HttpSink` and `JsonlSink`, with `init` and `init_local`. `JsonlSink` writes captured events to local JSONL files. No server is needed.
 - Synthetic sample `acme-2k`. It ships inside the `roadbed` wheel with `stand_in_predictions.py`. `roadbed sample NAME DIR` copies it out. `roadbed sample --list` names the samples.
 - Typing marker `py.typed` in both packages.
+- Python 3.14 in the CI matrix and the package classifiers.
 - `roadbed_sdk.__version__`.
 - Conformance cases `seal/local` and `roadbed/unsealed`.
 
