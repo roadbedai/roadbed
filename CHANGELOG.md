@@ -45,6 +45,7 @@ The versions follow [Semantic Versioning](https://semver.org/). See [docs/VERSIO
 - "Your own verdicts" in the README and the SDK docs set `keep=("route",)` and read the tenant key from `ROADBED_TENANT_KEY`. They say that each string field of the model output goes in `keep` and that slice values must be short and lowercase.
 - When every row is quarantined, `roadbed evals build` names the quarantine count and the first reason.
 - The run line of `examples/sdk/openai_local_sink.py` sets `ROADBED_TENANT_KEY`.
+- A local rebase no longer says "train manifest absent" for its skipped contamination check. The detail is "not computed by a local rebase; roadbed verify checks disjointness". The summary line names the skipped checks, for example `rebase #1: gate pass (license, contamination skipped), local, not attested`.
 
 ### Removed
 

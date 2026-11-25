@@ -23,6 +23,8 @@ from roadbed.hashing import sha256_canonical
 from roadbed.stats import below_margin
 
 Gate = GateResult
+NO_TRAIN_MANIFEST = "train manifest absent: skipped"
+LOCAL_REBASE = "not computed by a local rebase; roadbed verify checks disjointness"
 
 
 def decide_license(license_id: str, policy: LicensePolicy, source: str = "policy/license.yaml") -> GateLicenseInput:
@@ -96,6 +98,7 @@ def evaluate(
     policy: GatePolicy,
     *,
     finding_offset: int = 0,
+    contamination_skip: str = NO_TRAIN_MANIFEST,
 ) -> GateResult:
     """Apply the gate policy to scores, the contamination report and the license decision (spec/METHOD.md).
 
@@ -106,6 +109,7 @@ def evaluate(
     F-{finding_offset + 2:04d}, ... Pass the number of findings already logged in the asset repo as finding_offset.
     Raises ValueError when the inputs disagree: scores computed under another seed, n_boot, ci, margin
     or min_n, or a contamination or license record for another rebase.
+    contamination_skip is the detail of the skipped contamination check when contamination is None.
     """
     _consistent(scores, policy)
 
@@ -128,7 +132,7 @@ def evaluate(
         checks.append(_license_check(license, scores.rebase, failed))
 
     if contamination is None:
-        checks.append(Check(name="contamination", status="skipped", detail="train manifest absent: skipped"))
+        checks.append(Check(name="contamination", status="skipped", detail=contamination_skip))
     else:
         checks.append(_contamination_check(contamination, scores.rebase, failed))
 

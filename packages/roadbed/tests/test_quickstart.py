@@ -48,6 +48,8 @@ def test_quickstart(tmp_path, record_property):
     verifies = [out for cmd, out in outputs if re.search(r"\broadbed verify\b", cmd)]
     assert len(verifies) == 2
     assert "verified seal" in verifies[0] and "verified rebase" in verifies[1], verifies
+    rebase = next(out for cmd, out in outputs if cmd.startswith("roadbed rebase "))
+    assert "rebase #1: gate pass (license, contamination skipped), local, not attested" in rebase, rebase
     record_property("quickstart_seconds", round(elapsed, 1))
     print(f"\nquickstart: {len(commands)} commands, {elapsed:.1f} s wall time (install excluded)")
     assert elapsed < MAX_SECONDS
