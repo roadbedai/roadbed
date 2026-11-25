@@ -89,9 +89,11 @@ Then run `roadbed new` and `roadbed evals build --events events` as in the quick
 | `examples/` | Runnable SDK snippets. |
 | `docs/` | The SDK reference, the command reference and the versioning rules. |
 
+The CLI also holds client commands for the platform (init, seal, promote, rollback, rebase without --from-predictions, status --remote). They need an account.
+
 ## What the Roadbed platform adds
 
-The platform is not in this repo. It watches for new base models and starts a rebase. It retrains the model on your GPUs. It runs the gate and signs a receipt for each run.
+The platform is not in this repo. It watches for new base models on a schedule and starts a rebase by itself. It retrains the model on your GPUs. It runs the gate and signs a receipt for each run.
 
 It opens the pull request. It keeps the audit chain and builds the evidence pack for your model-risk team. See [roadbed.ai](https://roadbed.ai).
 
