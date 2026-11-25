@@ -6,6 +6,10 @@ The versions follow [Semantic Versioning](https://semver.org/). See [docs/VERSIO
 
 ## [Unreleased]
 
+### Fixed
+
+- SDK: ids and pseudonymisation tokens can no longer look like a phone or card number. Ids are `ix_`, `vd_` or `oc_` plus 26 base32 characters. Neither ids nor tokens hold a run of 7 or more digits. Some tokens differ from earlier 0.1.0 pre-release builds.
+
 ## [0.1.0] - TBD
 
 ### Added

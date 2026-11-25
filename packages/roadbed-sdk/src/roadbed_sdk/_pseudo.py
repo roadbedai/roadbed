@@ -41,6 +41,7 @@ _FIELD = re.compile(r"^[a-z_][A-Za-z0-9_.-]{0,63}$")
 _ID = re.compile(r"^[A-Za-z0-9_.:-]{1,128}$")
 _PLACEHOLDER = re.compile(r"^<[A-Z_]+_\d+>$")
 _BIG_NUMBER = 1_000_000
+_DIGIT_RUN = re.compile(r"\d{7}")
 _INT = re.compile(r"^[+-]?\d+$")
 _DECIMAL = re.compile(r"^[+-]?\d+\.\d+$")
 _KEY_SEP = re.compile(r"[ ._-]")
@@ -81,8 +82,18 @@ def hmac_hex(key: bytes, purpose: str, value: str) -> str:
 
 
 def hmac_token(key: bytes, value: str, purpose: str = "subject") -> str:
-    """tok_ plus 32 hex. Stable for the same key, purpose and value. Subject tokens use purpose 'subject'."""
-    return "tok_" + hmac_hex(key, purpose, value)[:32]
+    """tok_ plus 32 hex. Stable for the same key, purpose and value. Subject tokens use purpose 'subject'.
+
+    The 32 hex are the first window of the 64-hex HMAC that holds no run of 7 digits (a run of 9 or more reads as a
+    phone number to the engine guard; the platform audit guard refuses 7). The HMAC itself is not changed. In the
+    rare case that every window has a run, the search goes on in the sha256 of the digest.
+    """
+    digest = hmac_hex(key, purpose, value)
+    while True:
+        for start in range(len(digest) - 31):
+            if not _DIGIT_RUN.search(window := digest[start:start + 32]):
+                return "tok_" + window
+        digest = hashlib.sha256(digest.encode()).hexdigest()
 
 
 @runtime_checkable
