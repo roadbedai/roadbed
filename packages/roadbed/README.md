@@ -55,6 +55,8 @@ The control plane is the paid platform. It is not in this repository. Every comm
 
 A local `verify` cannot prove when the predictions were made. It reads the order of commits only. A local seal has no audit chain and no role enforcement.
 
+A local seal can pass `--strict`. A local rebase never passes `--strict`. A script must read the `LOCAL` line of the text output, or `local: true` in the JSON output. The exit code alone does not tell a local seal from a control-plane seal.
+
 | Exit code | Meaning |
 |---|---|
 | 0 | OK. |
