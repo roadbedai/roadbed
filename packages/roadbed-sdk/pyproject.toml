@@ -37,7 +37,7 @@ Issues = "https://github.com/roadbedai/roadbed/issues"
 redact = ["presidio-analyzer>=2.2"]
 
 [dependency-groups]
-dev = ["pytest>=8", "respx>=0.21", "openai>=1.50", "anthropic>=0.40", "ruff>=0.8", "mypy>=1.13"]
+dev = ["pytest>=8", "respx>=0.21", "openai>=1.50", "anthropic>=2.12.0", "ruff>=0.8", "mypy>=1.13"]
 
 [build-system]
 requires = ["uv_build>=0.9,<0.14"]
