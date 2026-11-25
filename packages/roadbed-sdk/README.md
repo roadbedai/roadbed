@@ -37,10 +37,10 @@ roadbed_sdk.verdict(cap.interaction_id, "fix", {"severity": 3, "line": "auto"},
 roadbed_sdk.flush()
 ```
 
-Then build the eval assets from the folder:
+Then build the eval assets from the folder. Run it inside the asset that roadbed new made.
 
 ```
-roadbed evals build --events events --holdout-out ../vault --objects ../objects
+roadbed evals build --events ../events --as-of 2026-11-26T00:00:00Z --holdout-out ../vault --objects ../objects
 ```
 
 `VerdictIn` has no reviewer id. A correction test that comes from local events gets `created_by: unattributed`.
