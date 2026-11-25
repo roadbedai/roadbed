@@ -79,8 +79,12 @@ def new_cmd(
         if path.exists():
             raise ValueError(f"{path} exists; roadbed new writes a new directory only")
         schema_bytes = output_schema.read_bytes()
-        docs = scaffold(model, read_yaml(slices), json.loads(schema_bytes), synthetic=synthetic, tenant=tenant, base=base,
-                        margin=margin, min_n=min_n)
+        slices_doc, schema_doc = read_yaml(slices), json.loads(schema_bytes)
+        if not isinstance(slices_doc, dict):
+            raise ValueError(f"{slices}: expected a mapping with a keys field (slices.yaml)")
+        if not isinstance(schema_doc, dict):
+            raise ValueError(f"{output_schema}: expected a JSON Schema object")
+        docs = scaffold(model, slices_doc, schema_doc, synthetic=synthetic, tenant=tenant, base=base, margin=margin, min_n=min_n)
     except (OSError, ValueError, jsonschema.SchemaError) as e:
         msg = e.message if isinstance(e, jsonschema.SchemaError) else str(e)
         if as_json:

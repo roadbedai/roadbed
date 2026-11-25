@@ -113,3 +113,13 @@ def test_rebase_and_verify_on_an_unsealed_asset_exit_2(tmp_path):
     for args in (["rebase", "claims-triage", "--from-predictions", "rebases/1", "--base", "Qwen/Qwen3-8B"], ["verify", "rebases/1"]):
         r = cli.invoke(app, [*args, "--asset", str(root)])
         assert r.exit_code == 2 and "no sealed holdout" in r.output, (args, r.output)
+
+
+def test_bad_input_shapes_exit_2_and_name_the_file(tmp_path):
+    schema, slices = tmp_path / "schema.json", tmp_path / "slices.yaml"
+    schema.write_text("true\n")
+    slices.write_text("- line\n- state\n")
+    for args, bad in ((["--slices", str(FIXTURE / "slices.yaml"), "--output-schema", str(schema)], schema),
+                      (["--slices", str(slices), "--output-schema", str(FIXTURE / "output.schema.json")], slices)):
+        r = cli.invoke(app, ["new", str(tmp_path / "acme"), "--model", "m", "--synthetic", *args])
+        assert r.exit_code == 2 and bad.name in r.output and not (tmp_path / "acme").exists(), r.output
