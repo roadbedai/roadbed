@@ -18,6 +18,7 @@ from rich.text import Text
 
 from roadbed import __version__
 from roadbed import watch as hub_watch
+from roadbed.asset.verify import run_seal
 from roadbed.cli import audit as audit_mod
 from roadbed.cli import config as config_mod
 from roadbed.cli import evidence as evidence_mod
@@ -353,7 +354,7 @@ def _rebase_remote(model: str, base: str | None, revision: str | None, follow: b
 
 @app.command()
 def verify(
-    path: Annotated[str, typer.Argument(help="Rebase directory, e.g. rebases/13.")],
+    path: Annotated[str, typer.Argument(help="Rebase directory, e.g. rebases/13, or a sealed holdout, e.g. data/holdout/H-2026-11-02.")],
     asset: AssetOpt = None,
     as_json: JsonOpt = False,
     objects: Annotated[Path | None, typer.Option("--objects", help="Local copy of the bucket (objects/sha256/ab/cd/<oid>).")] = None,
@@ -362,7 +363,8 @@ def verify(
 ) -> None:
     """Offline check: re-hash files, re-validate schemas, check signatures, seal order and disjointness, recompute every score.
 
-    Without --trust-key, the key ids in config trust_keys (if any) are the trusted keys.
+    A holdout directory gets the seal checks only. Without --trust-key, the key ids in config trust_keys (if any) are
+    the trusted keys.
     """
     as_json = _json(as_json)
     con = console()
@@ -389,6 +391,12 @@ def verify(
     try:
         p = Path(path)
         a = open_asset(asset.resolve() if asset else find_root(p.resolve() if p.is_dir() else Path.cwd()))
+        hdir = p if p.is_absolute() else a.root / p
+        if not hdir.is_dir() and p.is_dir():
+            hdir = p.resolve()
+        if (hdir / "SEAL.json").is_file():
+            _verify_seal(a, hdir.resolve(), on_check, checks, objects, strict, as_json, con)
+            return
         d, n = rebase_dir(a.root, path)
         trusted = _trusted(trust_key)
     except INPUT_ERRORS as e:
@@ -415,6 +423,31 @@ def verify(
     else:
         con.print(Text("verified ", style="bold green") + Text(f"rebase #{n}", style="bold"))
         mock_line()
+
+
+def _verify_seal(a: Any, hdir: Path, on_check: Any, checks: list[dict[str, Any]], objects: Path | None, strict: bool, as_json: bool,
+                 con: Any) -> None:
+    """roadbed verify data/holdout/<id>: the checks of one sealed holdout (roadbed.asset.verify.run_seal)."""
+    if not hdir.is_relative_to(a.root):
+        raise ValueError(f"{hdir} is not inside the asset {a.root}")
+    doc = json.loads((hdir / "SEAL.json").read_text(encoding="utf-8"))
+    hid, local = doc.get("id"), doc.get("provenance") == "local"
+    last = f"LOCAL seal: sealed by {doc.get('sealed_by')}; no audit chain; no role enforcement" if local else None
+    try:
+        run_seal(a, hdir, on_check, objects=objects, strict=strict)
+    except verify_mod.VerifyFailed as e:
+        if as_json:
+            print_json({"ok": False, "holdout": hid, "local": local, "failed": e.check.code, "detail": e.check.detail,
+                        "checks": checks, "exit_code": EXIT_VERIFY_FAILED})
+        else:
+            con.print(Text("verify failed: ", style="bold red") + Text(e.check.code, style="bold"))
+        raise typer.Exit(EXIT_VERIFY_FAILED) from None
+    if as_json:
+        print_json({"ok": True, "holdout": hid, "local": local, "checks": checks, "exit_code": EXIT_OK})
+        return
+    con.print(Text("verified ", style="bold green") + Text(f"seal {hid}", style="bold"))
+    if last:
+        con.print(Text(last, style="bold"))
 
 
 # ---------------------------------------------------------------- status
@@ -728,7 +761,7 @@ app.add_typer(evidence_app, name="evidence")
 
 @eval_app.command("reproduce")
 def eval_reproduce(
-    path: Annotated[str, typer.Argument(help="Rebase directory, e.g. rebases/13.")],
+    path: Annotated[str, typer.Argument(help="Rebase directory, e.g. rebases/13, or a sealed holdout, e.g. data/holdout/H-2026-11-02.")],
     asset: AssetOpt = None,
     as_json: JsonOpt = False,
 ) -> None:

@@ -12,6 +12,7 @@ import json
 import shutil
 import subprocess
 import sys
+from datetime import datetime, timedelta
 from functools import cache
 from pathlib import Path
 from types import ModuleType
@@ -168,3 +169,57 @@ def edit_json(path: Path, fn: Any) -> None:
     doc = json.loads(path.read_text())
     out = fn(doc)
     path.write_text(json.dumps(doc if out is None else out, indent=2) + "\n")
+
+
+# ---------------------------------------------------------------- a local asset (the free path, W01d)
+
+LOCAL_HID = "H-2026-11-02"
+LOCAL_N = 1
+
+
+def local_asset(dest: Path, *, rebase: bool = False) -> Path:
+    """An asset built on the free path, in dest/acme (a git repo): roadbed new --synthetic over the acme-2k events,
+    commit, evals build (candidate in dest/vault, store in dest/objects), evals seal, commit. With rebase: stand-in
+    predictions from the holdout's expected outputs (candidate exact, incumbent wrong on every fifth severity),
+    rebase --from-predictions as rebases/1 one minute after the seal, commit. Returns the asset root."""
+    from test_evals_support import FIXTURE
+    from typer.testing import CliRunner
+
+    from roadbed.cli.asset import open_asset
+    from roadbed.cli.main import app
+    from roadbed.cli.rebase import BaseRef
+    from roadbed.cli.rebase import run as rebase_run
+
+    root, cli = dest / "acme", CliRunner()
+    steps = [
+        ["new", str(root), "--model", "claims-triage", "--synthetic", "--slices", str(FIXTURE / "slices.yaml"),
+         "--output-schema", str(FIXTURE / "output.schema.json")],
+        ["evals", "build", "--asset", str(root), "--events", str(FIXTURE), "--as-of", "2026-11-02T09:00:00Z", "--seed", "7",
+         "--holdout-out", str(dest / "vault"), "--objects", str(dest / "objects")],
+        ["evals", "seal", "--asset", str(root), "--candidate", str(dest / "vault"), "--sealed-by", "vik",
+         "--objects", str(dest / "objects")],
+    ]
+    for i, args in enumerate(steps):
+        r = cli.invoke(app, args)
+        assert r.exit_code == 0, r.output
+        if i == 0:
+            git(root, "init", "-q")
+        if i != 1:
+            git(root, "add", "-A")
+            git(root, "commit", "-q", "-m", "asset" if i == 0 else "seal")
+    if rebase:
+        d = root / f"rebases/{LOCAL_N}"
+        d.mkdir(parents=True)
+        hold = [json.loads(x) for x in (root / f"data/holdout/{LOCAL_HID}/holdout.jsonl").read_text().splitlines()]
+        cand = [{"id": h["id"], "output": h["expected"]} for h in hold]
+        inc = [{"id": h["id"], "output": {**h["expected"], "severity": 1 + h["expected"]["severity"] % 5} if i % 5 == 0 else h["expected"]}
+               for i, h in enumerate(hold)]
+        for name, rows in (("candidate", cand), ("incumbent", inc)):
+            (d / f"predictions.{name}.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
+        sealed_at = json.loads((root / f"data/holdout/{LOCAL_HID}/SEAL.json").read_text())["sealed_at"]
+        created = (datetime.fromisoformat(sealed_at.replace("Z", "+00:00")) + timedelta(minutes=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        (d / "rebase.yaml").write_text(f"created_at: '{created}'\n")
+        rebase_run(open_asset(root), d, LOCAL_N, BaseRef("Qwen/Qwen3-8B", license="apache-2.0"), emit=lambda _: None)
+        git(root, "add", "-A")
+        git(root, "commit", "-q", "-m", "rebase 1")
+    return root
