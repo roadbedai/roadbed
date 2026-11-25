@@ -20,7 +20,7 @@ classifiers = [
 requires-python = ">=3.12"
 dependencies = [
     "roadbed>=0.1,<0.2",
-    "pydantic>=2",
+    "pydantic>=2.14.4",
     "httpx>=0.28",  # allow_nan=False when encoding: a NaN row is refused, not sent
     "rfc8785",
 ]
