@@ -414,7 +414,8 @@ def build(
         proof["pairs"][name] = p
 
     # snapshot
-    snap_rows = sorted((_proj(r, SNAPSHOT_FIELDS) for r in train), key=lambda r: (r["row_hash"], r["interaction_id"]))
+    flag = {"synthetic": True} if synthetic else {}  # every row of a synthetic build says so (SPEC.md, rule 9)
+    snap_rows = sorted(({**_proj(r, SNAPSHOT_FIELDS), **flag} for r in train), key=lambda r: (r["row_hash"], r["interaction_id"]))
     _validate_all(snap_rows, "snapshot-row")
     parts = _parts(snap_rows, policy.part_bytes, snap_id)
     manifest: dict[str, Any] = {
@@ -432,7 +433,7 @@ def build(
 
     # holdout candidate and golden
     def eval_row(r: Mapping[str, Any], rid: str) -> dict[str, Any]:
-        return {"id": rid, "slices": r["slices"], "input_ref": r["input_ref"], "expected": r["verdict"], "row_hash": r["row_hash"]}
+        return {"id": rid, "slices": r["slices"], "input_ref": r["input_ref"], "expected": r["verdict"], "row_hash": r["row_hash"], **flag}
 
     hrows = [eval_row(r, r["interaction_id"]) for r in holdout]
     _validate_all(hrows, "holdout-row")
@@ -450,7 +451,7 @@ def build(
         {
             "id": f"CT-{n:04d}", "interaction_id": r["interaction_id"], "input_ref": r["input_ref"], "slices": r["slices"],
             "model_version": r["model_version"], "model_output": r["output"], "expected": r["fix"], "reason_code": r["reason_code"],
-            "created_by": r["actor"] or UNATTRIBUTED, "created_at": r["ts"], "row_hash": r["row_hash"],
+            "created_by": r["actor"] or UNATTRIBUTED, "created_at": r["ts"], "row_hash": r["row_hash"], **flag,
         }
         for n, r in enumerate(visible, policy.ct_start)
     ]
