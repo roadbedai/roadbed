@@ -73,7 +73,7 @@ def test_passes_with_named_skips(asset):
     passed = {c.label for c in r.checks if c.ok}
     assert {"hashes OK", "holdout re-hashed", "seal committed and unchanged", "MinHash object covers the sealed rows",
             "predictions cover the sealed holdout", "scores recomputed: match", "gate recomputed: match",
-            "seal precedes rebase: OK", "seal precedes predictions: git ancestry", "train and holdout disjoint: exact",
+            "seal not after rebase", "seal precedes predictions: git ancestry", "train and holdout disjoint: exact",
             "train and holdout disjoint: near (Jaccard < 0.8)", "bucket objects re-hashed"} <= passed
 
 
@@ -268,7 +268,7 @@ def test_created_in_the_same_second_as_the_seal_passes(asset):
     git(asset, "commit", "-q", "-am", "same second")
     r = _verify(asset)
     assert r.ok, r.failed
-    assert any(c.label == "seal precedes rebase: OK" and "not after" in c.detail for c in r.checks)
+    assert any(c.label == "seal not after rebase" and "not after" in c.detail for c in r.checks)
 
 
 def test_rebase_over_a_local_seal_says_local_not_attested(template):

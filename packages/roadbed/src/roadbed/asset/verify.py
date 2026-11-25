@@ -1253,9 +1253,9 @@ def _local_required(c: _Ctx) -> list[str]:
 def _local_seal_time(c: _Ctx) -> Check:
     """sealed_at not after rebase.yaml created_at. Both are self-declared with seconds precision, so a script that seals
     and rebases in the same second passes; the git ancestry check carries the order."""
-    label = "seal precedes rebase: OK"
+    label = "seal not after rebase"
     if not c.meta or "created_at" not in c.meta:
-        return Check("V-SEAL-AFTER-REBASE", "seal precedes rebase: skipped (no rebase.yaml)", None)
+        return Check("V-SEAL-AFTER-REBASE", f"{label}: skipped (no rebase.yaml)", None)
     sealed, created = _when(seal_time(c.asset)), _when(c.meta["created_at"])
     if sealed > created:
         return Check("V-SEAL-AFTER-REBASE", label, False, f"holdout sealed {sealed.isoformat()} is after rebase created {created.isoformat()}")
