@@ -65,6 +65,8 @@ def seal_holdout(
     if full and (stratification is None or snapshot is None or inputs is None or store is None):
         raise SealError("a full seal needs stratification, snapshot, inputs and a store")
     d = Path(root) / "data" / "holdout" / holdout_id
+    if any(p.is_symlink() for p in (d, d.parent, d.parent.parent)):
+        raise SealError(f"data/holdout/{holdout_id} or a directory above it is a symlink: an asset holds plain files only")
     if (d / SEAL).exists() or (d / HOLDOUT).exists():
         raise SealError(f"{holdout_id} is already sealed: a seal is written once")
     out = [dict(r) for r in rows]

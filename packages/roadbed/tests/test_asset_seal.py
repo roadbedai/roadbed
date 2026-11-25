@@ -130,3 +130,14 @@ def test_seal_line_names_a_local_seal():
     assert "audit seq 1,204" in seal_line(Seal.model_validate(doc))
     local = {**{k: v for k, v in doc.items() if k != "audit_seq"}, "provenance": "local"}
     assert "local seal, no audit seq" in seal_line(Seal.model_validate(local))
+
+
+def test_a_symlinked_holdout_dir_is_refused_and_nothing_is_written_through_it(tmp_path):
+    rows, inputs = _source()
+    victim = tmp_path / "victim"
+    victim.mkdir()
+    (tmp_path / "asset/data/holdout").mkdir(parents=True)
+    (tmp_path / "asset/data/holdout/H-2026-11-01").symlink_to(victim)
+    with pytest.raises(SealError, match="symlink"):
+        _seal(tmp_path / "asset", rows, inputs, ObjectStore(tmp_path / "b"))
+    assert list(victim.iterdir()) == []

@@ -398,7 +398,7 @@ def verify(
 
     try:
         p = Path(path)
-        a = open_asset(asset.resolve() if asset else find_root(p.resolve() if p.is_dir() else Path.cwd()))
+        a = open_asset(asset.resolve() if asset else find_root(p.resolve() if p.is_dir() else Path.cwd()), plain_files=False)
         if _seal_dir(a.root, p):
             _verify_seal(a, a.root / "data" / "holdout" / Path(os.path.normpath(p)).name, on_check, checks, objects, strict, as_json, con)
             return

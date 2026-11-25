@@ -74,3 +74,17 @@ def test_load_scorers():
         **SCORERS.model_dump(exclude_none=True),
         "synthetic": True,
     }
+
+
+@pytest.mark.parametrize("write", [lambda p: io.write_yaml(p, {"a": 1}), lambda p: io.write_jsonl(p, [{"a": 1}])])
+def test_writers_refuse_a_symlinked_target(tmp_path, write):
+    victim = tmp_path / "victim"
+    victim.write_text("keep\n")
+    (tmp_path / "link").symlink_to(victim)
+    (tmp_path / "dangling").symlink_to(tmp_path / "nowhere")
+    for name in ("link", "dangling"):
+        with pytest.raises(ValueError, match="symlink"):
+            write(tmp_path / name)
+    assert victim.read_text() == "keep\n" and not (tmp_path / "nowhere").exists()
+    write(tmp_path / "plain")
+    assert (tmp_path / "plain").read_text().strip()

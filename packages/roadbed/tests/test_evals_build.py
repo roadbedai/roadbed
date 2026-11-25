@@ -365,3 +365,14 @@ def test_a_real_build_writes_no_row_flag(resolved, tmp_path):
     write_candidate(b.holdout_candidate, tmp_path / "vik")
     for name, rs in _written_rows(tmp_path / "asset", tmp_path / "vik").items():
         assert rs and not any("synthetic" in r for r in rs), name
+
+
+@pytest.mark.parametrize("name", ["golden.jsonl", "correction_tests.jsonl", "seen.jsonl"])
+def test_write_never_follows_a_symlinked_eval_file(out, tmp_path, name):
+    victim = tmp_path / "victim.txt"
+    victim.write_text("")  # an empty file reads as no rows, so only the write can trip
+    (tmp_path / "a/evals").mkdir(parents=True)
+    (tmp_path / "a/evals" / name).symlink_to(victim if name != "correction_tests.jsonl" else tmp_path / "dangling")
+    with pytest.raises(ValueError, match="symlink"):
+        out.write(tmp_path / "a")
+    assert victim.read_text() == "" and not (tmp_path / "dangling").exists()

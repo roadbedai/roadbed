@@ -1422,7 +1422,7 @@ def verify(
         raise ValueError(f"rebase directory must be named by its number, e.g. rebases/13 (got {d.name})")
     n = int(d.name)
     try:
-        asset = open_asset(root)
+        asset = open_asset(root, plain_files=False)
     except (jsonschema.ValidationError, PydanticError) as e:
         # roadbed.yaml or a policy file it names does not conform; the asset cannot be read further.
         msg = e.message if isinstance(e, jsonschema.ValidationError) else str(e).splitlines()[0]

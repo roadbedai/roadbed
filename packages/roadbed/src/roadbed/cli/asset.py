@@ -55,8 +55,23 @@ def find_root(start: Path) -> Path:
     raise AssetError(f"no roadbed.yaml in {start} or its parents; run inside an asset repo or pass --asset")
 
 
-def open_asset(root: Path) -> Asset:
+def refuse_symlinks(root: Path) -> None:
+    """Raise AssetError naming the first symlink among the asset's files and the directories on their paths."""
+    from roadbed.asset.files import tree_files  # roadbed.asset imports this module (verify)
+
+    for rel in tree_files(root):
+        parts = rel.split("/")
+        for i in range(1, len(parts) + 1):
+            if (root.joinpath(*parts[:i])).is_symlink():
+                raise AssetError(f"{'/'.join(parts[:i])} is a symlink: an asset holds plain files only")
+
+
+def open_asset(root: Path, *, plain_files: bool = True) -> Asset:
+    """Load the asset at root. plain_files=False skips the symlink refusal; only verify passes it, as verify reports
+    a symlink itself (V-PATH-UNSAFE, seal mode)."""
     root = root.resolve()
+    if plain_files:
+        refuse_symlinks(root)
     if not (root / "roadbed.yaml").is_file():
         raise AssetError(f"no roadbed.yaml in {root}")
     cfg = load_asset(root)

@@ -46,6 +46,7 @@ from roadbed.asset import AssetValidationError, ObjectStore, merkle_root, seal_h
 from roadbed.asset.hashing import jcs_sha256, row_hash, sha256_bytes
 from roadbed.contracts import GatePolicy, Slices
 from roadbed.evals.split import draw, max_share_gap
+from roadbed.io import write_nofollow
 from roadbed.labels.rules import LABEL_RULES_V1, LabelRules, check_pinned
 
 SNAPSHOT_FIELDS = ("interaction_id", "input_ref", "output", "verdict", "reason_code", "outcome", "ts", "slices", "row_hash")
@@ -580,15 +581,17 @@ def _write(b: EvalBuild, root: Path, snapshots_dir: str, store: ObjectStore | No
     (d / "build.json").write_text(json.dumps({"report": b.report, "proof": b.proof}, indent=2) + "\n", encoding="utf-8")
     written += [f"{snap_rel}/MANIFEST.json", f"{snap_rel}/build.json"]
     ev = root / "evals"
+    if ev.is_symlink():
+        raise ValueError("evals is a symlink: an asset holds plain files only")
     ev.mkdir(exist_ok=True)
-    (ev / "golden.jsonl").write_bytes(_jsonl(b.golden))
-    (ev / "correction_tests.jsonl").write_bytes(_jsonl(b.correction_tests))
+    write_nofollow(ev / "golden.jsonl", _jsonl(b.golden))
+    write_nofollow(ev / "correction_tests.jsonl", _jsonl(b.correction_tests))
     # rule 7: append this build's eval rows to the record; rows already there keep their first_seen
     have = {(r["interaction_id"], r["input_ref"], r["row_hash"]) for r in seen}
     new = sorted({(r.get("interaction_id") or r["id"], r["input_ref"], r["row_hash"]) for r in [*b.golden, *b.correction_tests]} - have)
     record = [{**r, "first_seen": r["first_seen"] or b.snapshot.id} for r in seen]
     record += [dict(zip(SEEN_FIELDS, (*k, b.snapshot.id))) for k in new]
-    (root / SEEN).write_bytes(_jsonl(record))
+    write_nofollow(root / SEEN, _jsonl(record))
     written += ["evals/golden.jsonl", "evals/correction_tests.jsonl", SEEN]
     if b.report["synthetic"]:
         for x in (d, ev):
