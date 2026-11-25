@@ -59,7 +59,7 @@ info:
     version: roadbed/v0.1
     source: roadbedai/roadbed spec/schemas/v0.1
     commit: 14baa6e26287a8a2cebfcafb650d5759ad26dccd
-    schemas_sha256: 14801afa15b4bc66173a1f748ea832305f85bff9776b671aeae26bd2c291147d
+    schemas_sha256: b0a957244c696e16e1754becea7213f1cf122e8b2c33216f5658d6dec6253694
 servers:
 - url: /
 tags:
@@ -2771,11 +2771,13 @@ components:
           type: number
         num_perm:
           description: MinHash permutations.
+          maximum: 4096
           minimum: 16
           title: Num Perm
           type: integer
         shingle:
           description: Word shingle size.
+          maximum: 64
           minimum: 1
           title: Shingle
           type: integer
@@ -3529,6 +3531,7 @@ components:
           type: number
         n_boot:
           description: Bootstrap resamples.
+          maximum: 1000000
           minimum: 100
           title: N Boot
           type: integer

@@ -280,3 +280,21 @@ def test_conformance_has_the_w01d_cases():
                 "invalid/seal/local-day0.json", "invalid/seal/bad-provenance.json", "invalid/seal/missing-audit-seq.json",
                 "invalid/seal/control-plane-without-audit-seq.json"):
         assert (CONFORMANCE / rel).is_file(), rel
+
+
+@pytest.mark.parametrize("path,limit", [(("n_boot",), 1_000_000), (("contamination", "num_perm"), 4096),
+                                        (("contamination", "shingle"), 64)])
+def test_gate_policy_schema_refuses_a_value_over_its_upper_bound(path, limit):
+    published = json.loads((SCHEMA_DIR / "gate-policy.schema.json").read_text())
+    doc = json.loads(json.dumps(io.read_yaml(SPEC_DIR / "examples/pass/policy/gate.yaml")))
+    node = doc
+    for k in path[:-1]:
+        node = node[k]
+    node[path[-1]] = limit
+    jsonschema.validate(doc, published)
+    SCHEMA_MODELS["gate-policy"].model_validate(doc)
+    node[path[-1]] = limit + 1
+    with pytest.raises(jsonschema.ValidationError, match="maximum"):
+        jsonschema.validate(doc, published)
+    with pytest.raises(ValueError):
+        SCHEMA_MODELS["gate-policy"].model_validate(doc)
