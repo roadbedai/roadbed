@@ -6,6 +6,7 @@ Exit codes: 0 ok, 2 usage or bad local input, 3 remote error, 4 a check failed (
 from __future__ import annotations
 
 import json
+import os
 import re
 from pathlib import Path
 from typing import Annotated, Any
@@ -398,11 +399,8 @@ def verify(
     try:
         p = Path(path)
         a = open_asset(asset.resolve() if asset else find_root(p.resolve() if p.is_dir() else Path.cwd()))
-        hdir = p if p.is_absolute() else a.root / p
-        if not hdir.is_dir() and p.is_dir():
-            hdir = p.resolve()
-        if hdir.resolve().parent == (a.root / "data" / "holdout").resolve():  # seal mode only for data/holdout/<id>
-            _verify_seal(a, hdir.resolve(), on_check, checks, objects, strict, as_json, con)
+        if _seal_dir(a.root, p):
+            _verify_seal(a, a.root / "data" / "holdout" / Path(os.path.normpath(p)).name, on_check, checks, objects, strict, as_json, con)
             return
         _need_holdout(a.cfg)
         d, n = rebase_dir(a.root, path)
@@ -437,6 +435,19 @@ def verify(
     else:
         con.print(Text("verified ", style="bold green") + Text(f"rebase #{n}", style="bold"))
         mock_line()
+
+
+def _seal_dir(root: Path, p: Path) -> bool:
+    """Seal mode only for <root>/data/holdout/<id> on the lexical path (no symlink resolved), with no symlink at the
+    holdout dir or any component below the root. Every other path is a rebase directory."""
+    if not p.is_absolute() and (root / p).exists():
+        parts: tuple[str, ...] | None = Path(os.path.normpath(p)).parts
+    else:
+        lex = Path(os.path.normpath(p if p.is_absolute() else Path.cwd() / p))
+        parts = next((lex.parts[k:] for k in range(len(lex.parts), 0, -1) if Path(*lex.parts[:k]).resolve() == root), None)
+    if parts is None or len(parts) != 3 or parts[:2] != ("data", "holdout"):
+        return False
+    return root.joinpath(*parts).is_dir() and not any(os.path.islink(root.joinpath(*parts[: i + 1])) for i in range(3))
 
 
 def _verify_seal(a: Any, hdir: Path, on_check: Any, checks: list[dict[str, Any]], objects: Path | None, strict: bool, as_json: bool,

@@ -14,7 +14,7 @@ from roadbed.asset.overlap import minhash_object, parse_minhash_object
 from roadbed.asset.verify import run_seal
 from roadbed.cli.asset import open_asset
 from roadbed.cli.main import app
-from test_asset_support import LOCAL_HID, bucket, clone, copy, edit_json, local_asset
+from test_asset_support import LOCAL_HID, bucket, clone, copy, edit_json, git, local_asset
 
 cli = CliRunner()
 HDIR = f"data/holdout/{LOCAL_HID}"
@@ -203,3 +203,32 @@ def test_seal_mode_refuses_flagged_rows_in_a_real_asset(asset):
     y.write_text(y.read_text().replace("synthetic: true", "synthetic: false"))
     _, failed = _run(asset)
     assert failed is not None and failed.code == "V-SYNTHETIC-FLAG" and "roadbed.yaml does not" in failed.detail
+
+
+REBASE_FILES = ("scores.json", "gate.json", "rebase.yaml", "predictions.candidate.jsonl", "predictions.incumbent.jsonl",
+                "MANIFEST.sha256", "report.md")
+
+
+@pytest.fixture(scope="module")
+def rebased(tmp_path_factory) -> Path:
+    return local_asset(tmp_path_factory.mktemp("rebased"), rebase=True)
+
+
+def test_a_symlinked_rebase_dir_never_reaches_seal_mode(rebased, tmp_path):
+    """Rebase files with +20 on the score inside the holdout dir, and a committed symlink rebases/2 to it."""
+    shutil.copytree(rebased.parent / "objects", tmp_path / "objects")
+    root = Path(shutil.copytree(rebased, tmp_path / "acme", symlinks=True))
+    for f in REBASE_FILES:
+        shutil.copy(root / "rebases/1" / f, root / HDIR / f)
+    edit_json(root / HDIR / "scores.json", lambda s: s["overall"].update(candidate=s["overall"]["candidate"] + 20))
+    (root / "rebases/2").symlink_to(f"../{HDIR}")
+    git(root, "add", "-A")
+    git(root, "commit", "-q", "-m", "rebase 2")
+    r = cli.invoke(app, ["verify", "rebases/2", "--asset", str(root), "--objects", str(tmp_path / "objects"), "--strict"])
+    assert r.exit_code != 0 and "verified" not in r.output, r.output
+
+
+def test_a_symlinked_holdout_dir_is_not_seal_mode(asset):
+    (asset / "data/holdout/H-link").symlink_to(LOCAL_HID)
+    r = cli.invoke(app, ["verify", "data/holdout/H-link", "--asset", str(asset), "--objects", str(asset.parent / "objects")])
+    assert r.exit_code == 2 and "verified" not in r.output and "rebase directory must be named by its number" in r.output, r.output
