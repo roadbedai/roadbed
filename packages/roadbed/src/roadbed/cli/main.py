@@ -18,7 +18,7 @@ from rich.text import Text
 
 from roadbed import __version__
 from roadbed import watch as hub_watch
-from roadbed.asset.verify import is_local, run_seal
+from roadbed.asset.verify import _try_doc, is_local, run_seal
 from roadbed.cli import audit as audit_mod
 from roadbed.cli import config as config_mod
 from roadbed.cli import evidence as evidence_mod
@@ -444,7 +444,7 @@ def _verify_seal(a: Any, hdir: Path, on_check: Any, checks: list[dict[str, Any]]
     """roadbed verify data/holdout/<id>: the checks of one sealed holdout (roadbed.asset.verify.run_seal)."""
     if not hdir.is_relative_to(a.root):
         raise ValueError(f"{hdir} is not inside the asset {a.root}")
-    doc = json.loads((hdir / "SEAL.json").read_text(encoding="utf-8"))
+    doc = _try_doc(hdir / "SEAL.json") or {}  # unreadable or missing: run_seal reports it
     hid, local = doc.get("id"), doc.get("provenance") == "local"
     last = f"LOCAL seal: sealed by {doc.get('sealed_by')}; no audit chain; no role enforcement" if local else None
     try:

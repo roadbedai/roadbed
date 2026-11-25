@@ -163,3 +163,15 @@ def test_seal_mode_only_under_data_holdout(asset, tmp_path):
     shutil.copytree(asset / HDIR, other)
     r = cli.invoke(app, ["verify", "evals/H-copy", "--asset", str(asset)])
     assert r.exit_code == 2 and "verified seal" not in r.output
+
+
+@pytest.mark.parametrize("damage,code", [("corrupt", "V-SCHEMA-INVALID"), ("missing", "V-HASH-MISSING")])
+def test_cli_bad_seal_file_exits_4_and_names_it(asset, damage, code):
+    f = asset / HDIR / "SEAL.json"
+    if damage == "corrupt":
+        f.write_text('{"id": "H-2026-11-02",')
+    else:
+        f.unlink()
+    r = cli.invoke(app, ["verify", HDIR, "--asset", str(asset), "--json"])
+    o = json.loads(r.output)
+    assert r.exit_code == 4 and o["failed"] == code and f"{HDIR}/SEAL.json" in o["detail"]
