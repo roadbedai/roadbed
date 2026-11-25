@@ -16,7 +16,6 @@ $ roadbed [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
-* `new`: Create a new asset repo: roadbed.yaml, the...
 * `sample`: Copy a synthetic sample event stream into...
 * `watch`: Report new Hugging Face Hub bases matching...
 * `rebase`: Start a rebase on the control plane and...
@@ -31,33 +30,6 @@ $ roadbed [OPTIONS] COMMAND [ARGS]...
 * `audit`: Audit log commands.
 * `evidence`: Evidence pack commands.
 
-## `roadbed new`
-
-Create a new asset repo: roadbed.yaml, the gate and license policies, slices, scorers and the output schema.
-
-**Usage**:
-
-```console
-$ roadbed new [OPTIONS] {path}
-```
-
-**Arguments**:
-
-* `path`: Directory to create. It must not exist.  [required]
-
-**Options**:
-
-* `--model <str>`: Name of the fine-tuned model this asset governs.  [required]
-* `--slices <path>`: Slice keys and values (slices.yaml) to copy into evals/.  [required]
-* `--output-schema <path>`: JSON Schema of one model output, copied into evals/.  [required]
-* `--synthetic`: Mark every file synthetic: true and write SYNTHETIC.md.
-* `--tenant <str>`: Display name of the tenant.  [default: unset]
-* `--base <str>`: Hugging Face repo of the base model.  [default: unset]
-* `--margin <float>`: Most negative allowed slice delta, in score points.  [default: -2.0]
-* `--min-n <int range>`: Slices with fewer rows never block.  [default: 30; x&gt;=1]
-* `--json`: Print one JSON object instead of text.
-* `--help`: Show this message and exit.
-
 ## `roadbed sample`
 
 Copy a synthetic sample event stream into a new directory. No network, no model.
@@ -70,8 +42,8 @@ $ roadbed sample [OPTIONS] [name] [dest]
 
 **Arguments**:
 
-* `name`: Sample name, for example acme-2k.
-* `dest`: New directory to copy the sample into.
+* `name <str>`: Sample name, for example acme-2k.
+* `dest <path>`: New directory to copy the sample into.
 
 **Options**:
 
@@ -116,7 +88,7 @@ $ roadbed rebase [OPTIONS] {model}
 
 **Arguments**:
 
-* `model`: Model name; must match roadbed.yaml in local mode.  [required]
+* `model <str>`: Model name; must match roadbed.yaml in local mode.  [required]
 
 **Options**:
 
@@ -135,8 +107,7 @@ $ roadbed rebase [OPTIONS] {model}
 
 Offline check: re-hash files, re-validate schemas, check signatures, seal order and disjointness, recompute every score.
 
-A holdout directory gets the seal checks only. Without --trust-key, the key ids in config trust_keys (if any) are
-the trusted keys.
+Without --trust-key, the key ids in config trust_keys (if any) are the trusted keys.
 
 **Usage**:
 
@@ -146,7 +117,7 @@ $ roadbed verify [OPTIONS] {path}
 
 **Arguments**:
 
-* `path`: Rebase directory, e.g. rebases/13, or a sealed holdout, e.g. data/holdout/H-2026-11-02.  [required]
+* `path <str>`: Rebase directory, e.g. rebases/13.  [required]
 
 **Options**:
 
@@ -154,7 +125,7 @@ $ roadbed verify [OPTIONS] {path}
 * `--json`: Print one JSON object instead of text.
 * `--objects <path>`: Local copy of the bucket (objects/sha256/ab/cd/&lt;oid&gt;).
 * `--strict`: Fail on every skipped check; require the closed schemas.
-* `--trust-key <str>`: Key id (sha256 of the raw ed25519 key) to accept. Repeatable.
+* `--trust-key <list[str]>`: Key id (sha256 of the raw ed25519 key) to accept. Repeatable.
 * `--help`: Show this message and exit.
 
 ## `roadbed status`
@@ -190,7 +161,7 @@ $ roadbed init [OPTIONS]
 
 * `--url <str>`: Control plane URL (https; http only for localhost).  [required]
 * `--token-file <str>`: File that holds the API token (chmod 600).
-* `--trust-key <str>`: Key id verify accepts. Repeatable.
+* `--trust-key <list[str]>`: Key id verify accepts. Repeatable.
 * `--force`: Overwrite an existing config.
 * `--check`: Then call GET /v1/models to test the url and token.
 * `--json`: Print one JSON object instead of text.
@@ -211,7 +182,7 @@ $ roadbed seal [OPTIONS]
 * `--snapshot <str>`: Snapshot to draw from, e.g. S-2026-10-31.  [required]
 * `--rows <int range>`: Holdout rows.  [x&gt;=1; required]
 * `--seed <int range>`: Sampling seed.  [x&gt;=0; required]
-* `--by <str>`: Slice key to stratify on. Repeatable.  [required]
+* `--by <list[str]>`: Slice key to stratify on. Repeatable.  [required]
 * `--method <str>`: proportional or equal.  [default: proportional]
 * `--model <str>`: Model (default: roadbed.yaml model).
 * `--asset <path>`: Asset repo root (default: search up from cwd).
@@ -231,7 +202,7 @@ $ roadbed promote [OPTIONS] {REBASE}
 
 **Arguments**:
 
-* `REBASE`: Rebase number whose candidate becomes the alias version.  [required]
+* `REBASE <int>`: Rebase number whose candidate becomes the alias version.  [required]
 
 **Options**:
 
@@ -278,7 +249,6 @@ $ roadbed evals [OPTIONS] COMMAND [ARGS]...
 **Commands**:
 
 * `build`: Resolve labels (label_rules@v1) and build...
-* `seal`: Seal the holdout candidate locally: write...
 
 ### `roadbed evals build`
 
@@ -297,31 +267,10 @@ $ roadbed evals build [OPTIONS]
 * `--seed <int>`: Sampling seed for the holdout and golden draw (recorded).  [default: 0]
 * `--asset <path>`: Asset repo root (default: search up from cwd).
 * `--holdout-out <path>`: Validator directory for the holdout candidate (outside the asset).
-* `--objects <path>`: Local bucket; snapshot parts and raw training inputs are also stored there.
+* `--objects <path>`: Local bucket; snapshot parts are also stored there.
 * `--suffix <str>`: Snapshot id suffix: S-&lt;date&gt;-&lt;suffix&gt;.
 * `--parent <str>`: Snapshot this one replaces.
 * `--created-at <str>`: Snapshot created_at (default: now, UTC).
-* `--json`: Print one JSON object instead of text.
-* `--help`: Show this message and exit.
-
-### `roadbed evals seal`
-
-Seal the holdout candidate locally: write holdout.jsonl and SEAL.json, put the MinHash object in --objects,
-and point roadbed.yaml at the holdout. A local seal names a person and has no audit seq. It runs no git.
-
-**Usage**:
-
-```console
-$ roadbed evals seal [OPTIONS]
-```
-
-**Options**:
-
-* `--candidate <path>`: Directory that evals build --holdout-out wrote.  [required]
-* `--sealed-by <str>`: User id of the person who seals (lowercase, no email).  [required]
-* `--objects <path>`: Local bucket for the MinHash object (outside the asset).  [required]
-* `--id <str>`: Holdout id (default: H-&lt;snapshot date&gt;).
-* `--asset <path>`: Asset repo root (default: search up from cwd).
 * `--json`: Print one JSON object instead of text.
 * `--help`: Show this message and exit.
 
@@ -355,7 +304,7 @@ $ roadbed eval reproduce [OPTIONS] {path}
 
 **Arguments**:
 
-* `path`: Rebase directory, e.g. rebases/13.  [required]
+* `path <str>`: Rebase directory, e.g. rebases/13.  [required]
 
 **Options**:
 
@@ -394,7 +343,7 @@ $ roadbed audit verify [OPTIONS]
 **Options**:
 
 * `--export <path>`: Audit export (GET /v1/audit/export.jsonl), one event per line.  [required]
-* `--anchor <path>`: audit/anchors/&lt;date&gt;.json to check the head against. Repeatable.
+* `--anchor <list[Path]>`: audit/anchors/&lt;date&gt;.json to check the head against. Repeatable.
 * `--strict`: Fail on every skipped check.
 * `--json`: Print one JSON object instead of text.
 * `--help`: Show this message and exit.
@@ -429,11 +378,11 @@ $ roadbed evidence verify [OPTIONS] {path}
 
 **Arguments**:
 
-* `path`: rebases/N/evidence (or rebases/N).  [required]
+* `path <path>`: rebases/N/evidence (or rebases/N).  [required]
 
 **Options**:
 
 * `--asset <path>`: Asset repo root (default: search up from cwd).
-* `--trust-key <str>`: Key id to accept. Repeatable. Default: config trust_keys.
+* `--trust-key <list[str]>`: Key id to accept. Repeatable. Default: config trust_keys.
 * `--json`: Print one JSON object instead of text.
 * `--help`: Show this message and exit.
