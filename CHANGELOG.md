@@ -42,6 +42,7 @@ The versions follow [Semantic Versioning](https://semver.org/). See [docs/VERSIO
 
 - The near-duplicate check no longer passes on inputs that the SDK tokenised (`text="tokenize"`). `roadbed evals build` warns and writes `near_check: not_applicable_tokenised` in `build.json`. `roadbed verify` reports the near check as a named skip, so `--strict` fails.
 - The quickstart in the READMEs runs as written. The sealer is `vik`, not `<you>`, which the shell read as a redirect. The quickstart test runs the README commands verbatim.
+- The free path in the `roadbed` package README has the `cd`, `git init` and commit steps, so it runs.
 
 ### Removed
 

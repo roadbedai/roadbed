@@ -51,3 +51,12 @@ def test_quickstart(tmp_path, record_property):
     record_property("quickstart_seconds", round(elapsed, 1))
     print(f"\nquickstart: {len(commands)} commands, {elapsed:.1f} s wall time (install excluded)")
     assert elapsed < MAX_SECONDS
+
+
+def test_package_readme_free_path_is_the_root_quickstart():
+    """packages/roadbed/README.md (the PyPI page) shows the same commands as the tested root quickstart, up to verify."""
+    text = (README.parent / "packages" / "roadbed" / "README.md").read_text(encoding="utf-8")
+    m = re.search(r"^## Free path[^\n]*\n.*?^```[^\n]*\n(.*?)^```", text, re.S | re.M)
+    assert m, "packages/roadbed/README.md has no fenced block under a Free path heading"
+    free = [ln.strip() for ln in m.group(1).splitlines() if ln.strip()]
+    assert free == quickstart_commands()[:len(free)] and free[-1].startswith("roadbed verify data/holdout/"), free
