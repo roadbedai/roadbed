@@ -27,7 +27,7 @@ dependencies = [
     "rich",
     "httpx",
     "rfc8785",
-    "cryptography>=43",
+    "cryptography>=50.0.2",
     "duckdb>=2.0.0",
 ]
 
