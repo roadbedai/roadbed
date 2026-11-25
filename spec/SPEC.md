@@ -12,7 +12,7 @@ Their git histories are `examples/pass.bundle` and `examples/blocked.bundle` (`g
 The Day 0 example `examples/claims-triage/` stays as the minimal asset.
 Valid and invalid cases for every schema, and hashing test vectors, are in `conformance/`.
 
-A contract change is a pull request to this directory that the founder approves.
+A change to the format is a pull request to spec/. A maintainer approves it. See CONTRIBUTING.md.
 
 ## Glossary
 
@@ -91,7 +91,7 @@ A contract change is a pull request to this directory that the founder approves.
 | `rebases/N/roadbed.yaml.proposed` | `roadbed` | Optional (Day 0). The base bump the PR applies after sign-off. |
 | `rebases/N/MANIFEST.sha256`, `rebases/N/evidence/MANIFEST.sha256` | `evidence-manifest` (parsed) | `sha256sum` style list of files. See "Manifests". |
 | `rebases/N/evidence/approvals.json` | `approvals` | Sign-off status ("awaiting MRM sign-off"), required roles, approvals, pack version. |
-| `rebases/N/evidence/evidence.{md,html,pdf}` | (text, HTML, PDF) | Rendered evidence pack. Made by W18. Optional: see "Manifests". |
+| `rebases/N/evidence/evidence.{md,html,pdf}` | (text, HTML, PDF) | Rendered evidence pack. Made by the platform. Optional: see "Manifests". |
 | `findings/F-NNNN.yaml` | `finding` | Logged findings. Ids are F-0001, F-0002, ... in order. |
 | `lineage/edges.jsonl` | `lineage-edge` | Append-only lineage graph. |
 | `audit/anchors/<date>.json` | `audit-anchor` | Daily head of the audit hash chain. |
@@ -112,9 +112,9 @@ Schemas for API bodies and runner messages (not asset files) are in the same dir
 - **W01d relaxations.** W01d relaxes two required fields: `SEAL.json` `audit_seq` is required unless `provenance` is `local`, and `roadbed.yaml` `data.holdout` is optional until a holdout is sealed. Every v0.1 file stays valid. A reader older than W01d refuses a local seal or an unsealed `roadbed.yaml` with a schema error. See [CHANGELOG.md](../CHANGELOG.md).
 - **v0.2.** A change that is not additive is v0.2. It is signalled by `spec: roadbed/v0.2` in `roadbed.yaml` and in each file that has a marker, and by a new schema directory `schemas/v0.2/`. A v0.2 reader accepts both markers (its models type `spec` as `roadbed/v0.1 | roadbed/v0.2`) and reads v0.1 assets as they are. A v0.1 reader refuses a v0.2 marker with a clear error. Breaking changes after v0.x need a migration command.
 
-## Rules from the plan
+## Core rules
 
-These sentences are the frozen rules. The sections below make them exact.
+These rules are fixed for v0.1. The sections below make them exact.
 
 > Rules: sha256 over raw bytes for files, `sha256(JCS(obj))` for JSON, row hash over `{interaction_id, input_ref, output, verdict, reason_code, outcome, ts}`, dataset identity is the Merkle root of sorted row hashes. Files over 1 MB live in the bucket as `objects/sha256/ab/cd/<oid>` with a pointer in git. A rebase is valid only if the seal precedes training three ways (audit seq, timestamp, git ancestry) and train and holdout share no row hash and no MinHash Jaccard ≥ 0.8. Audit, lineage, receipts and evidence hold ids, HMAC tokens, hashes and aggregates, never personal data. Deletion is a tombstone plus a new snapshot plus an `erased_from` edge. `roadbed verify <rebase>` re-hashes, re-validates, checks signatures, seal order and disjointness, and recomputes `scores.json` from the two predictions files with the stored seed; exit 4 names the failed check.
 
@@ -143,7 +143,7 @@ A `MANIFEST.sha256` is text: one line per file, `<sha256>  <path>` (two spaces),
 - `rebases/N/MANIFEST.sha256` lists every file under `rebases/N/` except itself and the `evidence/` directory, plus the holdout file, plus the bound files: the holdout `SEAL.json`, the training snapshot `MANIFEST.json` (`<data.verdicts>/<date>/MANIFEST.json` for snapshot `S-<date>`) and the recipe file. So the signed evidence manifest covers the seal.
 - **Day 0 rule.** A rebase without `receipt.json` (spec v0.1, Day 0) needs only the files its manifest lists. A rebase with `receipt.json` must list every bound file that exists, or verify fails with `V-MANIFEST-INCOMPLETE`.
 - `rebases/N/evidence/MANIFEST.sha256` lists every file under `evidence/` except the manifest and its signature, plus `rebases/N/MANIFEST.sha256`. So it covers the whole rebase. Each new approval writes a new `approvals.json`, a new evidence manifest and a new signature (a new pack version). The rebase manifest does not change.
-- **Approvals-only evidence.** The rendered pack (`evidence.md`, `evidence.html`, `evidence.pdf`) is optional for a Day 0 asset. An `evidence/` directory that holds only `approvals.json`, `MANIFEST.sha256` and `MANIFEST.sig` is valid when its manifest lists no rendered file. The fixtures in `spec/examples` carry this form: no W18 renderer ran. `roadbed verify` then says "approvals only, no rendered evidence pack", and an evidence verifier (W18) checks the approvals, the manifest and the signature and does not ask for the rendered files. When the manifest lists one rendered file, the full W18 pack rules apply.
+- **Approvals-only evidence.** The rendered pack (`evidence.md`, `evidence.html`, `evidence.pdf`) is optional for a Day 0 asset. An `evidence/` directory that holds only `approvals.json`, `MANIFEST.sha256` and `MANIFEST.sig` is valid when its manifest lists no rendered file. The fixtures in `spec/examples` carry this form: no renderer ran. `roadbed verify` then says "approvals only, no rendered evidence pack", and an evidence verifier checks the approvals, the manifest and the signature and does not ask for the rendered files. When the manifest lists one rendered file, the full pack rules apply.
 
 ## Signatures and receipts
 
@@ -375,7 +375,7 @@ A full rebase gets every check below. Without git history or `--objects`, the gi
 - **One role per actor.** `evidence/approvals.json` keys `approvals` by actor id and holds each actor's latest decision. One actor holds one role, so the validator and the approver differ (SoD-03) by construction.
 - **History.** `history` is append-only and keeps every decision (a reject, then an approve). `approvals[actor]` is the actor's latest entry in `history`.
 - **Role and decision.** A validator records `validated`, `validated_with_findings` or `rejected`. An approver records `approved` or `rejected`. Schema and model enforce this.
-- **SoD-02.** The requester does not approve. This needs `rebase.yaml` too, so the control plane (W11) and verify check it.
+- **SoD-02.** The requester does not approve. This needs `rebase.yaml` too, so the control plane and verify check it.
 
 ## Runner jobs and bucket I/O
 
@@ -389,22 +389,21 @@ A full rebase gets every check below. Without git history or `--objects`, the gi
 - **Outputs.** The runner writes each output content-addressed to the same bucket, then posts a `JobResult` that names each one (`artifacts`: name, oid, size) plus the signed receipt. The control plane records the oids and writes the asset files (predictions, `model.json`, receipt) from them. The runner never writes to git.
 - **Credentials.** `storage.credentials` names a credential the runner already holds. A job never carries a secret.
 - **SoD-05 and the runner.** The runner service identity is the only non-validator that reads holdout rows, and only for eval jobs. Each read is audited with role `runner`.
-- **Leases.** `GET /v1/jobs/next` returns a `JobLease` (job, `lease_id`, `attempt`, `max_attempts`, `lease_until`, `audit_seq`, `prev_receipt`). `audit_seq` is the audit seq of the job start event and `prev_receipt` is `sha256(JCS(previous receipt.json))` in the asset (null for the first). The runner copies both into the receipt predicate. They are optional in the schema only for compatibility (additive change); the control plane always sends them. Heartbeat and status extend the lease and return `LeaseState`, which carries `cancel_requested`. An expired lease re-queues the job with `attempt + 1`; after `max_attempts` the job fails. A status or result with a stale lease or another attempt gets 409. The control plane README has the state machine.
+- **Leases.** `GET /v1/jobs/next` returns a `JobLease` (job, `lease_id`, `attempt`, `max_attempts`, `lease_until`, `audit_seq`, `prev_receipt`). `audit_seq` is the audit seq of the job start event and `prev_receipt` is `sha256(JCS(previous receipt.json))` in the asset (null for the first). The runner copies both into the receipt predicate. They are optional in the schema only for compatibility (additive change); the control plane always sends them. Heartbeat and status extend the lease and return `LeaseState`, which carries `cancel_requested`. An expired lease re-queues the job with `attempt + 1`; after `max_attempts` the job fails. A status or result with a stale lease or another attempt gets 409.
 - **Executor protocol.** `roadbed.contracts.Executor` is an async Protocol: `submit`, `status`, `result` (raises `JobNotFinished` while queued or running), `cancel` (a no-op on a finished job). The control plane implements it: `runner` is an adapter over the lease queue, and `mock` and `replay` run in process. `hf-jobs` and `together` are stubs. The GPU box only speaks HTTP.
 
-## Status
+## Amendments
 
-This section changes as the build goes on. The rules above do not.
+The format `roadbed/v0.1` has these amendments. Each one is additive, except the two W01d relaxations (see "Compatibility within v0.x"). Day 0 is the format before W01: scoring, the gate and the Day 0 verify checks. [CHANGELOG.md](../CHANGELOG.md) lists the changes of each release.
 
-| Package | What it implements |
+| Id | What it adds |
 |---|---|
-| Day 0 | Engine and CLI: scoring, paired bootstrap, gate, `roadbed verify` (manifest hashes, `scores.json` and `gate.json` schemas, scores recomputed, seal time before the rebase). |
-| W01 (this spec) | All schemas, fixtures, conformance cases and vectors; `V-MANIFEST-INCOMPLETE`; contamination input to the gate. |
-| W02 | Asset library `roadbed.asset` and verify of a full rebase: the lock, schemas of every file, synthetic flags, personal data, signatures, the receipt chain, the policy hash, the seal (row hashes, Merkle roots), the seal order (ancestry from git), disjointness, the contamination report, SoD and bucket objects. It emits every code in the Verify table; the codes that were planned in W01 (`V-HASH-MISMATCH` for the MinHash object, `V-SEAL-ORDER`, `V-HOLDOUT-OVERLAP`) exist now. |
-| W01b | Additive amendments from the week-1 change requests: `synthetic` on rows and on verdict and outcome bodies, `audit_seq` and `prev_receipt` on the lease, `snapshot` on eval and bench jobs and `holdout` on bench jobs, bench receipts without data, `receipt_path`, `task.text_field`, the exact MinHash input, the full code table, and an approver in the pass fixture. Known gaps: the fixtures still address inputs by `sha256` of the raw narrative bytes, and W02 and W03 shingle the whole input text without the token rule; both move to this spec in a follow-up. |
-| W01c | Additive amendments from the week-2 change requests: attest jobs (`AttestSpec`, spec kind `rebase`), `config` digests on the receipt predicate (the pass and blocked rebase receipts carry them, and each fixture commits the lock its rebase starts from), `verdict-record` with the server-set `actor`, at most 128 characters for `interaction_id`, bench `cost.json` with `cap_eur` null, and patterns for audit `object` and safe-integer bounds for payload numbers. `roadbed verify` checks `config`. |
-| W01d | Local seal (2026-11-25): `SEAL.json` `provenance` (`control_plane` or `local`), `audit_seq` required unless local, `roadbed.yaml` `data.holdout` optional until sealed. `roadbed new`, `roadbed evals seal`, `roadbed evals build --objects` stores the training inputs, `roadbed verify data/holdout/<id>` and the local rebase mode of `roadbed verify`. No new verify code. |
-| W03 | Stats and gate engine: `roadbed.stats.compare`, `roadbed.gate.evaluate` (contamination report and license decision as inputs), `roadbed.contamination.check` (exact row hashes, MinHash or exact Jaccard). METHOD.md explains the statistics. |
+| W01 | The full v0.1 contract: every schema, the fixtures, the conformance cases and the hashing vectors. |
+| W01b | Optional fields for synthetic rows, job leases, eval and bench jobs, `receipt_path`, `task.text_field`, the exact MinHash input and the full table of verify codes. |
+| W01c | Attest jobs, `config` digests on the receipt predicate, `verdict-record` with the server-set `actor`, bench `cost.json` and bounds for audit payloads. |
+| W01d | The local seal (2026-11-25): `SEAL.json` `provenance`, `audit_seq` required unless the seal is local, and `data.holdout` optional until a holdout is sealed. |
+
+**Known gaps.** The fixtures in `spec/examples` address inputs by the sha256 of the raw narrative bytes, not by Hashing rule 3. `roadbed verify` and `roadbed evals build` shingle the whole input text, not only the text field of "MinHash input, exactly". An input whose free text is only SDK text tokens (`<TEXT:tok_...>`) has no text to compare: `roadbed evals build` warns, and `roadbed verify` reports the near check as a named skip.
 
 **Compatibility with Day 0.** Every Day 0 file stays valid: W01 adds fields as optional only, and new constraints (actor ids, timestamps, the seal field group, the gate rules, check names) accept every Day 0 file. `policy_sha256` leaves out null fields, so the new optional policy fields do not change Day 0 hashes. Day 0 rebases have no `evidence/` and no receipt, so their manifests stay valid under the Day 0 rule, and `roadbed verify` prints the same bytes for them as on Day 0.
 

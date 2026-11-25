@@ -105,8 +105,9 @@ $ roadbed watch [OPTIONS]
 
 Start a rebase on the control plane and stream its events, or (with --from-predictions) score local predictions.
 
-Remote: ends with &quot;opened rebase #N → awaiting MRM sign-off&quot; (exit 0) or &quot;blocked: &lt;slice&gt; &lt;delta&gt; ...&quot; (exit 4).
-Local Day 0: scores supplied predictions on the sealed holdout, applies the gate, writes the rebase files.
+Remote: follows the timeline up to model-risk (MRM) sign-off. It ends with &quot;opened rebase #N → awaiting MRM sign-off&quot; (exit 0) or
+&quot;blocked: &lt;slice&gt; &lt;delta&gt; ...&quot; (exit 4).
+Local: scores supplied predictions on the sealed holdout, applies the gate, writes the rebase files.
 
 **Usage**:
 
@@ -120,7 +121,7 @@ $ roadbed rebase [OPTIONS] {model}
 
 **Options**:
 
-* `--from-predictions <str>`: Local Day 0 mode: rebase directory holding predictions.{incumbent,candidate}.jsonl.
+* `--from-predictions <str>`: Local mode: rebase directory holding predictions.{incumbent,candidate}.jsonl.
 * `--base, --on <str>`: New base repo (local default: rebase.yaml, then last watch).
 * `--revision <str>`: 40-hex revision of the new base (default: last watch).
 * `--license <str>`: Local mode: SPDX license id of the new base.

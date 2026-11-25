@@ -119,7 +119,7 @@ Each text must have the sha256 of its `input_ref`. If not, the check stops with 
 A text with fewer than 3 words is one shingle.
 
 The report also holds the seal order: the seal must come before the training run.
-This check needs git, so the caller supplies it (W02).
+This check needs git, so the caller supplies it (roadbed verify).
 The report has `status: pass` only when there is no shared row, no near pair, and the seal order is correct.
 
 Tests: `test_contamination.py`, and `test_fixture_reproduction.py` for the fixtures.

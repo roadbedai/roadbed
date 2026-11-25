@@ -33,6 +33,7 @@ The versions follow [Semantic Versioning](https://semver.org/). See [docs/VERSIO
 - `roadbed rebase --from-predictions` and `roadbed verify rebases/N` exit 2 on an asset with no sealed holdout.
 - A receipt over a local seal fails `V-SEAL-ORDER`, not `V-CHECK-ERROR`.
 - The package descriptions and the CLI help no longer say `(prototype)`.
+- The spec, the CLI help, the schemas and the sample files use public wording only. `SPEC.md` has an "Amendments" section that defines W01, W01b, W01c and W01d.
 
 ### Fixed
 

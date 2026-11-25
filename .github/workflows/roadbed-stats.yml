@@ -1,6 +1,6 @@
 name: roadbed-stats
 
-# W03 stats and gate engine. The main ci workflow runs every fast test; this one also runs the
+# Stats and gate engine. The main ci workflow runs every fast test; this one also runs the
 # tests marked slow (bootstrap coverage), so no statistical claim is deselected in CI.
 on:
   pull_request:
