@@ -109,3 +109,13 @@ def test_objects_store_holds_the_training_inputs_and_no_holdout_input(tmp_path):
     assert train and all(store.has(t["input_ref"].removeprefix("sha256:")) for t in train)
     held = [json.loads(x) for x in (tmp_path / "vik" / "candidate.jsonl").read_text().splitlines()]
     assert held and not any(store.has(h["input_ref"].removeprefix("sha256:")) for h in held)
+
+
+def test_evals_build_refuses_an_objects_store_inside_the_asset_and_writes_nothing(tmp_path, monkeypatch):
+    root, ev = _asset(tmp_path)
+    monkeypatch.chdir(root)
+    for objects in ("./objects", "."):
+        r = CliRunner().invoke(app, [*ARGS, "--asset", str(root), "--events", str(ev), "--objects", objects])
+        assert r.exit_code == 2 and "--objects must be outside the asset" in r.output
+    assert not (root / "objects").exists()
+    assert not (root / "data" / "snapshots").exists() and not (root / "evals" / "seen.jsonl").exists()

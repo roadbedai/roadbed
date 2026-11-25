@@ -105,6 +105,10 @@ def build_cmd(
         a = open_asset(asset.resolve() if asset else find_root(Path.cwd()))
         if holdout_out:
             check_candidate_dir(holdout_out, a.root)
+        if objects:
+            store_dir = objects.resolve()
+            if store_dir == a.root or a.root in store_dir.parents:
+                raise ValueError("--objects must be outside the asset: the store holds raw inputs")
         schema = json.loads((a.root / a.cfg["task"]["output_schema"]).read_text(encoding="utf-8"))
         ints, vds, ocs = (read_events(events, n) for n in EVENT_FILES)
         erased = read_tombstones(a.root)  # SPEC.md: deletion is a tombstone plus a new snapshot without the rows
