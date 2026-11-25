@@ -96,6 +96,8 @@ Two flags come from `policy/gate.yaml`:
 - **low_n.** A slice with fewer than `min_n` rows (30) is `low_n`. A low-n slice never blocks. Its CI is too wide to support a decision.
 - **below_margin.** A slice is `below_margin` when its delta is less than `margin` (-2.0) and it is not low-n. A delta of exactly -2.0 does not block. The engine ignores floating-point noise smaller than 1e-9.
 
+The gate uses the point delta. The CI is for information. It does not decide. A slice with fewer than `min_n` rows never blocks, whatever its delta.
+
 The overall delta can look good while one slice is bad.
 In the blocked fixture, the overall delta is -5.0, but `line=bodily_injury` is -20.0.
 The gate looks at each slice for this reason.
