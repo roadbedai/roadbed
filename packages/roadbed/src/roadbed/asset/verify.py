@@ -1,5 +1,5 @@
 """`roadbed verify rebases/N`: re-hash, re-validate, check signatures, the receipt chain, the seal order and
-disjointness, and recompute scores.json, offline (SPEC.md, Verify and Status W02).
+disjointness, and recompute scores.json, offline (SPEC.md, Verify and Status).
 
 A rebase is **full** when it has a receipt, a receipt signature or an evidence/ directory, when its manifest names
 one of them, when the asset has a roadbed.lock, policy keys, a version receipt or a full seal, or when the git
@@ -76,7 +76,7 @@ RECEIPT_KEYS = (RECEIPT_KEY, RUNNER_KEY)
 # Files every full rebase has (SPEC.md, The asset tree). The rest of rebases/N/ must be listed when present.
 FULL_REBASE_FILES = (RECEIPT, RECEIPT_SIG, "rebase.yaml", "scores.json", "gate.json", "contamination.json", *PRED_FILES.values())
 EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}")
-# Rendered evidence pack files (W18). A Day 0 asset may carry approvals only (SPEC.md, Manifests).
+# Rendered evidence pack files. A Day 0 asset may carry approvals only (SPEC.md, Manifests).
 RENDERED = ("evidence.md", "evidence.html", "evidence.pdf")
 FILE_EXT = re.compile(r"\.(ya?ml|json|jsonl|md|pdf|sha256|sig|pub|ptr|txt|csv|parquet|safetensors)$")
 

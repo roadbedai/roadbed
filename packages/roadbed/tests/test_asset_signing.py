@@ -1,4 +1,4 @@
-"""W02 ed25519: the conformance vector, the fixture signatures, and what must not verify."""
+"""Ed25519: the conformance vector, the fixture signatures, and what must not verify."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""W02 lock: build reproduces the fixture locks byte for byte; check finds every drift."""
+"""Lock: build reproduces the fixture locks byte for byte; check finds every drift."""
 
 from __future__ import annotations
 

@@ -144,7 +144,7 @@ def test_near_pairs_and_seal_order_block_with_reasons():
 
 
 def test_inconsistent_contamination_report_fails_closed():
-    """Carry-over from W01: max_jaccard against the threshold is a runtime check JSON Schema cannot express."""
+    """Carry-over from the contracts: max_jaccard against the threshold is a runtime check JSON Schema cannot express."""
     forged = _report(max_j=0.93)  # status pass, no pairs, but the max similarity is above the threshold
     g = evaluate(_scores(0), forged, None, make_policy())
     c = _check(g, "contamination")

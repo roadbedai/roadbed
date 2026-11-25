@@ -136,7 +136,7 @@ def provenance_line(executor: str | None, synthetic: bool) -> str:
 
 def report_md(asset: Asset, n: int, base: BaseRef, scores: Scores, gate: GateResult, final: str,
               executor: str | None = None) -> str:
-    """W19 uses this file verbatim as the PR body. A synthetic asset with supplied predictions keeps the Day 0 text;
+    """The PR flow uses this file verbatim as the PR body. A synthetic asset with supplied predictions keeps the Day 0 text;
     any other report names the executor and the data kind on its first line and carries no SYNTHETIC mark when the
     asset is real."""
     cfg = asset.cfg

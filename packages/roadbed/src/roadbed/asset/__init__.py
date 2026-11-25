@@ -1,4 +1,4 @@
-"""Offline library over the asset tree (W02): load, validate, hash, lock, seal, sign and verify.
+"""Offline library over the asset tree: load, validate, hash, lock, seal, sign and verify.
 
     from roadbed.asset import load, validate, row_hash, merkle_root, seal_holdout, verify
 

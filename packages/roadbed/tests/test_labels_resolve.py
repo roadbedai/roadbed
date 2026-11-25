@@ -1,4 +1,4 @@
-"""W14 label resolver: label_rules@v1 on hand-made events and on the 2k demo fixture."""
+"""Label resolver: label_rules@v1 on hand-made events and on the 2k demo fixture."""
 
 from __future__ import annotations
 

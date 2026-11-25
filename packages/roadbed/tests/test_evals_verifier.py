@@ -1,4 +1,4 @@
-"""W14 verifier findings (PR #7): one test per finding. Round 1 tests fail on 4279b4f, round 4 tests on af92289."""
+"""Verifier findings: one test per finding. Round 1 tests fail on 4279b4f, round 4 tests on af92289."""
 
 from __future__ import annotations
 

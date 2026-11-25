@@ -2,8 +2,8 @@
 
 The fake is the server side of the test; the CLI is the subject. Every body it serves is a spec fixture file
 (spec/examples/{pass,blocked}: SYNTHETIC data, receipts with executor mock) or the minimum API wrapper the contract
-asks for. test_fake_bodies_match_openapi validates each body against a copy of platform/contracts/openapi.yaml
-(cli_fixtures/openapi.yaml, generated from the same spec schemas: test_openapi_copy_matches_spec checks the hash).
+asks for. test_fake_bodies_match_openapi validates each body against cli_fixtures/openapi.yaml
+(generated from the same spec schemas: test_openapi_copy_matches_spec checks the hash).
 """
 
 from __future__ import annotations
@@ -73,7 +73,7 @@ class Fixture:
         self.timeline = self._timeline()
 
     def _timeline(self) -> list[dict[str, Any]]:
-        """State, time and a detail made from the fixture files: what the orchestrator (W17) reports."""
+        """State, time and a detail made from the fixture files: what the orchestrator reports."""
         p = self.receipt["predicate"]
         details = {
             "detected": f"new base {self.meta['base']['repo']} @{self.meta['base']['revision'][:12]}",
@@ -142,7 +142,7 @@ def runner_variant(view: dict[str, Any]) -> dict[str, Any]:
 
 
 def alias_config(version: str, generation: int = 7) -> dict[str, Any]:
-    """AliasConfig as W20 returns it. SYNTHETIC test values: upstream and adapter names are placeholders."""
+    """AliasConfig as the gateway returns it. SYNTHETIC test values: upstream and adapter names are placeholders."""
     return {"spec": "roadbed/v0.1", "generation": generation, "aliases": {
         "claims-triage-prod": {"upstream": "http://vllm:8000/v1", "adapter": f"claims-triage-{version}", "version": version}}}
 
@@ -172,7 +172,7 @@ def cli_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 
 def test_openapi_copy_matches_spec():
-    """cli_fixtures/openapi.yaml was generated from these very spec schemas (platform contracts/sync.py hash)."""
+    """cli_fixtures/openapi.yaml was generated from these very spec schemas (the sync script's hash)."""
     spec = {f.name.removesuffix(".schema.json"): json.loads(f.read_text()) for f in sorted((SPEC / "schemas/v0.1").glob("*.schema.json"))}
     assert openapi()["info"]["x-roadbed-spec"]["schemas_sha256"] == hashlib.sha256(rfc8785.dumps(spec)).hexdigest()
 

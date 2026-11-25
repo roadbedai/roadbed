@@ -97,7 +97,7 @@ A contract change is a pull request to this directory that the founder approves.
 | `audit/anchors/<date>.json` | `audit-anchor` | Daily head of the audit hash chain. |
 
 Schemas for API bodies and runner messages (not asset files) are in the same directory: `audit-event` (also one line of the audit export), `approval`, `executor-job`, `job-lease`, `lease-state`, `heartbeat`, `job-status`, `job-result`, `alias-config`, `interaction-in`, `verdict-in`, `verdict-record`, `outcome-in`.
-`platform/contracts/openapi.yaml` copies them, pinned to this spec version.
+`packages/roadbed/tests/cli_fixtures/openapi.yaml` copies them, pinned to this spec version.
 
 - **Ingest ids.** `interaction_id`, `verdict_id` and `outcome_id` are client-made, 1 to 128 characters.
 - **Verdict actor.** A stored verdict (`verdict-record`) is the `VerdictIn` body plus `actor`, a user id. The server sets `actor` from the authenticated principal (session user or API token owner). The request body has no `actor`; a body that sends one gets 422.

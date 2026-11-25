@@ -1,4 +1,4 @@
-"""W02 seal_holdout: reproduces the fixture seal byte for byte, writes once, and keeps raw input out."""
+"""seal_holdout: reproduces the fixture seal byte for byte, writes once, and keeps raw input out."""
 
 from __future__ import annotations
 

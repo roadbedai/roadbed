@@ -68,7 +68,7 @@ def _license_check(lic: GateLicenseInput | LicenseDecisionRecord, rebase: int, f
 
 
 def _contamination_check(cont: GateContaminationInput | ContaminationReport, rebase: int, failed) -> Check:
-    if isinstance(cont, GateContaminationInput):  # Day 0 / W01 input: shared row ids only
+    if isinstance(cont, GateContaminationInput):  # Day 0 input: shared row ids only
         k = len(cont.shared_ids)
         return Check(name="contamination", status=failed("contamination") if k else "pass",
                      detail=f"{k} shared row ids between train manifest and holdout")

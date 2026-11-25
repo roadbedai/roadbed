@@ -1,4 +1,4 @@
-"""W14 leakage probes: near copies, shared inputs, eval-only rows and random data (property test)."""
+"""Leakage probes: near copies, shared inputs, eval-only rows and random data (property test)."""
 
 from __future__ import annotations
 

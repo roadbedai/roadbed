@@ -116,7 +116,7 @@ def test_export_schemas_writes_spec_files(tmp_path):
         assert p.read_text() == (SCHEMA_DIR / p.name).read_text()
 
 
-# ---------------------------------------------------------------- W01c: contract amendments round 2
+# ---------------------------------------------------------------- contract amendments, round 2
 
 
 def _case(name, case="example"):
@@ -193,7 +193,7 @@ def test_audit_payload_numbers_are_safe_integers(value, ok):
 
 
 def test_fixture_audit_objects_match_the_patterns():
-    """Every audit event in the spec vectors still validates under the W01c object and payload rules."""
+    """Every audit event in the spec vectors still validates under the object and payload rules."""
     from roadbed.contracts import AuditEvent
 
     n = 0

@@ -95,4 +95,4 @@ trust_keys = ["<64-hex key id>"]    # verify and evidence verify accept only the
 
 `ROADBED_URL` and `ROADBED_TOKEN_FILE` override the file. The client ignores proxy settings and does not follow redirects.
 
-Tests: `uv run pytest -q packages/roadbed/tests/test_cli_*.py packages/roadbed/tests/cli`. Remote commands run against a respx fake of the control plane that serves the spec fixtures. The fake's bodies are checked against `tests/cli_fixtures/openapi.yaml`, a copy of `platform/contracts/openapi.yaml`.
+Tests: `uv run pytest -q packages/roadbed/tests/test_cli_*.py packages/roadbed/tests/cli`. Remote commands run against a respx fake of the control plane that serves the spec fixtures. The fake's bodies are checked against `tests/cli_fixtures/openapi.yaml`, a copy of the control plane contract.

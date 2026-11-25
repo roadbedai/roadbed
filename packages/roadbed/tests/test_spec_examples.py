@@ -492,7 +492,7 @@ def test_verify_requires_bound_files_when_a_receipt_exists(tmp_path):
 
 
 def test_verify_refuses_receipt_stripped_back_to_day0(tmp_path):
-    """W02 carry-over: deleting the receipt and its manifest lines does not drop a full rebase (evidence/, lock)
+    """Carry-over: deleting the receipt and its manifest lines does not drop a full rebase (evidence/, lock)
     back to the Day 0 rule. The Day 0 rule itself is covered by tests/cli/test_cli_verify.py on claims-triage."""
     root = tmp_path / "pass"
     shutil.copytree(EXAMPLES / "pass", root)

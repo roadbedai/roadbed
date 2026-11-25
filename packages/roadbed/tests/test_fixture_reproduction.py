@@ -1,4 +1,4 @@
-"""Recompute spec/examples/*/rebases/N/{scores,gate,contamination}.json from their inputs with the W03 interface.
+"""Recompute spec/examples/*/rebases/N/{scores,gate,contamination}.json from their inputs with the stats interface.
 
 Inputs only: the two prediction files, the holdout, evals/{scorers,slices}.yaml, policy/gate.yaml, license.json,
 the snapshot rows and the raw input texts. The stored outputs are read only to compare bytes at the end.
@@ -113,7 +113,7 @@ def test_fixture_outcomes_are_the_plan_cases():
 @pytest.mark.parametrize("asset,n", [("pass", 13), ("blocked", 14)])
 def test_contamination_reproduces_from_rows_and_texts(asset, n):
     """Exact and near overlap recomputed from the snapshot, the holdout and the raw texts (the SYNTHETIC
-    narratives the builder hashed into input_ref). The seal order needs git: it is W02's, taken as given."""
+    narratives the builder hashed into input_ref). The seal order needs git: it belongs to the asset library, taken as given."""
     b = _builder()
     root = EXAMPLES / asset
     d = root / f"rebases/{n}"
