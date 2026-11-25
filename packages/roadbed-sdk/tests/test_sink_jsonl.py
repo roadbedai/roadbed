@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import itertools
 import json
 import os
 import stat
@@ -17,7 +18,7 @@ from conftest import GATEWAY, TEST_KEY, TRIAGE, chat_completion
 from roadbed.cli.evals import read_events
 from roadbed.contracts import InteractionIn, OutcomeIn, VerdictIn
 from roadbed.labels import resolve
-from roadbed_sdk import JsonlSink
+from roadbed_sdk import JsonlSink, _runtime
 
 MESSAGES = [{"role": "user", "content": "Claim by Jane Doe: rear-ended at a junction."}]
 MODELS = {"interactions": InteractionIn, "verdicts": VerdictIn, "outcomes": OutcomeIn}
@@ -112,7 +113,11 @@ def test_a_refused_body_is_rejected_and_not_written(events: Path) -> None:
     assert not (events / "interactions.jsonl").exists() or (events / "interactions.jsonl").read_text() == ""
 
 
-def test_end_to_end_read_events_returns_the_rows(mock: respx.MockRouter, events: Path, local: roadbed_sdk.Recorder, oai: openai.OpenAI) -> None:
+def test_end_to_end_read_events_returns_the_rows(
+    mock: respx.MockRouter, events: Path, local: roadbed_sdk.Recorder, oai: openai.OpenAI, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    counter = itertools.count(1)  # fixed ids: the test must not depend on which random ids it draws
+    monkeypatch.setattr(_runtime, "new_id", lambda prefix: f"{prefix}_fixed{next(counter)}")
     ix = _capture_one(mock, oai)
     vid = roadbed_sdk.verdict(ix, "approve")
     roadbed_sdk.flush()
@@ -121,3 +126,17 @@ def test_end_to_end_read_events_returns_the_rows(mock: respx.MockRouter, events:
     assert [r["verdict_id"] for r in vds] == [vid]
     assert read_events(events, "outcomes") == []
     assert [r["interaction_id"] for r in resolve(ints, vds, [])] == [ix]
+
+
+def test_an_interaction_id_with_nine_digits_in_a_row_is_quarantined(
+    mock: respx.MockRouter, events: Path, local: roadbed_sdk.Recorder, oai: openai.OpenAI,
+) -> None:
+    """The engine guard reads a run of 9 to 15 digits as a phone number. This is why the SDK never makes such an id."""
+    ix = _capture_one(mock, oai)
+    roadbed_sdk.verdict(ix, "approve")
+    roadbed_sdk.flush()
+    ints, vds = read_events(events, "interactions"), read_events(events, "verdicts")
+    bad = "ix_" + "123456789" + "abcdef0123456789abcdef0"
+    ints[0]["interaction_id"] = vds[0]["interaction_id"] = bad
+    (row,) = resolve(ints, vds, [])
+    assert row["use"] == "quarantine" and row["reason"] == "interaction_id is contact-shaped"

@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import atexit
+import base64
 import contextvars
 import hashlib
 import json
 import logging
+import os
+import re
 import threading
 import time
-import uuid
 from collections.abc import Iterable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -35,8 +37,19 @@ def utc_now() -> str:
     return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+_DIGIT_RUN = re.compile(r"\d{7}")
+
+
 def new_id(prefix: str) -> str:
-    return f"{prefix}_{uuid.uuid4().hex}"
+    """prefix_ plus 26 lowercase base32 characters (a-z, 2-7) of 16 random bytes.
+
+    A run of 9 or more digits reads as a phone number to the engine guard, and the platform audit guard refuses a run
+    of 7 or more. Hex ids hold such a run often, so the draw is repeated until the id has none.
+    """
+    while True:
+        tail = base64.b32encode(os.urandom(16)).decode().lower().rstrip("=")
+        if not _DIGIT_RUN.search(tail):
+            return f"{prefix}_{tail}"
 
 
 @dataclass
