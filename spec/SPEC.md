@@ -1,6 +1,6 @@
 # Roadbed asset format, v0.1
 
-Status: v0.1, amendment W01d (2026-11-25). Changes within 0.1.x are additive; see CHANGELOG.md. Spec id: `roadbed/v0.1`.
+Status: v0.1, amendment W01d (2026-11-25). Changes within 0.1.x are additive, except the two W01d relaxations (see Compatibility). Spec id: `roadbed/v0.1`.
 
 An asset repo holds everything Roadbed needs to rebase one fine-tuned model onto a new base model, score it, gate it, and prove what happened.
 It is plain files: a git repo of manifests, plus content-addressed objects in the customer's bucket.
