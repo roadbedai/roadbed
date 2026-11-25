@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 import shutil
 
+import pytest
+import yaml
 from test_evals_support import FIXTURE, SCHEMAS
 from typer.testing import CliRunner
 
@@ -119,3 +121,21 @@ def test_evals_build_refuses_an_objects_store_inside_the_asset_and_writes_nothin
         assert r.exit_code == 2 and "--objects must be outside the asset" in r.output
     assert not (root / "objects").exists()
     assert not (root / "data" / "snapshots").exists() and not (root / "evals" / "seen.jsonl").exists()
+
+
+@pytest.mark.parametrize("field", [("gate",), ("evals", "scorers"), ("evals", "slices"), ("task", "output_schema")])
+@pytest.mark.parametrize("kind", ["absolute", "dotdot"])
+def test_a_roadbed_yaml_path_outside_the_asset_is_refused_without_echoing_the_file(tmp_path, field, kind):
+    root, ev = _asset(tmp_path)
+    secret = tmp_path / "outside_secret.yaml"
+    secret.write_text('margin: -2.0\nsecret_api_key: "sk-live-THIS-IS-A-SECRET-OUTSIDE-ASSET"\n')
+    cfg = yaml.safe_load((root / "roadbed.yaml").read_text())
+    node = cfg
+    for k in field[:-1]:
+        node = node[k]
+    node[field[-1]] = str(secret) if kind == "absolute" else "../outside_secret.yaml"
+    (root / "roadbed.yaml").write_text(yaml.safe_dump(cfg, sort_keys=False))
+    r = CliRunner().invoke(app, [*ARGS, "--asset", str(root), "--events", str(ev)])
+    assert r.exit_code == 2, r.output
+    assert ".".join(field) in r.output and "relative path inside the asset" in r.output, r.output
+    assert "sk-live" not in r.output and "secret_api_key" not in r.output and "margin" not in r.output

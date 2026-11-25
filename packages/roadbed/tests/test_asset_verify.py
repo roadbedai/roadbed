@@ -701,3 +701,15 @@ def test_config_start_lock_without_history(tmp_path):
     lock.write_text(json.dumps(doc, indent=2) + "\n")
     c = _config(_Ctx(open_asset(root), root / "rebases/13", 13, None, False, None))
     assert c.ok is False and c.code == "V-HASH-MISMATCH" and "lock_sha256" in c.detail
+
+
+def test_a_gate_path_outside_the_asset_fails_and_its_file_is_never_echoed(tmp_path):
+    root = copy("pass", tmp_path / "a")
+    secret = tmp_path / "outside_secret.yaml"
+    secret.write_text('margin: -2.0\nsecret_api_key: "sk-live-THIS-IS-A-SECRET-OUTSIDE-ASSET"\n')
+    cfg = yaml.safe_load((root / "roadbed.yaml").read_text())
+    cfg["gate"] = str(secret)
+    (root / "roadbed.yaml").write_text(yaml.safe_dump(cfg, sort_keys=False))
+    f_ = _failed(root)
+    assert f_.code == "V-SCHEMA-INVALID", f_.detail
+    assert "sk-live" not in f_.detail and "margin" not in f_.detail
