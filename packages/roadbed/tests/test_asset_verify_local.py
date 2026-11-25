@@ -295,3 +295,24 @@ def test_an_unflagged_file_or_row_fails_v_synthetic_flag(asset, rel):
     git(asset, "commit", "-q", "-am", "drop a flag")
     fail = _failed(asset)
     assert fail.code == "V-SYNTHETIC-FLAG" and rel in fail.detail
+
+
+def test_a_receipt_added_and_removed_only_in_merge_commits_is_never_local(asset):
+    base = git(asset, "rev-parse", "--abbrev-ref", "HEAD")
+    for op in ("add", "remove"):
+        git(asset, "checkout", "-q", "-B", "side", base)
+        (asset / "side.txt").write_text(op)
+        git(asset, "add", "side.txt")
+        git(asset, "commit", "-q", "-m", f"side {op}")
+        git(asset, "checkout", "-q", base)
+        git(asset, "merge", "-q", "--no-ff", "--no-commit", "side")
+        if op == "add":
+            (asset / "rebases/2").mkdir()
+            (asset / "rebases/2/receipt.json").write_text("{}")
+            git(asset, "add", "rebases/2/receipt.json")
+        else:
+            git(asset, "rm", "-q", "rebases/2/receipt.json")
+        git(asset, "commit", "-q", "-m", f"merge {op}")
+    assert "rebases/2/receipt.json" not in git(asset, "log", "--format=", "--name-only")  # merges list no files
+    assert not is_local(asset, asset / REBASE)
+    assert not _verify(asset).ok

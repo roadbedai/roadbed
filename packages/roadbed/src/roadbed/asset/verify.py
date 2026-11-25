@@ -1221,7 +1221,7 @@ def is_local(root: Path, d: Path) -> bool:
         if any(f"{rrel}/{f}" in text for f in (RECEIPT, RECEIPT_SIG, f"{EVIDENCE}/", f"{RECEIPTS}/")):
             return False
     if gitlog.is_repo_root(root):
-        r = gitlog.git(root, "log", "--format=", "--name-only", check=False)
+        r = gitlog.git(root, "log", "-m", "--format=", "--name-only", check=False)  # -m: merges list their files too
         if r.returncode != 0 or any(CONTROL_PLANE.match(rel) for rel in r.stdout.splitlines()):
             return False
     return True
