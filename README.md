@@ -50,6 +50,7 @@ On a laptop, `verify` can prove these facts:
 - The seal commit comes before the commits with the predictions.
 - The asset holds no email address.
 - Every synthetic flag agrees with `roadbed.yaml`.
+- The scores and the gate decision recompute from the prediction files.
 
 On a laptop, `verify` cannot prove these facts:
 
