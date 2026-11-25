@@ -400,7 +400,7 @@ A full rebase gets every check below. Without git history or `--objects`, the gi
 
 ## Amendments
 
-The format `roadbed/v0.1` has these amendments. Each one is additive, except the two W01d relaxations (see "Compatibility within v0.x"). Day 0 is the format before W01: scoring, the gate and the Day 0 verify checks. [CHANGELOG.md](../CHANGELOG.md) lists the changes of each release.
+The format `roadbed/v0.1` has these amendments. Each one is additive, except the two W01d relaxations (see "Compatibility within v0.x"). Day 0 is the format before W01: the scores, the gate and the Day 0 verify checks. [CHANGELOG.md](../CHANGELOG.md) lists the changes of each release.
 
 | Id | What it adds |
 |---|---|

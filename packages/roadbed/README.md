@@ -29,7 +29,7 @@ git add -A && git commit -qm "seal"
 roadbed verify data/holdout/H-2026-11-02 --objects ../objects --strict
 ```
 
-`vik` is the sealer's name; use your own, lowercase.
+`vik` is the name of the sealer. Use your own name, in lowercase.
 
 The root README of the repository has the full quickstart.
 

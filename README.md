@@ -37,7 +37,7 @@ roadbed rebase claims-triage --from-predictions rebases/1 --base Qwen/Qwen3-8B
 git add -A && git commit -qm "rebase 1" && roadbed verify rebases/1 --objects ../objects
 ```
 
-`vik` is the sealer's name; use your own, lowercase.
+`vik` is the name of the sealer. Use your own name, in lowercase.
 
 The sample holds synthetic verdicts. The `build` step turns them into a snapshot, a golden set and correction tests. It also draws a holdout.
 
@@ -77,7 +77,9 @@ client = roadbed_sdk.wrap_openai(OpenAI())
 roadbed_sdk.flush()
 ```
 
-Then run `roadbed new` and `roadbed evals build --events events` as in the quickstart. Put each string field of the model output in keep. Use short lowercase slice values. The SDK turns other strings into tokens, and the build then quarantines the row. The SDK pseudonymises free text by default. Tokens hide near-copies, so verify cannot find near-duplicates in tokenized text. Use text="redact" if the near check must work. The tenant key never leaves your process.
+Then run `roadbed new` and `roadbed evals build --events events` as in the quickstart. Put each string field of the model output in keep. Use short lowercase slice values. The SDK turns other strings into tokens, and the build then quarantines the row.
+
+The SDK pseudonymises free text by default. Tokens hide near-copies, so verify cannot find near-duplicates in tokenized text. Use text="redact" if the near check must work. The tenant key never leaves your process.
 
 ## What is in this repo
 
