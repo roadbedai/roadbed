@@ -46,6 +46,7 @@ The versions follow [Semantic Versioning](https://semver.org/). See [docs/VERSIO
 - The build command in the SDK README has `--as-of` and runs inside the asset.
 - "Your own verdicts" in the README and the SDK docs set `keep=("route",)` and read the tenant key from `ROADBED_TENANT_KEY`. They say that each string field of the model output goes in `keep` and that slice values must be short and lowercase.
 - When every row is quarantined, `roadbed evals build` names the quarantine count and the first reason.
+- The run line of `examples/sdk/openai_local_sink.py` sets `ROADBED_TENANT_KEY`.
 
 ### Removed
 
