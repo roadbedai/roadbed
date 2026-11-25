@@ -23,13 +23,13 @@ from ._errors import ConfigError, ProfileRequiredError
 from ._pseudo import MIN_KEY_BYTES, Pseudonymiser, Redactor, TextMode, derive_key_id, hmac_token, key_bytes
 from ._reconcile import ReconcileReport, reconcile
 from ._runtime import Capture, Recorder, capture, last_interaction_id
-from ._sink import HttpSink, Sink, WriteResult, check_url
+from ._sink import HttpSink, JsonlSink, Sink, WriteResult, check_url
 from ._spool import Spool
 from ._wrap import wrap_anthropic, wrap_openai
 
 __all__ = [
-    "Capture", "ConfigError", "HttpSink", "Spool", "ProfileRequiredError", "ReconcileReport", "Recorder", "Redactor", "Sink", "WriteResult",
-    "capture", "flush", "init", "last_interaction_id", "outcome", "reconcile", "shutdown", "subject_token", "verdict",
+    "Capture", "ConfigError", "HttpSink", "JsonlSink", "Spool", "ProfileRequiredError", "ReconcileReport", "Recorder", "Redactor", "Sink", "WriteResult",
+    "capture", "flush", "init", "init_local", "last_interaction_id", "outcome", "reconcile", "shutdown", "subject_token", "verdict",
     "wrap_anthropic", "wrap_openai",
 ]
 
@@ -37,6 +37,37 @@ __all__ = [
 def _default_spool(url: str) -> Path:
     base = Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache") / "roadbed-sdk"
     return base / f"spool-{hashlib.sha256(url.encode()).hexdigest()[:12]}.sqlite3"
+
+
+def _check(tenant_key: str | bytes, profile_id: str, text: TextMode, redactor: Redactor | None) -> tuple[bytes, Redactor | None]:
+    if not profile_id or not str(profile_id).strip():
+        raise ProfileRequiredError()
+    key = key_bytes(tenant_key) if tenant_key else b""
+    if len(key) < MIN_KEY_BYTES:
+        raise ConfigError(f"roadbed_sdk: tenant_key must be at least {MIN_KEY_BYTES} bytes")
+    if text not in ("tokenize", "redact"):
+        raise ConfigError("roadbed_sdk: text must be 'tokenize' or 'redact'")
+    if text == "redact" and redactor is None:
+        from ._redact import PresidioRedactor
+
+        redactor = PresidioRedactor()
+    return key, redactor
+
+
+def _start(sink: Sink, spool: Spool, key: bytes, profile_id: str, model: str | None, hmac_key_id: str | None, text: TextMode,
+           redactor: Redactor | None, keep: Iterable[str], synthetic: bool | None, background: bool, flush_interval: float) -> Recorder:
+    rec = Recorder(
+        sink=sink, spool=spool, pseudo=Pseudonymiser(key, text=text, redactor=redactor, keep=keep),
+        profile_id=str(profile_id).strip(), hmac_key_id=hmac_key_id or derive_key_id(key), model=model,
+        synthetic=synthetic, background=background, flush_interval=flush_interval,
+    )
+    _runtime.set_state(rec)
+    return rec
+
+
+def _local_spool(events_dir: Path) -> Path:
+    base = Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache") / "roadbed-sdk"
+    return base / f"spool-{hashlib.sha256(str(events_dir.resolve()).encode()).hexdigest()[:12]}.sqlite3"
 
 
 def init(url: str, token: str, tenant_key: str | bytes, profile_id: str, *, model: str | None = None, hmac_key_id: str | None = None,
@@ -50,29 +81,28 @@ def init(url: str, token: str, tenant_key: str | bytes, profile_id: str, *, mode
     text: 'tokenize' (default) turns free text into HMAC tokens; 'redact' runs a named-entity redactor (Presidio extra).
     keep: output and input keys whose short identifier values are labels to keep as they are (e.g. 'route', 'severity').
     """
-    if not profile_id or not str(profile_id).strip():
-        raise ProfileRequiredError()
-    key = key_bytes(tenant_key) if tenant_key else b""
-    if len(key) < MIN_KEY_BYTES:
-        raise ConfigError(f"roadbed_sdk: tenant_key must be at least {MIN_KEY_BYTES} bytes")
-    if text not in ("tokenize", "redact"):
-        raise ConfigError("roadbed_sdk: text must be 'tokenize' or 'redact'")
-    if text == "redact" and redactor is None:
-        from ._redact import PresidioRedactor
-
-        redactor = PresidioRedactor()
+    key, redactor = _check(tenant_key, profile_id, text, redactor)
     if sink is None:
         sink = HttpSink(url, token, allow_http=allow_http)
     else:
         check_url(url, allow_http=allow_http)
-    spool = Spool(spool_path or _default_spool(url))
-    rec = Recorder(
-        sink=sink, spool=spool, pseudo=Pseudonymiser(key, text=text, redactor=redactor, keep=keep),
-        profile_id=str(profile_id).strip(), hmac_key_id=hmac_key_id or derive_key_id(key), model=model,
-        synthetic=synthetic, background=background, flush_interval=flush_interval,
-    )
-    _runtime.set_state(rec)
-    return rec
+    return _start(sink, Spool(spool_path or _default_spool(url)), key, profile_id, model, hmac_key_id, text, redactor, keep,
+                  synthetic, background, flush_interval)
+
+
+def init_local(events_dir: str | Path, tenant_key: str | bytes, profile_id: str, *, model: str | None = None,
+               hmac_key_id: str | None = None, text: TextMode = "tokenize", redactor: Redactor | None = None,
+               keep: Iterable[str] = (), synthetic: bool | None = None, spool_path: str | Path | None = None,
+               background: bool = True, flush_interval: float = 1.0) -> Recorder:
+    """Start capturing into local files, with no server: no url, no token, no network.
+
+    Interactions, verdicts and outcomes are appended to events_dir/interactions.jsonl, verdicts.jsonl and outcomes.jsonl,
+    which `roadbed evals build --events events_dir` reads. The other arguments are those of init().
+    """
+    key, redactor = _check(tenant_key, profile_id, text, redactor)
+    events = Path(events_dir)
+    return _start(JsonlSink(events), Spool(spool_path or _local_spool(events)), key, profile_id, model, hmac_key_id, text, redactor,
+                  keep, synthetic, background, flush_interval)
 
 
 def verdict(interaction_id: str, action: Literal["approve", "fix", "reject", "escalate"], verdict: Mapping[str, Any] | None = None,
