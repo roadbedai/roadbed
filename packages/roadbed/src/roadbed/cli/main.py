@@ -54,7 +54,7 @@ from roadbed.license_policy import load_policy
 
 app = typer.Typer(
     name="roadbed",
-    help="Roadbed (prototype): rebase a fine-tuned model onto a new open-weight base behind a per-slice gate.",
+    help="Roadbed: rebase a fine-tuned model onto a new open-weight base behind a per-slice gate.",
     no_args_is_help=True,
     add_completion=False,
     pretty_exceptions_enable=False,

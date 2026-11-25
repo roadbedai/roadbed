@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Sequence
 from dataclasses import dataclass, field
+from importlib.metadata import version
 from typing import Any, Protocol, runtime_checkable
 from urllib.parse import urlsplit
 
@@ -83,7 +84,7 @@ class HttpSink:
             raise ConfigError("roadbed_sdk: token is required")
         self._client = client or httpx.Client(
             base_url=check_url(url, allow_http=allow_http),
-            headers={"Authorization": f"Bearer {token}", "User-Agent": "roadbed-sdk/0.0.1"},
+            headers={"Authorization": f"Bearer {token}", "User-Agent": f"roadbed-sdk/{version('roadbed-sdk')}"},
             timeout=timeout,
             follow_redirects=False,
         )

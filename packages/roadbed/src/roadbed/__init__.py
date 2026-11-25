@@ -1,4 +1,6 @@
-"""Roadbed engine (prototype). Spec version roadbed/v0.1."""
+"""Roadbed engine. Spec version roadbed/v0.1."""
+
+from importlib.metadata import version
 
 SPEC_VERSION = "roadbed/v0.1"
-__version__ = "0.0.1"
+__version__ = version("roadbed")

@@ -1,16 +1,36 @@
 [project]
 name = "roadbed-sdk"
-version = "0.0.1"
-description = "Roadbed capture SDK: wrap OpenAI and Anthropic clients, pseudonymise on the client, spool to SQLite and flush to the Roadbed control plane (prototype)."
+version = "0.1.0"
+description = "Roadbed capture SDK: wrap OpenAI and Anthropic clients, pseudonymise on the client, spool to SQLite and flush to the Roadbed control plane."
 readme = "README.md"
 license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{name = "Roadbed", email = "founders@roadbed.ai"}]
+keywords = ["llm", "sdk", "capture", "openai", "anthropic", "pseudonymisation"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Intended Audience :: Developers",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Typing :: Typed",
+]
 requires-python = ">=3.12"
 dependencies = [
-    "roadbed",
+    "roadbed>=0.1,<0.2",
     "pydantic>=2",
     "httpx>=0.28",  # allow_nan=False when encoding: a NaN row is refused, not sent
     "rfc8785",
 ]
+
+[project.urls]
+Homepage = "https://roadbed.ai"
+Source = "https://github.com/roadbedai/roadbed"
+Spec = "https://github.com/roadbedai/roadbed/blob/main/spec/SPEC.md"
+Changelog = "https://github.com/roadbedai/roadbed/blob/main/CHANGELOG.md"
+Issues = "https://github.com/roadbedai/roadbed/issues"
 
 [project.optional-dependencies]
 # Named-entity redaction of free text. Needs a spaCy model, e.g. `python -m spacy download en_core_web_lg`.
