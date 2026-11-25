@@ -118,6 +118,12 @@ def _local_cfg(asset: Path | None) -> dict[str, Any] | None:
         return None
 
 
+def _need_holdout(cfg: dict[str, Any]) -> None:
+    """roadbed.yaml data.holdout is optional until a holdout is sealed (W01d); a rebase needs one."""
+    if not cfg["data"].get("holdout"):
+        raise AssetError("no sealed holdout in roadbed.yaml: run roadbed evals build, then roadbed evals seal")
+
+
 def _fail(msg: str, as_json: bool, code: int = EXIT_USAGE, **extra: Any) -> typer.Exit:
     if as_json:
         print_json({"ok": False, "error": msg, "exit_code": code, **extra})
@@ -218,6 +224,7 @@ def rebase(
         a = open_asset(_root(asset))
         if model != a.cfg["model"]:
             raise AssetError(f"model {model!r} does not match roadbed.yaml model {a.cfg['model']!r}")
+        _need_holdout(a.cfg)
         d, n = rebase_dir(a.root, from_predictions)
         try:
             cached = watch_mod.cached(None)
@@ -397,6 +404,7 @@ def verify(
         if (hdir / "SEAL.json").is_file():
             _verify_seal(a, hdir.resolve(), on_check, checks, objects, strict, as_json, con)
             return
+        _need_holdout(a.cfg)
         d, n = rebase_dir(a.root, path)
         trusted = _trusted(trust_key)
     except INPUT_ERRORS as e:

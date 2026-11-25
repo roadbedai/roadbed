@@ -104,3 +104,12 @@ def test_evals_build_accepts_the_scaffold(tmp_path):
     assert r.exit_code == 0, r.output
     for rel in json.loads(r.output)["files"]:
         validate_file(tmp_path / "acme", rel, strict=True)
+
+
+def test_rebase_and_verify_on_an_unsealed_asset_exit_2(tmp_path):
+    assert _new(tmp_path, "--synthetic").exit_code == 0
+    root = tmp_path / "acme"
+    (root / "rebases/1").mkdir(parents=True)
+    for args in (["rebase", "claims-triage", "--from-predictions", "rebases/1", "--base", "Qwen/Qwen3-8B"], ["verify", "rebases/1"]):
+        r = cli.invoke(app, [*args, "--asset", str(root)])
+        assert r.exit_code == 2 and "no sealed holdout" in r.output, (args, r.output)
