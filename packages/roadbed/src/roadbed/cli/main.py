@@ -18,7 +18,7 @@ from rich.text import Text
 
 from roadbed import __version__
 from roadbed import watch as hub_watch
-from roadbed.asset.verify import run_seal
+from roadbed.asset.verify import is_local, run_seal
 from roadbed.cli import audit as audit_mod
 from roadbed.cli import config as config_mod
 from roadbed.cli import evidence as evidence_mod
@@ -403,23 +403,29 @@ def verify(
         raise _fail(str(e), as_json)
     executors = verify_mod.receipt_executors(a.root) if verify_mod.is_full(a.root, d) else []
     mock = any(r["executor"] in NO_TRAINING_EXECUTORS for r in executors)
+    local = verify_mod.is_full(a.root, d) and is_local(a.root, d)
+    extra = {"local": True} if local else {}
 
     def mock_line() -> None:
         if mock:
             con.print(Text("MOCK: no model was trained", style="bold"))
+        if local:
+            seal = json.loads((a.holdout_dir / "SEAL.json").read_text(encoding="utf-8"))
+            con.print(Text(f"LOCAL: no run was attested; sealed by {seal.get('sealed_by')}; no audit chain; no role enforcement",
+                           style="bold"))
 
     try:
         verify_mod.run(a, d, n, on_check, objects=objects, strict=strict, trusted_keyids=trusted)
     except verify_mod.VerifyFailed as e:
         if as_json:
             print_json({"ok": False, "rebase": n, "failed": e.check.code, "detail": e.check.detail,
-                        "checks": checks, "executors": executors, "mock": mock, "exit_code": EXIT_VERIFY_FAILED})
+                        "checks": checks, "executors": executors, "mock": mock, **extra, "exit_code": EXIT_VERIFY_FAILED})
         else:
             con.print(Text("verify failed: ", style="bold red") + Text(e.check.code, style="bold"))
             mock_line()
         raise typer.Exit(EXIT_VERIFY_FAILED)
     if as_json:
-        print_json({"ok": True, "rebase": n, "checks": checks, "executors": executors, "mock": mock, "exit_code": EXIT_OK})
+        print_json({"ok": True, "rebase": n, "checks": checks, "executors": executors, "mock": mock, **extra, "exit_code": EXIT_OK})
     else:
         con.print(Text("verified ", style="bold green") + Text(f"rebase #{n}", style="bold"))
         mock_line()

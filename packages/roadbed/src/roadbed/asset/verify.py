@@ -12,6 +12,12 @@ signature or evidence/ (see is_engine_scored). It gets the checks its files allo
 signatures, the receipts' binding to the predictions and the holdout, scores and gate recomputed, seal order. What
 such a run does not produce (contamination.json, license.json, bom.cdx.json, evidence/) is a named skip.
 
+A full rebase is **local** when the asset's holdout has a local seal (provenance local, `roadbed evals seal`) and the
+rebase has no receipt, receipt signature, evidence/ or receipts/ (see is_local): predictions supplied on a laptop. It
+gets the seal checks, scores and gate recomputed, and the seal commit as a strict ancestor of the commits that added the
+predictions (commit order only). Receipts, the audit seq, the lock and the control-plane files are named skips, so a
+local rebase never passes `strict=True`.
+
 `roadbed verify data/holdout/<id>` checks one sealed holdout on its own (run_seal): the seal schema, the holdout
 re-hashed, its rows, personal data, synthetic flags, the seal commit, the MinHash object, the eval sets and the
 snapshot the seal names (exact and near). A local seal (provenance local) and a control-plane seal take the same checks.
@@ -70,7 +76,8 @@ from roadbed.cli.rebase import FINDING_RE
 from roadbed.contracts import SCHEMA_MODELS, Scores
 from roadbed.gate import decide_license, evaluate
 
-__all__ = ["Check", "VerifyFailed", "VerifyResult", "is_engine_scored", "is_full", "receipt_executors", "run", "run_seal", "verify"]
+__all__ = ["Check", "VerifyFailed", "VerifyResult", "is_engine_scored", "is_full", "is_local", "receipt_executors", "run", "run_seal",
+           "verify"]
 
 RECEIPT, RECEIPT_SIG, EVIDENCE = "receipt.json", "receipt.sig", "evidence"
 RECEIPT_KEY, EVIDENCE_KEY = "policy/keys/receipt.pub", "policy/keys/evidence.pub"
@@ -456,6 +463,8 @@ def _binding(c: _Ctx) -> Check:
         return bad(f"holdout {h['id']} is not the asset's holdout {seal['id']}")
     if h["merkle_root"] != seal.get("merkle_root") or (h.get("rows") is not None and h["rows"] != seal["rows"]):
         return bad(f"holdout Merkle root or rows differ from {c.seal_rel}")
+    if seal.get("audit_seq") is None:
+        return Check("V-SEAL-ORDER", label, False, f"a receipt cannot bind a local seal: {c.seal_rel} has no audit seq")
     if h["seal_seq"] != seal["audit_seq"] or h["sealed_at"] != seal["sealed_at"]:
         return Check("V-SEAL-ORDER", label, False, f"receipt holdout seal_seq/sealed_at differ from {c.seal_rel}")
     return Check("V-RECEIPT-MISMATCH", label, True, f"{len(rec['subject'])} subjects, recipe, snapshot, holdout")
@@ -913,6 +922,8 @@ def _engine_binding(c: _Ctx) -> Check:
             continue
         if h["id"] != seal["id"] or h["merkle_root"] != seal.get("merkle_root") or (h.get("rows") is not None and h["rows"] != seal["rows"]):
             return Check("V-RECEIPT-MISMATCH", label, False, f"{rel}: holdout {h['id']} differs from {c.seal_rel}")
+        if seal.get("audit_seq") is None:
+            return Check("V-SEAL-ORDER", label, False, f"{rel}: a receipt cannot bind a local seal: {c.seal_rel} has no audit seq")
         if h["seal_seq"] != seal["audit_seq"] or h["sealed_at"] != seal["sealed_at"]:
             return Check("V-SEAL-ORDER", label, False, f"{rel}: holdout seal_seq/sealed_at differ from {c.seal_rel}")
     for who, f in PRED_FILES.items():
@@ -971,6 +982,8 @@ def _engine_seal_order(c: _Ctx) -> Check:
              and (doc["predicate"].get("holdout") or {}).get("id") == seal["id"]]
     if not train:
         return c.skip_or_fail("V-SEAL-ORDER", label, f"no training receipt names {seal['id']}")
+    if seal.get("audit_seq") is None:
+        return Check("V-SEAL-ORDER", label, False, f"a receipt cannot bind a local seal: {c.seal_rel} has no audit seq")
     for rel, p in train:
         if p.get("audit_seq") is not None and not seal["audit_seq"] < p["audit_seq"]:
             return Check("V-SEAL-ORDER", label, False, f"seal audit seq {seal['audit_seq']} is not before {rel} seq {p['audit_seq']}")
@@ -1195,6 +1208,118 @@ def run_seal(
     return done
 
 
+# ---------------------------------------------------------------- local rebase (a local seal, predictions supplied)
+
+
+def is_local(root: Path, d: Path) -> bool:
+    """True when roadbed.yaml's holdout has a local seal (provenance local) and the rebase has no receipt.json,
+    receipt.sig, evidence/ or receipts/ on disk, in its manifest or in git history. A control-plane rebase stripped of
+    its receipts stays full or engine-scored: its seal is not local."""
+    try:
+        cfg = read_doc(root / "roadbed.yaml")
+        hdir = str(((cfg.get("data") or {}).get("holdout") or {}).get("path") or "").rstrip("/")
+        seal = _try_doc(root / hdir / "SEAL.json") if hdir and safe_rel(f"{hdir}/SEAL.json") else None
+    except Exception:  # noqa: BLE001  (an unreadable roadbed.yaml is reported by the checks)
+        return False
+    if (seal or {}).get("provenance") != "local":
+        return False
+    if any((d / f).exists() for f in (RECEIPT, RECEIPT_SIG, EVIDENCE, RECEIPTS)):
+        return False
+    rrel = d.resolve().relative_to(root.resolve()).as_posix()
+    m = d / MANIFEST
+    if m.is_file():
+        text = m.read_text(encoding="utf-8", errors="replace")
+        if any(f"{rrel}/{f}" in text for f in (RECEIPT, RECEIPT_SIG, f"{EVIDENCE}/", f"{RECEIPTS}/")):
+            return False
+    paths = (f"{rrel}/{RECEIPT}", f"{rrel}/{RECEIPT_SIG}", f"{rrel}/{EVIDENCE}", f"{rrel}/{RECEIPTS}")
+    return not (gitlog.is_repo_root(root) and gitlog.ever_tracked(root, *paths))
+
+
+def _local_required(c: _Ctx) -> list[str]:
+    """Every path the rebase MANIFEST of a local rebase must list: every file of the rebase, the seal, the holdout,
+    and the training snapshot MANIFEST.json when roadbed.yaml names one."""
+    own = {f for f in c.files if f.startswith(c.rrel + "/") and f != f"{c.rrel}/{MANIFEST}"}
+    own |= {f"{c.rrel}/{f}" for f in ("rebase.yaml", "scores.json", "gate.json", *PRED_FILES.values())}
+    bound = {c.seal_rel, c.holdout_rel} | ({c.snapshot_rel} if c.snapshot_rel else set())
+    return sorted(own | bound)
+
+
+def _local_lock(c: _Ctx) -> Check:
+    if (c.root / LOCK).is_file():
+        return _lock_listed(c)
+    return c.skip_or_fail("V-LOCK-MISSING", "lock files re-hashed", f"no {LOCK} in a local asset; git history is the anchor")
+
+
+def _local_seal_time(c: _Ctx) -> Check:
+    r = _seal(c.asset, c.d)
+    if r.ok:
+        return Check(r.code, r.label, True, "sealed_at before rebase.yaml created_at; both are self-declared")
+    return r
+
+
+def _local_ancestry(c: _Ctx) -> Check:
+    """The seal commit is a strict ancestor of the commits that added both prediction files, and the seal and the
+    prediction files match HEAD. This proves commit order, not when the predictions were made."""
+    label = "seal precedes predictions: git ancestry"
+    if not c.git:
+        return c.skip_or_fail("V-SEAL-ORDER", label, "the asset is not a git clone; clone it to check the commit order")
+    preds = [f"{c.rrel}/{f}" for f in PRED_FILES.values()]
+    try:
+        for rel in (c.seal_rel, *preds):
+            if not gitlog.matches_head(c.root, rel):
+                return Check("V-SEAL-ORDER", label, False, f"{rel} differs from the committed file at HEAD")
+        seal_commit = gitlog.added_in(c.root, c.seal_rel)
+        for rel in preds:
+            pc = gitlog.added_in(c.root, rel)
+            if pc == seal_commit or not gitlog.is_ancestor(c.root, seal_commit, pc):
+                return Check("V-SEAL-ORDER", label, False, f"seal commit {seal_commit[:12]} is not a strict ancestor of {pc[:12]}, "
+                             f"which added {rel}")
+    except gitlog.GitError as e:
+        return Check("V-SEAL-ORDER", label, False, str(e))
+    return Check("V-SEAL-ORDER", label, True, f"{seal_commit[:12]} < {pc[:12]}; commit order only")
+
+
+def _local_steps(asset: Asset, d: Path, n: int, ctx: Callable[[], _Ctx]) -> list[Callable[[], Check]]:
+    """The checks of a local rebase. What a laptop cannot prove is a named skip, never a pass; the first skip is
+    "receipts signed", so --strict fails there when every check it can run passes."""
+    def skip(code: str, label: str, why: str) -> Callable[[], Check]:
+        return lambda: ctx().skip_or_fail(code, label, why)
+
+    return [
+        lambda: _hashes(asset, d, _local_required(ctx())),
+        lambda: _seal_schema(ctx()),
+        lambda: _seal_rehash(ctx()),
+        lambda: _seal_rows(ctx()),
+        lambda: _seal_pii(ctx()),
+        lambda: _seal_synthetic(ctx()),
+        lambda: _seal_committed(ctx()),
+        lambda: _seal_minhash(ctx()),
+        lambda: _seal_eval_sets(ctx()),
+        skip("V-SIG-MISSING", "receipts signed", "no receipt: predictions supplied, no run attested"),
+        skip("V-RECEIPT-CHAIN", "receipt chain OK", "no receipts in a local asset"),
+        skip("V-RECEIPT-MISMATCH", "receipts bind the predictions and the holdout", "no receipt; the unsigned rebase manifest names them"),
+        lambda: _local_lock(ctx()),
+        lambda: _policy(ctx()),
+        lambda: _schemas(d),
+        lambda: _engine_holdout(ctx()),
+        lambda: _scores(asset, d, n, ctx().scores()),
+        lambda: _engine_gate(ctx()),
+        lambda: _local_seal_time(ctx()),
+        skip("V-SEAL-ORDER", "seal precedes training: audit seq", "no audit chain in a local asset"),
+        lambda: _local_ancestry(ctx()),
+        lambda: _datasets(ctx()) if ctx().snapshot is not None else ctx().skip_or_fail(
+            "V-HASH-MISSING", "datasets re-hashed", f"no training snapshot: roadbed.yaml data.snapshot is {ctx().snapshot_rel or 'not set'}"),
+        lambda: _exact(ctx()),
+        lambda: _near(ctx()),
+        skip("V-CONTAMINATION-MISMATCH", "contamination.json matches", "not produced by a local rebase"),
+        skip("V-HASH-MISSING", "license.json", "not produced by a local rebase; the gate license check is recomputed"),
+        skip("V-HASH-MISSING", "bom.cdx.json", "not produced by a local rebase"),
+        skip("V-MANIFEST-MISSING", "evidence manifest OK", "no evidence/ in a local rebase"),
+        skip("V-SOD", "segregation of duties (SoD-01, SoD-02)", "local asset: no role enforcement; the sealer may run the rebase"),
+        lambda: _objects(ctx()),
+    ]
+
+
 # ---------------------------------------------------------------- driver
 
 
@@ -1221,6 +1346,8 @@ def run(
 
     if not is_full(asset.root, d):
         steps = [lambda: _hashes(asset, d), lambda: _schemas(d), lambda: _scores(asset, d, n), lambda: _seal(asset, d)]
+    elif is_local(asset.root, d):
+        steps = _local_steps(asset, d, n, ctx)
     elif is_engine_scored(asset.root, d):
         steps = _engine_steps(asset, d, n, ctx)
     else:
