@@ -1,7 +1,7 @@
 [project]
 name = "roadbed-sdk"
 version = "0.1.0"
-description = "Roadbed capture SDK: wrap OpenAI and Anthropic clients, pseudonymise on the client, spool to SQLite and flush to the Roadbed control plane."
+description = "Roadbed capture SDK: wrap OpenAI and Anthropic clients, pseudonymise on the client, and write to local JSONL files or a Roadbed control plane."
 readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
