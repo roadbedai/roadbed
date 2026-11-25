@@ -1166,8 +1166,8 @@ def run_seal(
     strict: bool = False,
 ) -> list[Check]:
     """Verify the sealed holdout in hdir (data/holdout/<id>). Calls on_check(check) for each check in order. Raises
-    VerifyFailed on the first failure. A control-plane seal adds an audit seq line: the signed receipt binds it at
-    rebase time, which only `roadbed verify rebases/N` can check."""
+    VerifyFailed on the first failure. A control-plane seal adds a named skip for its audit seq: a signed receipt binds
+    it at rebase time, which only `roadbed verify rebases/N` can check."""
     store = ObjectStore(objects) if objects is not None else None
     holder: list[_Ctx] = []
 
@@ -1178,7 +1178,7 @@ def run_seal(
 
     def audit_seq() -> Check:
         seq = (ctx().seal or {}).get("audit_seq")
-        return Check("V-SEAL-ORDER", f"audit seq {seq}", True, "bound by the signed receipt at rebase time")
+        return ctx().skip_or_fail("V-SEAL-ORDER", "seal audit seq", f"not checked here: a receipt binds audit seq {seq} at rebase time")
 
     steps: list[Callable[[], Check]] = [lambda: _seal_schema(ctx())]
     if (_try_doc(hdir / "SEAL.json") or {}).get("provenance") != "local":

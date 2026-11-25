@@ -122,9 +122,12 @@ def test_control_plane_seal_takes_the_same_entry_point(tmp_path):
     bucket(tmp_path / "objects")
     checks, failed = _run(root, "data/holdout/H-2026-11-01")
     assert failed is None, failed
-    assert checks[1].label == "audit seq 1204" and checks[1].detail == "bound by the signed receipt at rebase time"
-    assert _skips(checks) == ["datasets re-hashed: skipped", "train and holdout disjoint: exact: skipped",
+    assert checks[1].ok is None and checks[1].label == "seal audit seq: skipped"
+    assert checks[1].detail == "not checked here: a receipt binds audit seq 1204 at rebase time"
+    assert _skips(checks) == ["datasets re-hashed: skipped", "seal audit seq: skipped", "train and holdout disjoint: exact: skipped",
                               "train and holdout disjoint: near (Jaccard < 0.8): skipped"]
+    _, failed = _run(root, "data/holdout/H-2026-11-01", strict=True)
+    assert failed is not None and failed.label == "seal audit seq" and "--strict" in failed.detail
 
 
 def test_cli_seal_mode(asset):
