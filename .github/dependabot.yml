@@ -1,14 +1,19 @@
+# Dependency updates. The two packages are libraries: their floors in pyproject.toml stay wide on purpose,
+# so Dependabot refreshes uv.lock only and never raises a floor.
 version: 2
 updates:
-  - package-ecosystem: pip
-    directory: /packages/roadbed
+  - package-ecosystem: uv
+    directory: /
     schedule:
       interval: weekly
-  - package-ecosystem: pip
-    directory: /packages/roadbed-sdk
-    schedule:
-      interval: weekly
+    versioning-strategy: lockfile-only
+    groups:
+      python-dependencies:
+        patterns: ["*"]
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
