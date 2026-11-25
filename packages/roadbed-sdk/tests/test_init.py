@@ -73,6 +73,17 @@ def test_calls_before_init_do_nothing_and_do_not_raise(caplog: pytest.LogCapture
     assert roadbed_sdk.subject_token("x") is None
 
 
+def test_subject_token_of_a_non_string_returns_none_and_does_not_raise(spool_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level(logging.WARNING)
+    roadbed_sdk.init(API, "t", TEST_KEY, "p@v1", spool_path=spool_path, background=False)
+    try:
+        assert roadbed_sdk.subject_token(123) is None  # type: ignore[arg-type]
+        assert roadbed_sdk.subject_token("claimant-1").startswith("tok_")
+        assert "subject_token" in caplog.text
+    finally:
+        roadbed_sdk.shutdown()
+
+
 def test_httpx_floor_has_allow_nan_false() -> None:
     # httpx < 0.28 encodes NaN as a bare literal, so the not_json refusal in HttpSink would not exist there.
     from importlib.metadata import requires
