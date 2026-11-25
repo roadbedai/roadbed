@@ -26,9 +26,9 @@ Rebase #13 moves `claims-triage` for Acme Mutual (SYNTHETIC) from `Qwen/Qwen3.6-
 | slice_margin | pass | 0 of 9 slices below -2.0 margin; 8 flagged low-n |
 | license | pass | apache-2.0 allowed by policy/license.yaml |
 | contamination | pass | 0 shared row ids between train manifest and holdout |
-| stage:shadow | skipped | stub: not run in prototype |
-| stage:canary | skipped | stub: not run in prototype |
-| stage:bias_tests | skipped | stub: not run in prototype |
+| stage:shadow | skipped | stub: not run |
+| stage:canary | skipped | stub: not run |
+| stage:bias_tests | skipped | stub: not run |
 
 Policy sha256 `db986e9ba495bd71ec735d81cf60fef8ad4711e8b62c7a217484b514492f3452` · seed 20261101 · 10,000 bootstrap resamples. Run `roadbed verify rebases/13` to recompute every number.
 

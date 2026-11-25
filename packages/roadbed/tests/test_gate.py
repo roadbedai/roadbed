@@ -92,6 +92,7 @@ def test_pass_path():
     assert _check(g, "license").detail == "apache-2.0 allowed by policy/license.yaml"
     assert _check(g, "contamination").detail == "0 shared row ids between train manifest and holdout"
     assert [c.name for c in g.checks] == ["slice_margin", "license", "contamination", "stage:shadow", "stage:canary", "stage:bias_tests"]
+    assert _check(g, "stage:shadow").detail == "stub: not run"
     assert g.policy_sha256 == sha256_canonical(make_policy().model_dump(mode="json", exclude_none=True))
 
 

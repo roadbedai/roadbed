@@ -23,17 +23,17 @@
     {
       "name": "stage:shadow",
       "status": "skipped",
-      "detail": "stub: not run in prototype"
+      "detail": "stub: not run"
     },
     {
       "name": "stage:canary",
       "status": "skipped",
-      "detail": "stub: not run in prototype"
+      "detail": "stub: not run"
     },
     {
       "name": "stage:bias_tests",
       "status": "skipped",
-      "detail": "stub: not run in prototype"
+      "detail": "stub: not run"
     }
   ],
   "findings": []

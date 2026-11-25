@@ -138,7 +138,7 @@ def evaluate(
 
     for name, stage in policy.stages.model_dump().items():
         if stage["stub"]:
-            checks.append(Check(name=f"stage:{name}", status="skipped", detail="stub: not run in prototype"))
+            checks.append(Check(name=f"stage:{name}", status="skipped", detail="stub: not run"))
 
     findings = [
         GateFinding(
