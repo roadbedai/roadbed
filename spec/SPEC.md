@@ -290,7 +290,7 @@ verified seal H-2026-11-02
 LOCAL seal: sealed by vik; no audit chain; no role enforcement
 ```
 
-A full rebase is **local** when the asset's holdout has a local seal and the asset has no control-plane file. That is: no `roadbed.lock`, `policy/keys/`, version or rebase receipt, receipt signature, `evidence/` or `receipts/`, on disk, in the manifest or in git history. Its predictions came from a laptop.
+A full rebase is **local** when the asset's holdout has a local seal and the asset has no control-plane file. That is: no `roadbed.lock`, `policy/keys/`, version or rebase receipt, receipt signature, `evidence/` or `receipts/`, on disk, in the manifest or in git history. Its predictions are supplied, not attested.
 
 A local rebase gets the seal checks, and the scores and the gate recomputed.
 It also gets the personal-data scan and the synthetic flags of the asset, and the seal time not after `rebase.yaml` `created_at`.
