@@ -21,7 +21,7 @@ from roadbed.cli.output import EXIT_OK, EXIT_USAGE, EXIT_VERIFY_FAILED, console,
 from roadbed.cli.remote import seal_line
 from roadbed.contracts import Seal
 from roadbed.evals import EvalPolicy, LeakageError, build, read_seen, read_snapshots, write_candidate
-from roadbed.evals.build import check_candidate_dir, read_candidate, seal_candidate
+from roadbed.evals.build import check_candidate_dir, prepare_candidate_dir, read_candidate, seal_candidate
 from roadbed.io import read_yaml, write_yaml
 from roadbed.labels import LABEL_RULES_V1, ResolveError, RulesNotPinned, resolve
 from roadbed.labels import summary as resolve_summary
@@ -104,7 +104,7 @@ def build_cmd(
     try:
         a = open_asset(asset.resolve() if asset else find_root(Path.cwd()))
         if holdout_out:
-            check_candidate_dir(holdout_out, a.root)
+            prepare_candidate_dir(holdout_out, a.root)
         if objects:
             store_dir = objects.resolve()
             if store_dir == a.root or a.root in store_dir.parents:
@@ -123,7 +123,7 @@ def build_cmd(
                     seen=seen, suffix=suffix, parent=parent)
         written = out.write(a.root, snapshots_dir=snaps, store=store)
         cand = write_candidate(out.holdout_candidate, holdout_out, asset_root=a.root) if holdout_out else []
-    except (AssetError, FileNotFoundError, FileExistsError, ValueError, ResolveError, RulesNotPinned, LeakageError) as e:
+    except (AssetError, OSError, ValueError, ResolveError, RulesNotPinned, LeakageError) as e:
         # a leakage refusal is a failed check (exit 4, like roadbed verify); everything else is bad local input (exit 2)
         code = EXIT_VERIFY_FAILED if isinstance(e, LeakageError) else EXIT_USAGE
         if as_json:

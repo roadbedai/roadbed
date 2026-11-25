@@ -664,14 +664,28 @@ def check_candidate_dir(out_dir: str | Path, asset_root: str | Path | None) -> P
     return out
 
 
+def prepare_candidate_dir(out_dir: str | Path, asset_root: str | Path | None) -> Path:
+    """Check the candidate directory before anything is written: outside the asset, and new or empty. A new directory
+    is created mode 0700; an existing one keeps its mode. Raises ValueError, or OSError when it cannot be created."""
+    out = check_candidate_dir(out_dir, asset_root)
+    if out.exists():
+        if not out.is_dir() or any(out.iterdir()):
+            raise ValueError(f"{out} is not empty: the holdout candidate goes to a new or empty directory")
+        return out
+    out.mkdir(parents=True)
+    os.chmod(out, 0o700)
+    return out
+
+
 def write_candidate(c: HoldoutCandidate, out_dir: str | Path, *, asset_root: str | Path | None = None) -> list[Path]:
     """Hand the holdout candidate to the validator: write it to out_dir, files mode 0600.
 
-    Refuses a directory inside the asset tree, where developers would read it.
+    Refuses a directory inside the asset tree, where developers would read it. A directory it creates is mode 0700.
     """
     out = check_candidate_dir(out_dir, asset_root)
-    out.mkdir(parents=True, exist_ok=True)
-    os.chmod(out, 0o700)
+    if not out.exists():
+        out.mkdir(parents=True)
+        os.chmod(out, 0o700)
     meta = {"stratification": c.stratification, "seed": c.seed, "snapshot": c.snapshot, "merkle_root": c.merkle_root,
             "rows": len(c.rows), "synthetic": c.synthetic}
     files = {

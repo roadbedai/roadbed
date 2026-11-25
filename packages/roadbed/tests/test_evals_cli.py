@@ -139,3 +139,42 @@ def test_a_roadbed_yaml_path_outside_the_asset_is_refused_without_echoing_the_fi
     assert r.exit_code == 2, r.output
     assert ".".join(field) in r.output and "relative path inside the asset" in r.output, r.output
     assert "sk-live" not in r.output and "secret_api_key" not in r.output and "margin" not in r.output
+
+
+def test_evals_build_refuses_an_existing_non_empty_candidate_dir_before_any_write(tmp_path):
+    root, ev = _asset(tmp_path)
+    vault = tmp_path / "usr"
+    vault.mkdir()
+    (vault / "bin").write_text("keep\n")
+    vault.chmod(0o755)
+    r = CliRunner().invoke(app, [*ARGS, "--asset", str(root), "--events", str(ev), "--holdout-out", str(vault)])
+    assert r.exit_code == 2 and "not empty" in r.output, r.output
+    assert not (root / "data" / "snapshots").exists() and not (root / "evals" / "seen.jsonl").exists()
+    assert sorted(p.name for p in vault.iterdir()) == ["bin"] and (vault.stat().st_mode & 0o777) == 0o755
+
+
+def test_evals_build_exits_2_when_the_candidate_dir_cannot_be_created(tmp_path):
+    root, ev = _asset(tmp_path)
+    ro = tmp_path / "ro"
+    ro.mkdir()
+    ro.chmod(0o500)
+    try:
+        r = CliRunner().invoke(app, [*ARGS, "--asset", str(root), "--events", str(ev), "--holdout-out", str(ro / "vault")])
+    finally:
+        ro.chmod(0o700)
+    assert r.exit_code == 2 and isinstance(r.exception, SystemExit) and "Permission denied" in r.output, r.output
+    assert not (root / "data" / "snapshots").exists()
+
+
+def test_evals_build_leaves_the_mode_of_an_existing_empty_candidate_dir(tmp_path):
+    root, ev = _asset(tmp_path)
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    vault.chmod(0o750)
+    r = CliRunner().invoke(app, [*ARGS, "--asset", str(root), "--events", str(ev), "--holdout-out", str(vault)])
+    assert r.exit_code == 0, r.output
+    assert (vault.stat().st_mode & 0o777) == 0o750 and (vault / "candidate.jsonl").stat().st_mode & 0o777 == 0o600
+    new = tmp_path / "made" / "vault"
+    r = CliRunner().invoke(app, [*ARGS, "--suffix", "b", "--asset", str(root), "--events", str(ev), "--holdout-out", str(new)])
+    assert r.exit_code == 0, r.output
+    assert (new.stat().st_mode & 0o777) == 0o700
