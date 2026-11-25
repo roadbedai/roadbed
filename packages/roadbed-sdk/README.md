@@ -58,7 +58,7 @@ roadbed evals build --events ../events --as-of 2026-11-26T00:00:00Z --holdout-ou
 roadbed_sdk.init("https://roadbed.example.eu", token, tenant_key, "profile@v1", model="claims-triage")
 ```
 
-`init` is the only call that raises (`ConfigError`, `ProfileRequiredError`). Capture, `verdict`, `outcome`, `reconcile` and `flush` never raise into your app.
+`init` and `init_local` are the only calls that raise (`ConfigError`, `ProfileRequiredError`). Capture, `verdict`, `outcome`, `reconcile` and `flush` never raise into your app.
 
 ## Pseudonymisation
 
