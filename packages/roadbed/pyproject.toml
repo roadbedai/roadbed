@@ -28,7 +28,7 @@ dependencies = [
     "httpx",
     "rfc8785",
     "cryptography>=43",
-    "duckdb>=2.0.0",
+    "duckdb>=2.0.1",
 ]
 
 [project.urls]
