@@ -8,6 +8,7 @@ One asset repo governs one model.
 
 The JSON Schemas (Draft 2020-12) are in `schemas/v0.1/`. They are generated from the Pydantic models in `roadbed.contracts` by `export_schemas`, and a test keeps them in sync.
 Two complete SYNTHETIC fixture assets are in `examples/pass/` (rebase 13, gate pass, signed off: requested by dana, validated by vik, approved by ana) and `examples/blocked/` (rebase 14, gate blocked, finding F-0001).
+The names dana, vik and ana are fictional.
 Their git histories are `examples/pass.bundle` and `examples/blocked.bundle` (`git clone examples/pass.bundle`), so the seal order can be checked with git.
 The Day 0 example `examples/claims-triage/` stays as the minimal asset.
 Valid and invalid cases for every schema, and hashing test vectors, are in `conformance/`.
