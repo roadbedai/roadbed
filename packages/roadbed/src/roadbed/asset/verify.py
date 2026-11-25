@@ -1211,10 +1211,15 @@ def run_seal(
 # ---------------------------------------------------------------- local rebase (a local seal, predictions supplied)
 
 
+CONTROL_PLANE = re.compile(r"^(roadbed\.lock|policy/keys/.*|versions/[^/]+/receipt\.(json|sig)|"
+                           r"rebases/[^/]+/(receipt\.(json|sig)|evidence/.*|receipts/.*))$")
+
+
 def is_local(root: Path, d: Path) -> bool:
-    """True when roadbed.yaml's holdout has a local seal (provenance local) and the rebase has no receipt.json,
-    receipt.sig, evidence/ or receipts/ on disk, in its manifest or in git history. A control-plane rebase stripped of
-    its receipts stays full or engine-scored: its seal is not local."""
+    """True when roadbed.yaml's holdout has a local seal (provenance local) and nothing in the asset comes from the
+    control plane: no roadbed.lock, policy/keys/, version receipt or rebase receipt, receipt signature, evidence/ or
+    receipts/, on disk, in the rebase manifest or in git history. A control-plane asset stripped of those files and
+    relabelled stays full or engine-scored."""
     try:
         cfg = read_doc(root / "roadbed.yaml")
         hdir = str(((cfg.get("data") or {}).get("holdout") or {}).get("path") or "").rstrip("/")
@@ -1223,7 +1228,7 @@ def is_local(root: Path, d: Path) -> bool:
         return False
     if (seal or {}).get("provenance") != "local":
         return False
-    if any((d / f).exists() for f in (RECEIPT, RECEIPT_SIG, EVIDENCE, RECEIPTS)):
+    if any(CONTROL_PLANE.match(rel) for rel in tree_files(root)):
         return False
     rrel = d.resolve().relative_to(root.resolve()).as_posix()
     m = d / MANIFEST
@@ -1231,8 +1236,11 @@ def is_local(root: Path, d: Path) -> bool:
         text = m.read_text(encoding="utf-8", errors="replace")
         if any(f"{rrel}/{f}" in text for f in (RECEIPT, RECEIPT_SIG, f"{EVIDENCE}/", f"{RECEIPTS}/")):
             return False
-    paths = (f"{rrel}/{RECEIPT}", f"{rrel}/{RECEIPT_SIG}", f"{rrel}/{EVIDENCE}", f"{rrel}/{RECEIPTS}")
-    return not (gitlog.is_repo_root(root) and gitlog.ever_tracked(root, *paths))
+    if gitlog.is_repo_root(root):
+        r = gitlog.git(root, "log", "--format=", "--name-only", check=False)
+        if r.returncode != 0 or any(CONTROL_PLANE.match(rel) for rel in r.stdout.splitlines()):
+            return False
+    return True
 
 
 def _local_required(c: _Ctx) -> list[str]:
@@ -1242,12 +1250,6 @@ def _local_required(c: _Ctx) -> list[str]:
     own |= {f"{c.rrel}/{f}" for f in ("rebase.yaml", "scores.json", "gate.json", *PRED_FILES.values())}
     bound = {c.seal_rel, c.holdout_rel} | ({c.snapshot_rel} if c.snapshot_rel else set())
     return sorted(own | bound)
-
-
-def _local_lock(c: _Ctx) -> Check:
-    if (c.root / LOCK).is_file():
-        return _lock_listed(c)
-    return c.skip_or_fail("V-LOCK-MISSING", "lock files re-hashed", f"no {LOCK} in a local asset; git history is the anchor")
 
 
 def _local_seal_time(c: _Ctx) -> Check:
@@ -1298,7 +1300,7 @@ def _local_steps(asset: Asset, d: Path, n: int, ctx: Callable[[], _Ctx]) -> list
         skip("V-SIG-MISSING", "receipts signed", "no receipt: predictions supplied, no run attested"),
         skip("V-RECEIPT-CHAIN", "receipt chain OK", "no receipts in a local asset"),
         skip("V-RECEIPT-MISMATCH", "receipts bind the predictions and the holdout", "no receipt; the unsigned rebase manifest names them"),
-        lambda: _local_lock(ctx()),
+        skip("V-LOCK-MISSING", "lock files re-hashed", f"no {LOCK} in a local asset; git history is the anchor"),
         lambda: _policy(ctx()),
         lambda: _schemas(d),
         lambda: _engine_holdout(ctx()),

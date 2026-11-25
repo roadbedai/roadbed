@@ -202,3 +202,48 @@ def test_cli_local_rebase(asset):
     r = cli.invoke(app, ["verify", REBASE, "--asset", str(asset), "--objects", objects, "--strict", "--json"])
     o = json.loads(r.output)
     assert r.exit_code == 4 and o["failed"] == "V-SIG-MISSING" and o["local"] is True
+
+
+def _relabelled_pass(tmp_path: Path, *, clone_it: bool = False) -> Path:
+    """The control-plane pass fixture made to look local: rebase 13 without receipt, signature or evidence, the seal
+    relabelled local, roadbed.lock deleted, gate.json recomputed as the engine gate, the manifest re-hashed. The asset
+    still has policy/keys and versions/v12/receipt.json (and, in a clone, the lock in git history)."""
+    from roadbed.asset.verify import _Ctx
+    from roadbed.cli.asset import open_asset
+    from roadbed.gate import decide_license, evaluate
+    from test_asset_support import clone
+
+    root = clone("pass", tmp_path / "a") if clone_it else copy("pass", tmp_path / "a")
+    d = root / "rebases/13"
+    for f in ("receipt.json", "receipt.sig"):
+        (d / f).unlink()
+    shutil.rmtree(d / "evidence")
+    _localise(root, "data/holdout/H-2026-11-01/SEAL.json")
+    (root / "roadbed.lock").unlink()
+    a = open_asset(root)
+    c = _Ctx(a, d, 13, None, False, None)
+    lic_id = ((c.meta or {}).get("base") or {}).get("license")
+    lic = decide_license(lic_id, a.license_policy) if lic_id and a.license_policy is not None else None
+    (d / "gate.json").write_text(evaluate(c.scores(), None, lic, a.policy, finding_offset=0).model_dump_json(exclude_none=True, indent=2) + "\n")
+    m = d / "MANIFEST.sha256"
+    lines = [ln for ln in m.read_text().splitlines() if not ln.endswith(("receipt.json", "receipt.sig")) and "/evidence/" not in ln]
+    m.write_text(_rehash(root, "\n".join(lines) + "\n"))
+    return root
+
+
+@pytest.mark.parametrize("clone_it", [False, True])
+def test_control_plane_markers_are_never_local(tmp_path, clone_it):
+    root = _relabelled_pass(tmp_path, clone_it=clone_it)
+    d = root / "rebases/13"
+    assert is_full(root, d) and not is_local(root, d)
+    r = verify(d)
+    assert r.failed is not None and r.failed.code == "V-HASH-MISSING", (r.failed and r.failed.code, r.failed and r.failed.detail)
+
+
+def test_lock_in_git_history_is_never_local(asset):
+    (asset / "roadbed.lock").write_text("{}\n")
+    git(asset, "add", "roadbed.lock")
+    git(asset, "commit", "-q", "-m", "a lock")
+    git(asset, "rm", "-q", "roadbed.lock")
+    git(asset, "commit", "-q", "-m", "drop the lock")
+    assert not is_local(asset, asset / REBASE)
