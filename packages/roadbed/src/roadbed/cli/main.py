@@ -775,7 +775,7 @@ app.add_typer(evidence_app, name="evidence")
 
 @eval_app.command("reproduce")
 def eval_reproduce(
-    path: Annotated[str, typer.Argument(help="Rebase directory, e.g. rebases/13, or a sealed holdout, e.g. data/holdout/H-2026-11-02.")],
+    path: Annotated[str, typer.Argument(help="Rebase directory, e.g. rebases/13.")],
     asset: AssetOpt = None,
     as_json: JsonOpt = False,
 ) -> None:
