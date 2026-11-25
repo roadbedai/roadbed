@@ -1,0 +1,88 @@
+name: publish
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: The tag, both package versions and the changelog must agree
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          python3 - <<'PY'
+          import os, pathlib, sys, tomllib
+
+          tag = os.environ["TAG"]
+          errors = []
+          for pkg in ("roadbed", "roadbed-sdk"):
+              version = tomllib.loads(pathlib.Path(f"packages/{pkg}/pyproject.toml").read_text())["project"]["version"]
+              if tag != f"v{version}":
+                  errors.append(f"tag {tag} does not match {pkg} version v{version}")
+          version = tag.removeprefix("v")
+          changelog = pathlib.Path("CHANGELOG.md")
+          if not changelog.is_file():
+              errors.append("CHANGELOG.md is missing")
+          elif f"## [{version}]" not in changelog.read_text():
+              errors.append(f"CHANGELOG.md has no '## [{version}]' heading")
+          if errors:
+              sys.exit("\n".join(errors))
+          PY
+
+  build:
+    needs: check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+        with:
+          python-version: "3.12"
+      - name: Build both packages
+        run: |
+          uv build --package roadbed
+          uv build --package roadbed-sdk
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
+
+  release:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dist
+          path: dist/
+      - name: Create the GitHub Release from the changelog section
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          version="${TAG#v}"
+          awk -v h="## [${version}]" 'index($0, h) == 1 { on = 1; next } /^## \[/ { on = 0 } on' CHANGELOG.md > notes.md
+          gh release create "$TAG" dist/* --title "$TAG" --notes-file notes.md --verify-tag
