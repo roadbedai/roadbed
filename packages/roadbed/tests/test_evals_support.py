@@ -5,6 +5,7 @@ from __future__ import annotations
 import gzip
 import json
 from functools import cache
+from importlib import resources
 from pathlib import Path
 from typing import Any
 
@@ -12,7 +13,7 @@ import rfc8785
 
 from roadbed.io import read_yaml
 
-FIXTURE = Path(__file__).resolve().parent / "fixtures" / "acme-2k"
+FIXTURE = Path(str(resources.files("roadbed.samples").joinpath("acme-2k")))
 SCHEMAS = Path(__file__).resolve().parents[3] / "spec" / "schemas" / "v0.1"
 AS_OF = "2026-11-01T09:00:00Z"
 SEED = 7
