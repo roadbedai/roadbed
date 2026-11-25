@@ -83,3 +83,11 @@ def test_a_dangling_symlink_is_refused_and_not_followed(tmp_path: Path) -> None:
     r = cli.invoke(app, ["sample", "acme-2k", str(tmp_path / "dangling")])
     assert r.exit_code == 2 and "exists" in r.output, r.output
     assert not (tmp_path / "elsewhere").exists()
+
+
+def test_the_next_hint_quotes_the_path(tmp_path: Path) -> None:
+    dest = tmp_path / "x;touch PWN" / "my events"
+    r = cli.invoke(app, ["sample", "acme-2k", str(dest), "--json"])
+    assert r.exit_code == 0, r.output
+    nxt = json.loads(r.output)["next"]
+    assert f"--slices '{dest}/slices.yaml' --output-schema '{dest}/output.schema.json'" in nxt

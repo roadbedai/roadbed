@@ -130,3 +130,12 @@ def test_a_dangling_symlink_is_refused_and_not_followed(tmp_path):
     r = _new(tmp_path, "--synthetic")
     assert r.exit_code == 2 and isinstance(r.exception, SystemExit) and "exists" in r.output, r.output
     assert not (tmp_path / "elsewhere").exists()
+
+
+def test_the_git_hint_quotes_the_path(tmp_path):
+    d = tmp_path / "x;touch PWN"
+    r = cli.invoke(app, ["new", str(d / "acme dir"), "--model", "claims-triage", "--slices", str(FIXTURE / "slices.yaml"),
+                         "--output-schema", str(FIXTURE / "output.schema.json"), "--synthetic", "--json"])
+    assert r.exit_code == 0, r.output
+    nxt = json.loads(r.output)["next"]
+    assert nxt.startswith(f"cd '{d}/acme dir' && git init")

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+import shlex
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -103,7 +104,7 @@ def new_cmd(
         for rel in ("SYNTHETIC.md", "rebases/SYNTHETIC.md"):
             (path / rel).write_text(SYNTHETIC_TEXT, encoding="utf-8")
             files.append(rel)
-    git_line = f'cd {path} && git init -q && git add -A && git commit -qm "asset"'
+    git_line = f'cd {shlex.quote(str(path))} && git init -q && git add -A && git commit -qm "asset"'
     if as_json:
         print_json({"ok": True, "dir": str(path), "files": files, "next": git_line, "exit_code": EXIT_OK})
         return
