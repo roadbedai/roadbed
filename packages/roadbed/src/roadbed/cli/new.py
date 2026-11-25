@@ -97,9 +97,11 @@ def new_cmd(
         write_yaml(path / rel, doc)
     (path / "evals/output.schema.json").write_bytes(schema_bytes)
     files = [*docs, "evals/output.schema.json"]
-    if synthetic:
-        (path / "SYNTHETIC.md").write_text(SYNTHETIC_TEXT, encoding="utf-8")
-        files.append("SYNTHETIC.md")
+    if synthetic:  # rule 9: a SYNTHETIC.md at the root and above the rebase files that roadbed rebase writes later
+        (path / "rebases").mkdir()
+        for rel in ("SYNTHETIC.md", "rebases/SYNTHETIC.md"):
+            (path / rel).write_text(SYNTHETIC_TEXT, encoding="utf-8")
+            files.append(rel)
     git_line = f'cd {path} && git init -q && git add -A && git commit -qm "asset"'
     if as_json:
         print_json({"ok": True, "dir": str(path), "files": files, "next": git_line, "exit_code": EXIT_OK})

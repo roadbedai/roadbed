@@ -36,7 +36,7 @@ def test_every_file_validates_in_closed_form(tmp_path):
     r = _new(tmp_path, "--synthetic")
     assert r.exit_code == 0, r.output
     root = tmp_path / "acme"
-    assert sorted(tree_files(root)) == sorted([*FILES, "SYNTHETIC.md"])
+    assert sorted(tree_files(root)) == sorted([*FILES, "SYNTHETIC.md", "rebases/SYNTHETIC.md"])
     for rel in FILES:
         if schema_for(rel):
             validate_file(root, rel, strict=True)
@@ -57,7 +57,7 @@ def test_synthetic_flag_on_every_file_whose_schema_has_it(tmp_path):
         if name and "synthetic" in SCHEMA_MODELS[name].model_fields:
             assert yaml.safe_load((root / rel).read_text())["synthetic"] is True, rel
             flagged.append(rel)
-    assert len(flagged) == 5 and (root / "SYNTHETIC.md").is_file()
+    assert len(flagged) == 5 and (root / "SYNTHETIC.md").is_file() and (root / "rebases/SYNTHETIC.md").is_file()
 
 
 def test_real_asset_has_no_synthetic_flag(tmp_path):
@@ -94,7 +94,7 @@ def test_prints_the_git_line_and_runs_no_git(tmp_path):
     assert not (tmp_path / "acme" / ".git").exists()
     r = _new(tmp_path / "j", "--synthetic", "--json")
     o = json.loads(r.output)
-    assert o["ok"] and sorted(o["files"]) == sorted([*FILES, "SYNTHETIC.md"])
+    assert o["ok"] and sorted(o["files"]) == sorted([*FILES, "SYNTHETIC.md", "rebases/SYNTHETIC.md"])
 
 
 def test_evals_build_accepts_the_scaffold(tmp_path):
