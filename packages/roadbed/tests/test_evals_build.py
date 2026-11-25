@@ -325,3 +325,10 @@ def test_the_third_build_in_an_asset_counts_each_trained_row_once(out, tmp_path)
         assert pairs[name]["rows"][1] == len(sealed)
     assert pairs["holdout-seen"]["rows"][1] == len(read_seen(tmp_path))
     assert all(p["max_jaccard"] <= 1 for p in pairs.values())
+
+
+def test_training_inputs_are_kept_out_of_repr(out):
+    train = out.snapshot.rows
+    assert set(out.train_inputs) == {r["input_ref"] for r in train}
+    assert not set(out.train_inputs) & {r["input_ref"] for r in out.holdout_candidate.rows}
+    assert "train_inputs=" not in repr(out) and next(iter(out.train_inputs.values())) not in repr(out)

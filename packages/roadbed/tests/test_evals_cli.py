@@ -94,3 +94,18 @@ def test_a_leakage_refusal_exits_4_and_other_failures_exit_2(tmp_path, monkeypat
     o = json.loads(r.output)
     assert o == {"ok": False, "error": "train-holdout not disjoint (threshold 0.9): probe", "exit_code": 4}
     assert not (root / "data" / "snapshots" / "2026-11-02").exists()
+
+
+def test_objects_store_holds_the_training_inputs_and_no_holdout_input(tmp_path):
+    from roadbed.asset import ObjectStore
+
+    root, ev = _asset(tmp_path)
+    r = CliRunner().invoke(app, [*ARGS, "--asset", str(root), "--events", str(ev), "--holdout-out", str(tmp_path / "vik"),
+                                 "--objects", str(tmp_path / "objects"), "--json"])
+    assert r.exit_code == 0, r.output
+    store = ObjectStore(tmp_path / "objects")
+    part = root / json.loads(r.output)["snapshot"]["parts"][0]["path"]
+    train = [json.loads(x) for x in part.read_text().splitlines()]
+    assert train and all(store.has(t["input_ref"].removeprefix("sha256:")) for t in train)
+    held = [json.loads(x) for x in (tmp_path / "vik" / "candidate.jsonl").read_text().splitlines()]
+    assert held and not any(store.has(h["input_ref"].removeprefix("sha256:")) for h in held)

@@ -90,7 +90,7 @@ def build_cmd(
     seed: Annotated[int, typer.Option("--seed", help="Sampling seed for the holdout and golden draw (recorded).")] = 0,
     asset: Annotated[Path | None, typer.Option("--asset", help="Asset repo root (default: search up from cwd).")] = None,
     holdout_out: Annotated[Path | None, typer.Option("--holdout-out", help="Validator directory for the holdout candidate (outside the asset).")] = None,
-    objects: Annotated[Path | None, typer.Option("--objects", help="Local bucket; snapshot parts are also stored there.")] = None,
+    objects: Annotated[Path | None, typer.Option("--objects", help="Local bucket; snapshot parts and raw training inputs are also stored there.")] = None,
     suffix: Annotated[str | None, typer.Option("--suffix", help="Snapshot id suffix: S-<date>-<suffix>.")] = None,
     parent: Annotated[str | None, typer.Option("--parent", help="Snapshot this one replaces.")] = None,
     created_at: Annotated[str | None, typer.Option("--created-at", help="Snapshot created_at (default: now, UTC).")] = None,

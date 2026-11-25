@@ -136,6 +136,7 @@ class EvalBuild:
     eval_only: list[dict[str, Any]]
     proof: dict[str, Any]
     report: dict[str, Any]
+    train_inputs: dict[str, str] = field(default_factory=dict, repr=False)  # input_ref -> raw text of each training row
 
     def write(self, root: str | Path, *, snapshots_dir: str = "data/snapshots", store: ObjectStore | None = None) -> list[str]:
         """Write the snapshot, golden set, correction tests and build report into the asset at root.
@@ -484,7 +485,7 @@ def build(
         "merkle": {"train": manifest["merkle_root"], "holdout_candidate": candidate.merkle_root},
     }
     return EvalBuild(snapshot=snapshot, holdout_candidate=candidate, golden=grows, correction_tests=cts, eval_only=ev,
-                     proof=proof, report=report)
+                     proof=proof, report=report, train_inputs={r["input_ref"]: r["input_text"] for r in train})
 
 
 def _pinned_rows(rows: Iterable[Mapping[str, Any]], what: str, *, check_hash: bool) -> list[dict[str, Any]]:
@@ -571,6 +572,9 @@ def _write(b: EvalBuild, root: Path, snapshots_dir: str, store: ObjectStore | No
         written.append(mp["path"])
         if store is not None:
             store.put(p.data)
+    if store is not None:  # the raw training inputs, under their input_ref, so verify can run the near check
+        for text in b.train_inputs.values():
+            store.put(text.encode("utf-8"))
     (d / "MANIFEST.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     (d / "build.json").write_text(json.dumps({"report": b.report, "proof": b.proof}, indent=2) + "\n", encoding="utf-8")
     written += [f"{snap_rel}/MANIFEST.json", f"{snap_rel}/build.json"]
