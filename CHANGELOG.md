@@ -45,9 +45,9 @@ The versions follow [Semantic Versioning](https://semver.org/). See [docs/VERSIO
 ### Security
 
 - `roadbed evals build` refuses an `--objects` store inside the asset. The store holds raw inputs, and these must not go into git.
-- The CLI refuses an asset that holds a symlink. Writes of the eval files, the seal files and `roadbed.yaml` never follow a symlink.
+- The CLI refuses an asset that holds a symlink. `roadbed verify` fails it with `V-PATH-UNSAFE` in every mode. Writes of the eval files, the seal files and `roadbed.yaml` never follow a symlink.
 - Git calls set `log.showSignature=false`. A hostile `.git/config` can no longer run a program through `git log`.
-- The CLI refuses a `roadbed.yaml` gate, scorers, slices or output schema path that leaves the asset. The error does not show the file.
+- The CLI, `roadbed verify` included, refuses a `roadbed.yaml` gate, scorers, slices or output schema path that leaves the asset. The error does not show the file.
 - The gate policy schema has upper limits: `n_boot` 1000000, `num_perm` 4096 and `shingle` 64.
 - SDK: `JsonlSink` sets a file that exists to mode 0600 and its directory to 0700.
 - SDK: `subject_token` returns None for a value that it cannot hash. It does not raise an error into the host.
