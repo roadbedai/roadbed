@@ -8,7 +8,7 @@ on:
       - "packages/roadbed/src/roadbed/cli/evals.py"
       - "packages/roadbed/tests/test_labels_*.py"
       - "packages/roadbed/tests/test_evals_*.py"
-      - "packages/roadbed/tests/fixtures/acme-2k/**"
+      - "packages/roadbed/src/roadbed/samples/**"
       - ".github/workflows/labels-evals.yml"
   push:
     branches: [main]

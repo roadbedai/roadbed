@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import json
 import logging
+import os
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from importlib.metadata import version
+from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 from urllib.parse import urlsplit
 
@@ -23,6 +26,7 @@ BATCH_MAX = 500  # POST /v1/interactions:batch maxItems
 MODELS: dict[Kind, type[BaseModel]] = {"interaction": InteractionIn, "verdict": VerdictIn, "outcome": OutcomeIn}
 ID_FIELD: dict[Kind, str] = {"interaction": "interaction_id", "verdict": "verdict_id", "outcome": "outcome_id"}
 _PATH: dict[Kind, str] = {"interaction": "/v1/interactions", "verdict": "/v1/verdicts", "outcome": "/v1/outcomes"}
+_FILE: dict[Kind, str] = {"interaction": "interactions.jsonl", "verdict": "verdicts.jsonl", "outcome": "outcomes.jsonl"}
 _LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
 
 
@@ -168,3 +172,42 @@ class HttpSink:
     def _log_status(path: str, r: httpx.Response | None) -> None:
         if r is not None:
             log.warning("roadbed_sdk: POST %s answered %s; keeping the items in the spool", path, r.status_code)
+
+
+class JsonlSink:
+    """Appends bodies to <dir>/interactions.jsonl, verdicts.jsonl and outcomes.jsonl: what `roadbed evals build --events DIR`
+    reads. One canonical JSON body per line, the same client check as HttpSink, one fsync per write, no rotation.
+    No network. A crash between the append and the spool ack appends an identical line later; `roadbed.labels.resolve`
+    drops it. Files are 0600, the directory 0700."""
+
+    def __init__(self, directory: str | Path) -> None:
+        self.dir = Path(directory)
+
+    def write(self, kind: Kind, items: Sequence[dict[str, Any]]) -> WriteResult:
+        res = WriteResult()
+        items, res.rejected = refuse_invalid(kind, items)
+        lines: list[bytes] = []
+        for item in items:
+            item_id = str(item[ID_FIELD[kind]])
+            try:
+                text = json.dumps(item, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+            except ValueError:
+                res.rejected[item_id] = "not_json"
+                log.error("roadbed_sdk: refused %s %s: not_json (a NaN or infinite number)", kind, item_id)
+                continue
+            lines.append(text.encode("utf-8") + b"\n")
+            res.accepted.append(item_id)
+        if lines:
+            self._append(self.dir / _FILE[kind], b"".join(lines))
+        return res
+
+    def _append(self, path: Path, data: bytes) -> None:
+        self.dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+        fd = os.open(path, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o600)
+        try:
+            view = memoryview(data)
+            while view:
+                view = view[os.write(fd, view):]
+            os.fsync(fd)
+        finally:
+            os.close(fd)

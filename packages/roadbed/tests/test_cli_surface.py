@@ -11,7 +11,7 @@ from roadbed.cli.main import app
 from test_cli_fakeapi import Fixture
 
 cli = CliRunner()
-COMMANDS = [["init"], ["seal"], ["watch"], ["rebase"], ["status"], ["verify"], ["eval", "reproduce"], ["audit", "verify"],
+COMMANDS = [["init"], ["sample"], ["seal"], ["watch"], ["rebase"], ["status"], ["verify"], ["eval", "reproduce"], ["audit", "verify"],
             ["evidence", "verify"], ["promote"], ["rollback"]]
 
 

@@ -24,6 +24,7 @@ from roadbed.cli import evidence as evidence_mod
 from roadbed.cli import rebase as rebase_mod
 from roadbed.cli import remote
 from roadbed.cli import reproduce as reproduce_mod
+from roadbed.cli import sample as sample_mod
 from roadbed.cli import verify as verify_mod
 from roadbed.cli import watch as watch_mod
 from roadbed.cli.api import Api, ApiError, new_key, seg
@@ -60,6 +61,7 @@ app = typer.Typer(
     pretty_exceptions_enable=False,
 )
 app.add_typer(evals_app, name="evals")
+app.command("sample")(sample_mod.sample)
 
 AssetOpt = Annotated[Path | None, typer.Option("--asset", help="Asset repo root (default: search up from cwd).")]
 JsonOpt = Annotated[bool, typer.Option("--json", help="Print one JSON object instead of text.")]
