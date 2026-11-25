@@ -264,7 +264,7 @@ These are the full lock, the receipt chain, the git ancestry, `contamination.jso
 
 - The seal schema, and the holdout re-hashed (sha256, rows, Merkle root).
 - The holdout rows against the closed `holdout-row` schema, so no raw input field.
-- Personal data and synthetic flags.
+- Personal data in the holdout, and the synthetic flags of every file and row in the asset (rule 9).
 - The seal committed and unchanged (git).
 - The MinHash object: it covers exactly the sealed rows, with the policy's `num_perm` and `shingle`.
 - The eval sets: no row that was ever in `evals/golden.jsonl` or `evals/correction_tests.jsonl` shares an id, input or row hash with the holdout.
@@ -279,8 +279,8 @@ seal schema OK  (closed form)
 holdout re-hashed  (296 rows, sha256 and Merkle root match SEAL.json)
 holdout rows OK  (holdout-row schema, closed form: no raw input field)
 no personal data (email) in the holdout  (SEAL.json and holdout.jsonl scanned)
-synthetic flags OK  (SYNTHETIC)
-seal committed and unchanged  (commit 16de07c8b391)
+synthetic flags OK  (2177 flags, SYNTHETIC)
+seal committed and unchanged  (commit dae9f7e356a8)
 MinHash object covers the sealed rows  (1bed66c23fd2, num_perm 128, shingle 3)
 eval sets disjoint from the holdout  (281 rows ever in golden or correction tests: 0 shared ids, inputs, row hashes)
 datasets re-hashed  (S-2026-11-02 1579 rows, H-2026-11-02 296 rows, Merkle roots match)
@@ -293,7 +293,7 @@ LOCAL seal: sealed by vik; no audit chain; no role enforcement
 A full rebase is **local** when the asset's holdout has a local seal and the asset has no control-plane file. That is: no `roadbed.lock`, `policy/keys/`, version or rebase receipt, receipt signature, `evidence/` or `receipts/`, on disk, in the manifest or in git history. Its predictions came from a laptop.
 
 A local rebase gets the seal checks, and the scores and the gate recomputed.
-It also gets the personal-data scan of the asset and the seal time not after `rebase.yaml` `created_at`.
+It also gets the personal-data scan and the synthetic flags of the asset, and the seal time not after `rebase.yaml` `created_at`.
 The git ancestry of the seal before both prediction files is a check too.
 Last, it gets exact and near disjointness from the training snapshot (`roadbed.yaml` `data.snapshot`).
 Each check that only the control plane can supply is a named skip.
@@ -303,13 +303,13 @@ A local rebase never passes `--strict`: it fails at "receipts signed", and the s
 ```
 $ roadbed verify rebases/1 --objects ../objects
 hashes OK  (10 files)
-no personal data (email) in the asset  (23 files scanned)
+no personal data (email) in the asset  (24 files scanned)
 seal schema OK  (reader form)
 holdout re-hashed  (296 rows, sha256 and Merkle root match SEAL.json)
 holdout rows OK  (holdout-row schema, closed form: no raw input field)
 no personal data (email) in the holdout  (SEAL.json and holdout.jsonl scanned)
-synthetic flags OK  (SYNTHETIC)
-seal committed and unchanged  (commit 16de07c8b391)
+synthetic flags OK  (2177 flags, SYNTHETIC)
+seal committed and unchanged  (commit dae9f7e356a8)
 MinHash object covers the sealed rows  (1bed66c23fd2, num_perm 128, shingle 3)
 eval sets disjoint from the holdout  (281 rows ever in golden or correction tests: 0 shared ids, inputs, row hashes)
 receipts signed: skipped  (no receipt: predictions supplied, no run attested)
@@ -323,7 +323,7 @@ scores recomputed: match  (overall + 14 slices, 6 decimals)
 gate recomputed: match  (status pass, 6 checks, 0 findings)
 seal precedes rebase: OK  (sealed_at not after rebase.yaml created_at; both are self-declared)
 seal precedes training: audit seq: skipped  (no audit chain in a local asset)
-seal precedes predictions: git ancestry  (16de07c8b391 < 2c79944a052d; commit order only)
+seal precedes predictions: git ancestry  (dae9f7e356a8 < 5ee026e5d49d; commit order only)
 datasets re-hashed  (S-2026-11-02 1579 rows, H-2026-11-02 296 rows, Merkle roots match)
 train and holdout disjoint: exact  (0 shared row hashes, 0 shared inputs (1579 x 296))
 train and holdout disjoint: near (Jaccard < 0.8)  (minhash, max 0.507812)
