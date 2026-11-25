@@ -6,10 +6,6 @@ The versions follow [Semantic Versioning](https://semver.org/). See [docs/VERSIO
 
 ## [Unreleased]
 
-### Fixed
-
-- SDK: ids and pseudonymisation tokens can no longer look like a phone or card number. Ids are `ix_`, `vd_` or `oc_` plus 26 base32 characters. Neither ids nor tokens hold a run of 7 or more digits. Some tokens differ from earlier 0.1.0 pre-release builds.
-
 ## [0.1.0] - TBD
 
 ### Added
@@ -40,6 +36,7 @@ The versions follow [Semantic Versioning](https://semver.org/). See [docs/VERSIO
 
 ### Fixed
 
+- SDK: ids and pseudonymisation tokens can no longer look like a phone or card number. Ids are `ix_`, `vd_` or `oc_` plus 26 base32 characters. Neither ids nor tokens hold a run of 7 or more digits.
 - The near-duplicate check no longer passes on inputs that the SDK tokenised (`text="tokenize"`). `roadbed evals build` warns and writes `near_check: not_applicable_tokenised` in `build.json`. `roadbed verify` reports the near check as a named skip, so `--strict` fails.
 - The quickstart in the READMEs runs as written. The sealer is `vik`, not `<you>`, which the shell read as a redirect. The quickstart test runs the README commands verbatim.
 - The free path in the `roadbed` package README has the `cd`, `git init` and commit steps, so it runs.
