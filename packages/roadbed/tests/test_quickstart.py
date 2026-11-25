@@ -1,6 +1,7 @@
 """The README quickstart, run as a user runs it: every command from the fenced block under the Quickstart heading,
 in order, in a fresh directory with a real git repository, through the `roadbed` console script of this environment
-(roadbed.cli.main has no __main__ module). The test reads README.md, so the test and the README cannot drift."""
+(roadbed.cli.main has no __main__ module). The test reads README.md and runs each command verbatim, with no placeholder
+substitution, so the test and the README cannot drift."""
 
 from __future__ import annotations
 
@@ -20,7 +21,7 @@ def quickstart_commands() -> list[str]:
     m = re.search(r"^## [^\n]*[Qq]uickstart[^\n]*\n.*?^```[^\n]*\n(.*?)^```", text, re.S | re.M)
     assert m, "README.md has no fenced block under a Quickstart heading"
     lines = [ln.strip() for ln in m.group(1).splitlines()]
-    return [ln.replace("<you>", "vik") for ln in lines if ln and not ln.startswith("#") and not ln.startswith("pip install")]
+    return [ln for ln in lines if ln and not ln.startswith("#") and not ln.startswith("pip install")]
 
 
 def test_quickstart(tmp_path, record_property):
