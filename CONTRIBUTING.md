@@ -35,6 +35,8 @@ Each commit needs a sign-off. It says that you have the right to give the code u
 git commit -s -m "Your message"
 ```
 
+The CI job `dco` checks each commit of a pull request. A commit without a `Signed-off-by:` line fails it. Commits from bots, such as Dependabot, are exempt.
+
 ## Pull request checklist
 
 - You wrote the tests first. A new test fails before your change and passes after it.
