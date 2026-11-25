@@ -57,6 +57,8 @@ def added_in(root: Path, path: str) -> str:
     touching = commits_touching(root, path)
     added = git(root, "log", "--diff-filter=A", "--format=%H", "--", path).stdout.split()
     if not added:
+        if git(root, "log", "-m", "--diff-filter=A", "--format=%H", "-1", "--", path).stdout.strip():
+            raise GitError(f"{path} was not added by a non-merge commit (added by a merge)")
         raise GitError(f"{path} is not in the git history")
     if len(added) != 1 or touching != added:
         raise GitError(f"{path} was changed or re-added after it was first committed ({len(touching)} commits)")

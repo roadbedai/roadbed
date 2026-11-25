@@ -447,7 +447,11 @@ def _seal_dir(root: Path, p: Path) -> bool:
         parts = next((lex.parts[k:] for k in range(len(lex.parts), 0, -1) if Path(*lex.parts[:k]).resolve() == root), None)
     if parts is None or len(parts) != 3 or parts[:2] != ("data", "holdout"):
         return False
-    return root.joinpath(*parts).is_dir() and not any(os.path.islink(root.joinpath(*parts[: i + 1])) for i in range(3))
+    if not root.joinpath(*parts).is_dir():
+        return False
+    if any(os.path.islink(root.joinpath(*parts[: i + 1])) for i in range(3)):
+        raise AssetError(f"seal mode refuses a symlink in the path: {p}")
+    return True
 
 
 def _verify_seal(a: Any, hdir: Path, on_check: Any, checks: list[dict[str, Any]], objects: Path | None, strict: bool, as_json: bool,
