@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import itertools
 import json
 import os
 import stat
@@ -17,7 +18,7 @@ from conftest import GATEWAY, TEST_KEY, TRIAGE, chat_completion
 from roadbed.cli.evals import read_events
 from roadbed.contracts import InteractionIn, OutcomeIn, VerdictIn
 from roadbed.labels import resolve
-from roadbed_sdk import JsonlSink
+from roadbed_sdk import JsonlSink, _runtime
 
 MESSAGES = [{"role": "user", "content": "Claim by Jane Doe: rear-ended at a junction."}]
 MODELS = {"interactions": InteractionIn, "verdicts": VerdictIn, "outcomes": OutcomeIn}
@@ -112,7 +113,11 @@ def test_a_refused_body_is_rejected_and_not_written(events: Path) -> None:
     assert not (events / "interactions.jsonl").exists() or (events / "interactions.jsonl").read_text() == ""
 
 
-def test_end_to_end_read_events_returns_the_rows(mock: respx.MockRouter, events: Path, local: roadbed_sdk.Recorder, oai: openai.OpenAI) -> None:
+def test_end_to_end_read_events_returns_the_rows(
+    mock: respx.MockRouter, events: Path, local: roadbed_sdk.Recorder, oai: openai.OpenAI, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    counter = itertools.count(1)  # fixed ids: the test must not depend on which random ids it draws
+    monkeypatch.setattr(_runtime, "new_id", lambda prefix: f"{prefix}_fixed{next(counter)}")
     ix = _capture_one(mock, oai)
     vid = roadbed_sdk.verdict(ix, "approve")
     roadbed_sdk.flush()
