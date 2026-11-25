@@ -81,15 +81,14 @@ def refuse_outside_paths(cfg: Any) -> None:
 
 
 def open_asset(root: Path, *, plain_files: bool = True) -> Asset:
-    """Load the asset at root. plain_files=False skips the symlink and path refusals; only verify passes it, as verify
-    reports a symlink itself (V-PATH-UNSAFE, seal mode) and shows only the first line of a schema error."""
+    """Load the asset at root. It always refuses a roadbed.yaml file path that leaves the asset. plain_files=False skips
+    only the symlink refusal: verify passes it and reports a symlink itself, as a V-PATH-UNSAFE failure."""
     root = root.resolve()
     if plain_files:
         refuse_symlinks(root)
     if not (root / "roadbed.yaml").is_file():
         raise AssetError(f"no roadbed.yaml in {root}")
-    if plain_files:
-        refuse_outside_paths(read_yaml(root / "roadbed.yaml"))
+    refuse_outside_paths(read_yaml(root / "roadbed.yaml"))
     cfg = load_asset(root)
     lic_path = root / LICENSE_POLICY
     return Asset(

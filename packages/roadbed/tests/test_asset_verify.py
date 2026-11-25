@@ -19,7 +19,7 @@ from roadbed.asset import build_lock, read_doc, row_hash, verify, write_lock
 from roadbed.asset.hashing import jcs_sha256
 from roadbed.asset.overlap import minhash_object, parse_minhash_object
 from roadbed.asset.verify import _config, _Ctx
-from roadbed.cli.asset import open_asset
+from roadbed.cli.asset import AssetError, open_asset
 from roadbed.cli.main import app
 from roadbed.contracts import GatePolicy
 from test_asset_support import EXAMPLES, REBASE, bucket, builder, clone, copy, edit_json, git, reseal
@@ -710,6 +710,6 @@ def test_a_gate_path_outside_the_asset_fails_and_its_file_is_never_echoed(tmp_pa
     cfg = yaml.safe_load((root / "roadbed.yaml").read_text())
     cfg["gate"] = str(secret)
     (root / "roadbed.yaml").write_text(yaml.safe_dump(cfg, sort_keys=False))
-    f_ = _failed(root)
-    assert f_.code == "V-SCHEMA-INVALID", f_.detail
-    assert "sk-live" not in f_.detail and "margin" not in f_.detail
+    with pytest.raises(AssetError, match="roadbed.yaml gate must be a relative path inside the asset") as e:
+        verify(root / "rebases/13")
+    assert "sk-live" not in str(e.value) and "margin" not in str(e.value)

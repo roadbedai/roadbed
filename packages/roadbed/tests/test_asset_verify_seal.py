@@ -232,3 +232,48 @@ def test_a_symlinked_holdout_dir_is_not_seal_mode(asset):
     (asset / "data/holdout/H-link").symlink_to(LOCAL_HID)
     r = cli.invoke(app, ["verify", "data/holdout/H-link", "--asset", str(asset), "--objects", str(asset.parent / "objects")])
     assert r.exit_code == 2 and "verified" not in r.output and "seal mode refuses a symlink in the path: data/holdout/H-link" in r.output, r.output
+
+
+# ---------------------------------------------------------------- hostile trees: outside paths and symlinks
+
+SECRET = 'margin: -2.0\nsecret_api_key: "sk-live-THIS-IS-A-SECRET-OUTSIDE-ASSET"\n'
+
+
+def _no_leak(output: str) -> None:
+    assert "sk-live" not in output and "secret_api_key" not in output and "margin" not in output, output
+
+
+@pytest.fixture
+def rebased_copy(rebased, tmp_path) -> Path:
+    shutil.copytree(rebased.parent / "objects", tmp_path / "objects")
+    return Path(shutil.copytree(rebased, tmp_path / "acme", symlinks=True))
+
+
+def _verify_cli(root: Path, target: str):
+    return cli.invoke(app, ["verify", target, "--asset", str(root), "--objects", str(root.parent / "objects")])
+
+
+@pytest.mark.parametrize("target", [HDIR, "rebases/1"])
+@pytest.mark.parametrize("kind", ["absolute", "dotdot"])
+@pytest.mark.parametrize("field", [("gate",), ("evals", "scorers"), ("evals", "slices"), ("task", "output_schema")])
+def test_verify_refuses_a_roadbed_yaml_path_outside_the_asset_without_echoing_it(rebased_copy, target, kind, field):
+    import yaml
+
+    root = rebased_copy
+    (root.parent / "outside_secret.yaml").write_text(SECRET)
+    cfg = yaml.safe_load((root / "roadbed.yaml").read_text())
+    node = cfg
+    for k in field[:-1]:
+        node = node[k]
+    node[field[-1]] = str(root.parent / "outside_secret.yaml") if kind == "absolute" else "../outside_secret.yaml"
+    (root / "roadbed.yaml").write_text(yaml.safe_dump(cfg, sort_keys=False))
+    git(root, "commit", "-q", "-am", "hostile path")
+    r = _verify_cli(root, target)
+    assert r.exit_code in (2, 4) and "verified" not in r.output and ".".join(field) in r.output, r.output
+    _no_leak(r.output)
+
+
+@pytest.mark.parametrize("target", [HDIR, "rebases/1"])
+def test_a_plain_asset_still_verifies_in_seal_and_local_mode(rebased_copy, target):
+    r = _verify_cli(rebased_copy, target)
+    assert r.exit_code == 0 and "verified" in r.output, r.output
