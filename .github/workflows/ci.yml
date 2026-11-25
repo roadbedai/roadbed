@@ -58,9 +58,13 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
           BASE: ${{ github.event.pull_request.base.sha }}
         run: |
-          # The maintainers come from CODEOWNERS of the base branch, so a pull request cannot exempt itself.
+          # The maintainers and the script come from the base branch, so a pull request cannot edit its own check.
           git show "$BASE:.github/CODEOWNERS" > "$RUNNER_TEMP/CODEOWNERS"
-          gh api --paginate "repos/$REPO/pulls/$PR/commits" --jq '.[]' | bash .github/scripts/dco.sh "$RUNNER_TEMP/CODEOWNERS"
+          if ! git show "$BASE:.github/scripts/dco.sh" > "$RUNNER_TEMP/dco.sh" 2>/dev/null; then
+            echo "::notice::the base has no .github/scripts/dco.sh yet; this pull request adds it, so its own copy runs"
+            cp .github/scripts/dco.sh "$RUNNER_TEMP/dco.sh"
+          fi
+          gh api --paginate "repos/$REPO/pulls/$PR/commits" --jq '.[]' | bash "$RUNNER_TEMP/dco.sh" "$RUNNER_TEMP/CODEOWNERS"
 
   docs-drift:
     runs-on: ubuntu-latest

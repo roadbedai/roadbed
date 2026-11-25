@@ -265,3 +265,11 @@ def test_fixture_at_the_cutoff_sees_no_future_outcome():
     rows = resolve(events("interactions"), events("verdicts"), events("outcomes"), as_of=AS_OF)
     seen = {o["interaction_id"] for o in events("outcomes") if o["observed_at"] <= AS_OF}
     assert {r["interaction_id"] for r in rows if r["outcome"] is not None} == seen
+
+
+def test_an_outcome_appended_twice_resolves_to_one_row():
+    """reconcile on the same CSV twice appends the same outcome rows again; the build keeps one row per interaction."""
+    oc = outcome("i1", {"route": "complex"}, oid="oc-1")
+    once = resolve([interaction("i1")], [verdict("i1", "approve")], [oc], as_of=AS_OF, output_schema=output_schema())
+    twice = resolve([interaction("i1")], [verdict("i1", "approve")], [oc, dict(oc)], as_of=AS_OF, output_schema=output_schema())
+    assert len(twice) == 1 and twice == once

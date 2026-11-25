@@ -417,6 +417,8 @@ def build(
             p["without_text"] = 0  # rows not in this event stream: exact checks only, counted here
             p["exact_only"] = len(b) - sum(1 for r in b if r["interaction_id"] in texts.sets)
         _require_clean(name, p, th)
+        if tokenised:  # one shingle per tokenised row: a max of 0.0 would read as a measured result
+            p["max_jaccard"] = None
         proof["pairs"][name] = p
 
     # snapshot

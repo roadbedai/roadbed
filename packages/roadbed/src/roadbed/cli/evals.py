@@ -153,7 +153,7 @@ def build_cmd(
     con.print(Text("snapshot ", style="bold") + Text(f"{out.snapshot.id}: {c['train']} rows, merkle {root12}, {LABEL_RULES_V1.version}"))
     con.print(f"golden {c['golden']}, correction tests {c['correction_tests']}, eval-only {c['eval_only']}, quarantined {c['quarantined']}")
     for w in warnings:
-        con.print(Text("warning ", style="bold yellow") + Text(w))
+        con.print(Text("warning: ", style="bold yellow") + Text(w))
     th = out.proof["pairs"]["train-holdout"]
     near = "near check not run" if out.report["near_check"] == "not_applicable_tokenised" else \
         f"max Jaccard {th['max_jaccard']} (< {out.proof['purge_threshold']})"

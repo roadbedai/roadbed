@@ -23,3 +23,14 @@ def test_reconcile_outcomes_writes_local_outcomes(tmp_path: Path) -> None:
     assert "rows: 2, skipped: 0, error: None" in r.stdout, r.stdout
     rows = [json.loads(x) for x in (tmp_path / "roadbed-events" / "outcomes.jsonl").read_text().splitlines()]
     assert [o["interaction_id"] for o in rows] == ids and all(o["outcome"] == {"paid": True} for o in rows)
+
+
+def test_a_second_reconcile_run_appends_the_same_rows_again(tmp_path: Path) -> None:
+    (tmp_path / "outcomes.csv").write_text("interaction_id,observed_at,paid\nix_aaaaaaaaaaaaaaaaaaaaaaaaaa,2026-11-20T10:00:00Z,true\n")
+    env = {**os.environ, "ROADBED_TENANT_KEY": TEST_KEY.decode(), "HOME": str(tmp_path)}
+    for _ in range(2):
+        r = subprocess.run([sys.executable, str(EXAMPLES / "reconcile_outcomes.py"), "outcomes.csv"], cwd=tmp_path, env=env,
+                           capture_output=True, text=True, timeout=60)
+        assert r.returncode == 0, r.stderr
+    lines = (tmp_path / "roadbed-events" / "outcomes.jsonl").read_text().splitlines()
+    assert len(lines) == 2 and lines[0] == lines[1]

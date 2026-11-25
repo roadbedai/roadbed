@@ -10,7 +10,7 @@ The JSON Schemas (Draft 2020-12) are in `schemas/v0.1/`. They are generated from
 Two complete SYNTHETIC fixture assets are in `examples/pass/` (rebase 13, gate pass, signed off: requested by dana, validated by vik, approved by ana) and `examples/blocked/` (rebase 14, gate blocked, finding F-0001).
 The names dana, vik and ana are fictional.
 Their git histories are `examples/pass.bundle` and `examples/blocked.bundle` (`git clone examples/pass.bundle`), so the seal order can be checked with git.
-The Day 0 example `examples/claims-triage/` stays as the minimal asset.
+The Day 0 example `examples/claims-triage/` stays as the minimal asset. Day 0 is the format before the W01 amendment (see "Amendments").
 Valid and invalid cases for every schema, and hashing test vectors, are in `conformance/`.
 
 A change to the format is a pull request to spec/. A maintainer approves it. See CONTRIBUTING.md.

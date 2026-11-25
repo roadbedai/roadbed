@@ -65,15 +65,16 @@ def _build(tmp_path: Path, ev: Path):
     r = cli.invoke(app, ["evals", "build", "--asset", str(root), "--events", str(ev), "--as-of", "2026-11-02T09:00:00Z", "--seed", "7"],
                    env={"COLUMNS": "300"})
     assert r.exit_code == 0, r.output
-    report = json.loads((root / "data/snapshots/2026-11-02/build.json").read_text())["report"]
-    return r.output, report
+    doc = json.loads((root / "data/snapshots/2026-11-02/build.json").read_text())
+    return r.output, {**doc["report"], "proof": doc["proof"]}
 
 
 def test_build_warns_and_records_that_the_near_check_cannot_run_on_tokens(tmp_path):
     out, report = _build(tmp_path, tokenised_events(tmp_path / "events"))
-    assert REASON in out and 'use text="redact" for text that goes to training' in out
+    assert f"warning: {REASON}" in out and 'use text="redact" for text that goes to training' in out
     assert "max Jaccard" not in out
     assert report["near_check"] == "not_applicable_tokenised"
+    assert {p["max_jaccard"] for p in report["proof"]["pairs"].values()} == {None}
     assert report["counts"]["tokenised_inputs"] == report["counts"]["resolved"] - report["counts"]["quarantined"] > 0
 
 
@@ -81,6 +82,7 @@ def test_build_on_readable_text_runs_the_near_check(tmp_path):
     out, report = _build(tmp_path, FIXTURE)
     assert REASON not in out and "max Jaccard" in out
     assert report["near_check"] == "jaccard" and report["counts"]["tokenised_inputs"] == 0
+    assert isinstance(report["proof"]["pairs"]["train-holdout"]["max_jaccard"], float)
 
 
 @pytest.mark.parametrize("target", [f"data/holdout/{LOCAL_HID}", "rebases/1"])

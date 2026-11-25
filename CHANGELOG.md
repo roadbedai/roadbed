@@ -70,7 +70,7 @@ The versions follow [Semantic Versioning](https://semver.org/). See [docs/VERSIO
 - CI: `uv run --locked`, a gitleaks image pinned by digest, a ruff hook pinned by commit, and publish only from a commit on `main`.
 - Gitleaks scans the tests and the spec. The allowlist names synthetic values, not paths.
 - Version floors on the `roadbed` runtime dependencies.
-- CI: a `dco` job checks that each commit of a pull request has a `Signed-off-by:` line. Commits by maintainers in `.github/CODEOWNERS` and by bots are exempt.
+- CI: a `dco` job checks that each commit of a pull request has a `Signed-off-by:` line. Commits by maintainers in `.github/CODEOWNERS` and by bots are exempt. The job reads the script and `CODEOWNERS` from the base branch.
 
 ### Notes
 
