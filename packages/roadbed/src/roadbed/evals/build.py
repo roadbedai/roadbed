@@ -40,7 +40,7 @@ from collections import Counter, defaultdict
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from roadbed.asset import AssetValidationError, ObjectStore, merkle_root, seal_holdout, shingles, validate
 from roadbed.asset.hashing import jcs_sha256, row_hash, sha256_bytes
@@ -698,15 +698,16 @@ def read_candidate(out_dir: str | Path) -> HoldoutCandidate:
 
 
 def seal_candidate(
-    c: HoldoutCandidate, root: str | Path, holdout_id: str, *, sealed_by: str, sealed_at: str, audit_seq: int,
-    store: ObjectStore, num_perm: int = 128, shingle: int = 3,
+    c: HoldoutCandidate, root: str | Path, holdout_id: str, *, sealed_by: str, sealed_at: str, audit_seq: int | None,
+    store: ObjectStore, num_perm: int = 128, shingle: int = 3, provenance: Literal["control_plane", "local"] = "control_plane",
 ) -> dict[str, Any]:
     """The validator's step: seal the candidate through seal_holdout (full seal: stratification, snapshot,
-    MinHash object). The caller must be the validator (SoD-05, enforced by the control plane)."""
+    MinHash object). The caller must be the validator (SoD-05, enforced by the control plane). A local seal
+    (`roadbed evals seal`) passes provenance="local" and audit_seq=None: it names a person, no role is enforced."""
     return seal_holdout(
         root, holdout_id, c.rows, sealed_by=sealed_by, sealed_at=sealed_at, audit_seq=audit_seq, seed=c.seed,
         synthetic=c.synthetic, stratification=c.stratification, snapshot=c.snapshot, inputs=c.inputs, store=store,
-        num_perm=num_perm, shingle=shingle,
+        num_perm=num_perm, shingle=shingle, provenance=provenance,
     )
 
 

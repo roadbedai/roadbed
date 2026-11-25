@@ -154,8 +154,8 @@ def rebase_row(r: dict[str, Any]) -> tuple[str, str, str, str]:
 
 
 def seal_line(seal: Seal) -> str:
-    line = (f"sealed {seal.id} by {seal.sealed_by} at {seal.sealed_at} · audit seq {seal.audit_seq:,} · "
-            f"{seal.rows:,} rows · sha256 {seal.sha256[:12]}")
+    seq = "local seal, no audit seq" if seal.audit_seq is None else f"audit seq {seal.audit_seq:,}"
+    line = f"sealed {seal.id} by {seal.sealed_by} at {seal.sealed_at} · {seq} · {seal.rows:,} rows · sha256 {seal.sha256[:12]}"
     if seal.merkle_root:
         line += f" · merkle {seal.merkle_root[:12]}"
     return line

@@ -89,3 +89,44 @@ def test_day0_seal(tmp_path):
     assert "merkle_root" not in seal and "minhash_oid" not in seal
     assert json.loads((tmp_path / "data/holdout/H-2026-11-01/SEAL.json").read_text()) == seal
     assert not (tmp_path / "data/holdout/H-2026-11-01/SYNTHETIC.md").exists()
+
+
+def test_local_seal_has_provenance_and_no_audit_seq(tmp_path):
+    from roadbed.asset import validate_file
+
+    rows, inputs = _source()
+    seal = _seal(tmp_path, rows, inputs, ObjectStore(tmp_path / "b"), audit_seq=None, provenance="local")
+    assert seal["provenance"] == "local" and "audit_seq" not in seal
+    assert json.loads((tmp_path / "data/holdout/H-2026-11-01/SEAL.json").read_text()) == seal
+    validate_file(tmp_path, "data/holdout/H-2026-11-01/SEAL.json", strict=True)
+
+
+def test_local_seal_refuses_an_audit_seq(tmp_path):
+    rows, inputs = _source()
+    with pytest.raises(SealError, match="SEAL.json"):
+        _seal(tmp_path, rows, inputs, ObjectStore(tmp_path / "b"), provenance="local")
+    assert not (tmp_path / "data").exists()
+
+
+def test_local_day0_seal_is_refused(tmp_path):
+    rows, _ = _source()
+    with pytest.raises(SealError, match="SEAL.json"):
+        seal_holdout(tmp_path, "H-2026-11-01", rows, sealed_by="vik", sealed_at="2026-11-01T09:02:00Z", audit_seq=None,
+                     seed=1, synthetic=False, provenance="local")
+    assert not (tmp_path / "data").exists()
+
+
+def test_control_plane_seal_needs_an_audit_seq(tmp_path):
+    rows, inputs = _source()
+    with pytest.raises(SealError, match="audit_seq"):
+        _seal(tmp_path, rows, inputs, ObjectStore(tmp_path / "b"), audit_seq=None)
+
+
+def test_seal_line_names_a_local_seal():
+    from roadbed.cli.remote import seal_line
+    from roadbed.contracts import Seal
+
+    doc = json.loads((EXAMPLES / "pass/data/holdout/H-2026-11-01/SEAL.json").read_text())
+    assert "audit seq 1,204" in seal_line(Seal.model_validate(doc))
+    local = {**{k: v for k, v in doc.items() if k != "audit_seq"}, "provenance": "local"}
+    assert "local seal, no audit seq" in seal_line(Seal.model_validate(local))
