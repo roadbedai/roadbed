@@ -48,7 +48,16 @@
     "Data": {
       "properties": {
         "holdout": {
-          "$ref": "#/$defs/HoldoutRef"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HoldoutRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Optional until a holdout is sealed (W01d)."
         },
         "verdicts": {
           "anyOf": [
@@ -77,9 +86,6 @@
           "title": "Snapshot"
         }
       },
-      "required": [
-        "holdout"
-      ],
       "title": "Data",
       "type": "object",
       "additionalProperties": false

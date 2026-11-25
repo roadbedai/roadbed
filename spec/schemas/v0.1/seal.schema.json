@@ -44,6 +44,43 @@
       "additionalProperties": false
     }
   },
+  "allOf": [
+    {
+      "else": {
+        "properties": {
+          "audit_seq": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "audit_seq"
+        ]
+      },
+      "if": {
+        "properties": {
+          "provenance": {
+            "const": "local"
+          }
+        },
+        "required": [
+          "provenance"
+        ]
+      },
+      "then": {
+        "not": {
+          "required": [
+            "audit_seq"
+          ]
+        },
+        "required": [
+          "merkle_root",
+          "minhash_oid",
+          "snapshot",
+          "stratification"
+        ]
+      }
+    }
+  ],
   "dependentRequired": {
     "merkle_root": [
       "minhash_oid",
@@ -66,7 +103,7 @@
       "snapshot"
     ]
   },
-  "description": "data/holdout/<id>/SEAL.json. Written once, by a validator.",
+  "description": "data/holdout/<id>/SEAL.json. Written once, by a validator (control plane) or by a named person (local seal).",
   "properties": {
     "id": {
       "description": "Holdout id, e.g. H-2026-11-01.",
@@ -87,10 +124,18 @@
       "type": "string"
     },
     "audit_seq": {
-      "description": "Audit seq of the seal event. Training must have a larger seq.",
-      "minimum": 1,
-      "title": "Audit Seq",
-      "type": "integer"
+      "anyOf": [
+        {
+          "minimum": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Audit seq of the seal event. Training must have a larger seq. Required unless provenance is local; a local seal has none (W01d).",
+      "title": "Audit Seq"
     },
     "seed": {
       "description": "Sampling seed.",
@@ -181,13 +226,29 @@
       "default": null,
       "description": "Optional. Snapshot the rows were drawn from.",
       "title": "Snapshot"
+    },
+    "provenance": {
+      "anyOf": [
+        {
+          "enum": [
+            "control_plane",
+            "local"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Optional. Who sealed: control_plane (absent means control_plane) or local (roadbed evals seal on a laptop: no audit seq, no role enforced, always a full seal) (W01d).",
+      "title": "Provenance"
     }
   },
   "required": [
     "id",
     "sealed_by",
     "sealed_at",
-    "audit_seq",
     "seed",
     "rows",
     "sha256",
