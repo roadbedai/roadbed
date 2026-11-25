@@ -44,25 +44,23 @@ jobs:
   dco:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      - name: Require a Signed-off-by line on each commit that is not from a bot
+      - name: Require a Signed-off-by line on each commit that is not from a maintainer or a bot
         env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
           BASE: ${{ github.event.pull_request.base.sha }}
-          HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
-          bad=0
-          for c in $(git rev-list --no-merges "$BASE..$HEAD"); do
-            author=$(git log -1 --format='%an <%ae>' "$c")
-            case "$author" in *'[bot]'*) continue ;; esac
-            if ! git log -1 --format='%(trailers:key=Signed-off-by,valueonly)' "$c" | grep -q .; then
-              echo "::error::commit $c has no Signed-off-by line; sign it with git commit -s"
-              bad=1
-            fi
-          done
-          exit "$bad"
+          # The maintainers come from CODEOWNERS of the base branch, so a pull request cannot exempt itself.
+          git show "$BASE:.github/CODEOWNERS" > "$RUNNER_TEMP/CODEOWNERS"
+          gh api --paginate "repos/$REPO/pulls/$PR/commits" --jq '.[]' | bash .github/scripts/dco.sh "$RUNNER_TEMP/CODEOWNERS"
 
   docs-drift:
     runs-on: ubuntu-latest
