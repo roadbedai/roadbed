@@ -39,7 +39,7 @@ jobs:
           python-version: "3.12"
       - name: Stats, gate, contamination and fixture reproduction (fast and slow)
         run: |
-          uv run pytest -q -m "slow or not slow" \
+          uv run --locked pytest -q -m "slow or not slow" \
             packages/roadbed/tests/test_stats.py packages/roadbed/tests/test_gate.py \
             packages/roadbed/tests/test_scoring.py packages/roadbed/tests/test_contamination.py \
             packages/roadbed/tests/test_fixture_reproduction.py

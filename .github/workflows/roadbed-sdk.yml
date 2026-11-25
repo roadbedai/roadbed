@@ -28,10 +28,10 @@ jobs:
       - name: Install (SDK and its dev group, no extras)
         run: uv sync --package roadbed-sdk --locked
       - name: Lint (ruff)
-        run: uv run --package roadbed-sdk ruff check packages/roadbed-sdk
+        run: uv run --locked --package roadbed-sdk ruff check packages/roadbed-sdk
       - name: Type check (mypy)
-        run: uv run --package roadbed-sdk mypy packages/roadbed-sdk/src
+        run: uv run --locked --package roadbed-sdk mypy packages/roadbed-sdk/src
       - name: Tests (no network; respx routes only)
-        run: uv run --package roadbed-sdk pytest packages/roadbed-sdk/tests -q
+        run: uv run --locked --package roadbed-sdk pytest packages/roadbed-sdk/tests -q
       - name: Capture overhead (slow, p50 under 1 ms)
-        run: uv run --package roadbed-sdk pytest packages/roadbed-sdk/tests -q -m slow
+        run: uv run --locked --package roadbed-sdk pytest packages/roadbed-sdk/tests -q -m slow
