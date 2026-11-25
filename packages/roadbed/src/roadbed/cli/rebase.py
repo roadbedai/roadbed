@@ -22,6 +22,7 @@ from roadbed.cli.asset import (
     predictions_supplied,
     read_meta,
     receipt_executor,
+    seal_file,
 )
 from roadbed.cli.output import MINUS, plain, signed
 from roadbed.contracts import FileDigest, GateContaminationInput, GateResult, HoldoutDigest, PredictionDigests, Scores
@@ -96,8 +97,11 @@ def _iso_now() -> str:
     return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
-def final_line(n: int, gate: GateResult, margin: float) -> str:
+def final_line(n: int, gate: GateResult, margin: float, *, local: bool = False) -> str:
+    """local: the holdout has a local seal (no control plane, no sign-off); a pass says so."""
     if gate.status == "pass":
+        if local:
+            return f"rebase #{n}: gate pass, local, not attested; commit it, then roadbed verify rebases/{n}"
         return f"opened rebase #{n} → awaiting MRM sign-off"
     blocking = gate.findings
     if blocking and any(c.name == "slice_margin" and c.status == "fail" for c in gate.checks):
@@ -272,7 +276,9 @@ def run(asset: Asset, d: Path, n: int, base: BaseRef, emit, contamination: GateC
 
     (d / "scores.json").write_text(scores.model_dump_json(indent=2, exclude_none=True) + "\n", encoding="utf-8")
     (d / "gate.json").write_text(gate.model_dump_json(indent=2, exclude_none=True) + "\n", encoding="utf-8")
-    final = final_line(n, gate, asset.policy.margin)
+    sf = seal_file(asset)
+    local = sf is not None and (read_yaml(sf) or {}).get("provenance") == "local"
+    final = final_line(n, gate, asset.policy.margin, local=local)
     (d / "report.md").write_text(report_md(asset, n, base, scores, gate, final, executor), encoding="utf-8")
 
     written = [d / REBASE_META, d / "scores.json", d / "gate.json", d / "report.md"]

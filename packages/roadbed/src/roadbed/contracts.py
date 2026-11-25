@@ -151,7 +151,7 @@ class HoldoutRef(_Model):
 
 
 class Data(_Model):
-    holdout: HoldoutRef
+    holdout: HoldoutRef | None = Field(default=None, description="Optional until a holdout is sealed (W01d).")
     verdicts: str | None = Field(default=None, description="Optional. Prefix (from asset root) of the frozen verdict snapshots, e.g. data/snapshots.")
     snapshot: str | None = Field(default=None, description="Optional. Id of the snapshot the next training run uses, e.g. S-2026-11-01.")
 
@@ -569,22 +569,33 @@ class Stratification(_Model):
     fraction: float | None = Field(default=None, gt=0, le=1)
 
 
+SEAL_GROUP = ("merkle_root", "minhash_oid", "snapshot", "stratification")
+
+
 class Seal(_Model):
-    """data/holdout/<id>/SEAL.json. Written once, by a validator."""
+    """data/holdout/<id>/SEAL.json. Written once, by a validator (control plane) or by a named person (local seal)."""
 
     model_config = ConfigDict(
         extra="ignore",
         title="SEAL.json",
-        json_schema_extra={"dependentRequired": {
-            k: [x for x in ("merkle_root", "minhash_oid", "snapshot", "stratification") if x != k]
-            for k in ("merkle_root", "minhash_oid", "snapshot", "stratification")
-        }},
+        json_schema_extra={
+            "dependentRequired": {k: [x for x in SEAL_GROUP if x != k] for k in SEAL_GROUP},
+            "allOf": [{
+                "if": {"properties": {"provenance": {"const": "local"}}, "required": ["provenance"]},
+                "then": {"not": {"required": ["audit_seq"]}, "required": list(SEAL_GROUP)},
+                "else": {"properties": {"audit_seq": {"type": "integer"}}, "required": ["audit_seq"]},
+            }],
+        },
     )
 
     id: HoldoutId
     sealed_by: ActorId = Field(description="User id of the validator who sealed it (SoD-05).")
     sealed_at: UtcTs
-    audit_seq: int = Field(ge=1, description="Audit seq of the seal event. Training must have a larger seq.")
+    audit_seq: int | None = Field(
+        default=None, ge=1,
+        description="Audit seq of the seal event. Training must have a larger seq. Required unless provenance is local; "
+                    "a local seal has none (W01d).",
+    )
     seed: int = Field(ge=0, description="Sampling seed.")
     rows: int = Field(ge=0)
     sha256: Sha256Hex = Field(description="sha256 of holdout.jsonl bytes.")
@@ -597,12 +608,24 @@ class Seal(_Model):
     merkle_root: Sha256Hex | None = Field(default=None, description="Optional. Merkle root of the holdout row hashes.")
     minhash_oid: Oid | None = Field(default=None, description="Optional. Bucket object with the holdout MinHash signatures.")
     snapshot: str | None = Field(default=None, description="Optional. Snapshot the rows were drawn from.")
+    provenance: Literal["control_plane", "local"] | None = Field(
+        default=None,
+        description="Optional. Who sealed: control_plane (absent means control_plane) or local (roadbed evals seal on a "
+                    "laptop: no audit seq, no role enforced, always a full seal) (W01d).",
+    )
 
     @model_validator(mode="after")
     def _full_or_day0(self) -> Seal:
         group = (self.merkle_root, self.minhash_oid, self.snapshot, self.stratification)
         if any(v is not None for v in group) and any(v is None for v in group):
             raise ValueError("merkle_root, minhash_oid, snapshot and stratification come together (a Day 0 seal has none)")
+        if self.provenance == "local":
+            if "audit_seq" in self.model_fields_set:
+                raise ValueError("a local seal has no audit_seq: there is no audit chain on a laptop")
+            if any(v is None for v in group):
+                raise ValueError("a local seal is a full seal: merkle_root, minhash_oid, snapshot and stratification")
+        elif self.audit_seq is None:
+            raise ValueError("audit_seq is required unless provenance is local")
         return self
 
 

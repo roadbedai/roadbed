@@ -58,8 +58,8 @@ info:
   x-roadbed-spec:
     version: roadbed/v0.1
     source: roadbedai/roadbed spec/schemas/v0.1
-    commit: 8b293c3474111056af7d3d014517c90cef8f7ae3
-    schemas_sha256: c7e62b3c361d80ca5698054557ac029da59049638a2026ec0245de33844298c7
+    commit: 14baa6e26287a8a2cebfcafb650d5759ad26dccd
+    schemas_sha256: 14801afa15b4bc66173a1f748ea832305f85bff9776b671aeae26bd2c291147d
 servers:
 - url: /
 tags:
@@ -3044,7 +3044,11 @@ components:
     Data:
       properties:
         holdout:
-          $ref: '#/components/schemas/HoldoutRef'
+          anyOf:
+          - $ref: '#/components/schemas/HoldoutRef'
+          - type: 'null'
+          default: null
+          description: Optional until a holdout is sealed (W01d).
         verdicts:
           anyOf:
           - type: string
@@ -3059,8 +3063,6 @@ components:
           default: null
           description: Optional. Id of the snapshot the next training run uses, e.g. S-2026-11-01.
           title: Snapshot
-      required:
-      - holdout
       title: Data
       type: object
       additionalProperties: false
@@ -5605,6 +5607,28 @@ components:
       additionalProperties: false
       x-roadbed-spec-file: scores.schema.json
     Seal:
+      allOf:
+      - else:
+          properties:
+            audit_seq:
+              type: integer
+          required:
+          - audit_seq
+        if:
+          properties:
+            provenance:
+              const: local
+          required:
+          - provenance
+        then:
+          not:
+            required:
+            - audit_seq
+          required:
+          - merkle_root
+          - minhash_oid
+          - snapshot
+          - stratification
       dependentRequired:
         merkle_root:
         - minhash_oid
@@ -5622,7 +5646,7 @@ components:
         - merkle_root
         - minhash_oid
         - snapshot
-      description: data/holdout/<id>/SEAL.json. Written once, by a validator.
+      description: data/holdout/<id>/SEAL.json. Written once, by a validator (control plane) or by a named person (local seal).
       properties:
         id:
           description: Holdout id, e.g. H-2026-11-01.
@@ -5640,10 +5664,14 @@ components:
           title: Sealed At
           type: string
         audit_seq:
-          description: Audit seq of the seal event. Training must have a larger seq.
-          minimum: 1
+          anyOf:
+          - minimum: 1
+            type: integer
+          - type: 'null'
+          default: null
+          description: Audit seq of the seal event. Training must have a larger seq. Required unless provenance is local;
+            a local seal has none (W01d).
           title: Audit Seq
-          type: integer
         seed:
           description: Sampling seed.
           minimum: 0
@@ -5701,11 +5729,21 @@ components:
           default: null
           description: Optional. Snapshot the rows were drawn from.
           title: Snapshot
+        provenance:
+          anyOf:
+          - enum:
+            - control_plane
+            - local
+            type: string
+          - type: 'null'
+          default: null
+          description: 'Optional. Who sealed: control_plane (absent means control_plane) or local (roadbed evals seal on a
+            laptop: no audit seq, no role enforced, always a full seal) (W01d).'
+          title: Provenance
       required:
       - id
       - sealed_by
       - sealed_at
-      - audit_seq
       - seed
       - rows
       - sha256

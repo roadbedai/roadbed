@@ -325,3 +325,43 @@ def test_the_third_build_in_an_asset_counts_each_trained_row_once(out, tmp_path)
         assert pairs[name]["rows"][1] == len(sealed)
     assert pairs["holdout-seen"]["rows"][1] == len(read_seen(tmp_path))
     assert all(p["max_jaccard"] <= 1 for p in pairs.values())
+
+
+def test_training_inputs_are_kept_out_of_repr(out):
+    train = out.snapshot.rows
+    assert set(out.train_inputs) == {r["input_ref"] for r in train}
+    assert not set(out.train_inputs) & {r["input_ref"] for r in out.holdout_candidate.rows}
+    assert "train_inputs=" not in repr(out) and next(iter(out.train_inputs.values())) not in repr(out)
+
+
+def _written_rows(root, cand_dir) -> dict[str, list[dict]]:
+    files = sorted(root.glob("data/snapshots/*/part-*.jsonl")) + [root / "evals/golden.jsonl", root / "evals/correction_tests.jsonl",
+                                                                  cand_dir / "candidate.jsonl"]
+    return {f.name: [json.loads(x) for x in f.read_text().splitlines() if x.strip()] for f in files}
+
+
+def test_a_synthetic_build_flags_every_row(out, tmp_path):
+    out.write(tmp_path / "asset")
+    write_candidate(out.holdout_candidate, tmp_path / "vik")
+    rows = _written_rows(tmp_path / "asset", tmp_path / "vik")
+    assert all(rows.values()) and len(rows) >= 4
+    for name, rs in rows.items():
+        assert all(r.get("synthetic") is True for r in rs), name
+
+
+def test_a_real_build_writes_no_row_flag(resolved, tmp_path):
+    from roadbed.asset import row_hash
+
+    real = []
+    for r in resolved:
+        r = {**r, "synthetic": False}
+        for k in ("interaction_id", "verdict_id", "outcome_id"):
+            if isinstance(r.get(k), str):
+                r[k] = r[k].replace("syn-", "real-", 1)
+        r["row_hash"] = row_hash(r)
+        real.append(r)
+    b = build(real, slices(), EvalPolicy(), SEED, as_of=AS_OF, output_schema=output_schema())
+    b.write(tmp_path / "asset")
+    write_candidate(b.holdout_candidate, tmp_path / "vik")
+    for name, rs in _written_rows(tmp_path / "asset", tmp_path / "vik").items():
+        assert rs and not any("synthetic" in r for r in rs), name

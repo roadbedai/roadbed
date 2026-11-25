@@ -211,3 +211,72 @@ def test_fixture_audit_objects_match_the_patterns():
             elif isinstance(d, list):
                 stack.extend(d)
     assert n > 0
+
+
+# ---------------------------------------------------------------- W01d: local seal, unsealed roadbed.yaml
+
+
+def _local_seal(**kw):
+    seal = {k: v for k, v in _case("seal").items() if k != "audit_seq"}
+    return {**seal, "provenance": "local", **kw}
+
+
+def test_local_seal_without_audit_seq_validates():
+    from roadbed.contracts import Seal
+
+    inst = _local_seal()
+    _validator(json_schema("seal")).validate(inst)
+    s = Seal.model_validate(inst)
+    assert s.provenance == "local" and s.audit_seq is None
+
+
+@pytest.mark.parametrize("provenance", [None, "control_plane"])
+def test_control_plane_seal_needs_audit_seq(provenance):
+    from roadbed.contracts import Seal
+
+    inst = {k: v for k, v in _case("seal").items() if k != "audit_seq"}
+    if provenance:
+        inst["provenance"] = provenance
+    assert not _validator(json_schema("seal")).is_valid(inst)
+    with pytest.raises(ValueError, match="audit_seq"):
+        Seal.model_validate(inst)
+    assert _validator(json_schema("seal")).is_valid({**inst, "audit_seq": 7})
+
+
+def test_local_seal_with_audit_seq_is_refused():
+    from roadbed.contracts import Seal
+
+    inst = _local_seal(audit_seq=7)
+    assert not _validator(json_schema("seal")).is_valid(inst)
+    with pytest.raises(ValueError, match="audit_seq"):
+        Seal.model_validate(inst)
+
+
+@pytest.mark.parametrize("drop", [("merkle_root", "minhash_oid", "snapshot", "stratification"), ("snapshot",)])
+def test_local_seal_needs_the_full_group(drop):
+    from roadbed.contracts import Seal
+
+    inst = {k: v for k, v in _local_seal().items() if k not in drop}
+    assert not _validator(json_schema("seal")).is_valid(inst)
+    with pytest.raises(ValueError):
+        Seal.model_validate(inst)
+
+
+def test_unknown_provenance_is_refused():
+    assert not _validator(json_schema("seal")).is_valid(_local_seal(provenance="laptop"))
+
+
+def test_roadbed_yaml_without_holdout_validates():
+    from roadbed.contracts import RoadbedConfig
+
+    inst = next(_instances("roadbed"))
+    inst = {**inst, "data": {k: v for k, v in inst["data"].items() if k != "holdout"}}
+    _validator(json_schema("roadbed")).validate(inst)
+    assert RoadbedConfig.model_validate(inst).data.holdout is None
+
+
+def test_conformance_has_the_w01d_cases():
+    for rel in ("valid/seal/local.json", "valid/roadbed/unsealed.json", "invalid/seal/local-with-audit-seq.json",
+                "invalid/seal/local-day0.json", "invalid/seal/bad-provenance.json", "invalid/seal/missing-audit-seq.json",
+                "invalid/seal/control-plane-without-audit-seq.json"):
+        assert (CONFORMANCE / rel).is_file(), rel

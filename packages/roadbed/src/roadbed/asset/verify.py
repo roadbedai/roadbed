@@ -12,6 +12,16 @@ signature or evidence/ (see is_engine_scored). It gets the checks its files allo
 signatures, the receipts' binding to the predictions and the holdout, scores and gate recomputed, seal order. What
 such a run does not produce (contamination.json, license.json, bom.cdx.json, evidence/) is a named skip.
 
+A full rebase is **local** when the asset's holdout has a local seal (provenance local, `roadbed evals seal`) and the
+rebase has no receipt, receipt signature, evidence/ or receipts/ (see is_local): predictions supplied on a laptop. It
+gets the seal checks, scores and gate recomputed, and the seal commit as a strict ancestor of the commits that added the
+predictions (commit order only). Receipts, the audit seq, the lock and the control-plane files are named skips, so a
+local rebase never passes `strict=True`.
+
+`roadbed verify data/holdout/<id>` checks one sealed holdout on its own (run_seal): the seal schema, the holdout
+re-hashed, its rows, personal data, the synthetic flags of the asset, the seal commit, the MinHash object, the eval sets and the
+snapshot the seal names (exact and near). A local seal (provenance local) and a control-plane seal take the same checks.
+
 Data verify cannot see (bucket objects, git history outside a clone) is a skipped check, never a pass. With
 `strict=True` every skip fails and every file must meet the closed (producer) schema.
 """
@@ -30,7 +40,7 @@ import jsonschema
 from pydantic import ValidationError as PydanticError
 
 from roadbed.asset import gitlog
-from roadbed.asset.day0 import Check, VerifyFailed, _diff, _hashes, _recompute, _schemas, _scores, _seal
+from roadbed.asset.day0 import Check, VerifyFailed, _diff, _hashes, _recompute, _schemas, _scores, _seal, _when
 from roadbed.asset.files import (
     LOCK,
     MANIFEST,
@@ -61,12 +71,13 @@ from roadbed.asset.overlap import (
 )
 from roadbed.asset.seal import holdout_row_hash
 from roadbed.asset.signing import SignatureError, verify_signature
-from roadbed.cli.asset import PRED_FILES, Asset, open_asset
+from roadbed.cli.asset import PRED_FILES, Asset, open_asset, seal_time
 from roadbed.cli.rebase import FINDING_RE
 from roadbed.contracts import SCHEMA_MODELS, Scores
 from roadbed.gate import decide_license, evaluate
 
-__all__ = ["Check", "VerifyFailed", "VerifyResult", "is_engine_scored", "is_full", "receipt_executors", "run", "verify"]
+__all__ = ["Check", "VerifyFailed", "VerifyResult", "is_engine_scored", "is_full", "is_local", "receipt_executors", "run", "run_seal",
+           "verify"]
 
 RECEIPT, RECEIPT_SIG, EVIDENCE = "receipt.json", "receipt.sig", "evidence"
 RECEIPT_KEY, EVIDENCE_KEY = "policy/keys/receipt.pub", "policy/keys/evidence.pub"
@@ -156,7 +167,7 @@ class _Ctx:
         self.meta = _try_doc(self.d / "rebase.yaml")
         pred = (self.receipt or {}).get("predicate") or {}
         cfg = self.asset.cfg
-        holdout_dir = str(cfg["data"]["holdout"]["path"]).rstrip("/")
+        holdout_dir = str((cfg["data"].get("holdout") or {}).get("path") or "").rstrip("/")
         self.holdout_rel = f"{holdout_dir}/holdout.jsonl"
         self.seal_rel = f"{holdout_dir}/SEAL.json"
         snap_id = (pred.get("snapshot") or {}).get("id") or cfg["data"].get("snapshot") or ""
@@ -452,6 +463,8 @@ def _binding(c: _Ctx) -> Check:
         return bad(f"holdout {h['id']} is not the asset's holdout {seal['id']}")
     if h["merkle_root"] != seal.get("merkle_root") or (h.get("rows") is not None and h["rows"] != seal["rows"]):
         return bad(f"holdout Merkle root or rows differ from {c.seal_rel}")
+    if seal.get("audit_seq") is None:
+        return Check("V-SEAL-ORDER", label, False, f"a receipt cannot bind a local seal: {c.seal_rel} has no audit seq")
     if h["seal_seq"] != seal["audit_seq"] or h["sealed_at"] != seal["sealed_at"]:
         return Check("V-SEAL-ORDER", label, False, f"receipt holdout seal_seq/sealed_at differ from {c.seal_rel}")
     return Check("V-RECEIPT-MISMATCH", label, True, f"{len(rec['subject'])} subjects, recipe, snapshot, holdout")
@@ -909,6 +922,8 @@ def _engine_binding(c: _Ctx) -> Check:
             continue
         if h["id"] != seal["id"] or h["merkle_root"] != seal.get("merkle_root") or (h.get("rows") is not None and h["rows"] != seal["rows"]):
             return Check("V-RECEIPT-MISMATCH", label, False, f"{rel}: holdout {h['id']} differs from {c.seal_rel}")
+        if seal.get("audit_seq") is None:
+            return Check("V-SEAL-ORDER", label, False, f"{rel}: a receipt cannot bind a local seal: {c.seal_rel} has no audit seq")
         if h["seal_seq"] != seal["audit_seq"] or h["sealed_at"] != seal["sealed_at"]:
             return Check("V-SEAL-ORDER", label, False, f"{rel}: holdout seal_seq/sealed_at differ from {c.seal_rel}")
     for who, f in PRED_FILES.items():
@@ -967,6 +982,8 @@ def _engine_seal_order(c: _Ctx) -> Check:
              and (doc["predicate"].get("holdout") or {}).get("id") == seal["id"]]
     if not train:
         return c.skip_or_fail("V-SEAL-ORDER", label, f"no training receipt names {seal['id']}")
+    if seal.get("audit_seq") is None:
+        return Check("V-SEAL-ORDER", label, False, f"a receipt cannot bind a local seal: {c.seal_rel} has no audit seq")
     for rel, p in train:
         if p.get("audit_seq") is not None and not seal["audit_seq"] < p["audit_seq"]:
             return Check("V-SEAL-ORDER", label, False, f"seal audit seq {seal['audit_seq']} is not before {rel} seq {p['audit_seq']}")
@@ -1002,6 +1019,313 @@ def _engine_steps(asset: Asset, d: Path, n: int, ctx: Callable[[], _Ctx]) -> lis
     ]
 
 
+# ---------------------------------------------------------------- one sealed holdout (roadbed verify data/holdout/<id>)
+
+
+def _seal_ctx(asset: Asset, hdir: Path, store: ObjectStore | None, strict: bool) -> _Ctx:
+    """A context for the holdout in hdir: its SEAL.json, holdout.jsonl and the snapshot the seal was drawn from."""
+    c = _Ctx(asset, hdir, 0, store, strict, None)
+    rel = asset.rel(hdir)
+    c.seal_rel, c.holdout_rel = f"{rel}/SEAL.json", f"{rel}/holdout.jsonl"
+    c.seal = _try_doc(hdir / "SEAL.json")
+    snap_id = str((c.seal or {}).get("snapshot") or "")
+    verdicts = str(asset.cfg["data"].get("verdicts") or "data/snapshots").rstrip("/")
+    c.snapshot_rel = f"{verdicts}/{snap_id.removeprefix('S-')}/MANIFEST.json" if snap_id.startswith("S-") else ""
+    c.snapshot = _try_doc(asset.root / c.snapshot_rel) if c.snapshot_rel and safe_rel(c.snapshot_rel) else None
+    return c
+
+
+def _seal_schema(c: _Ctx) -> Check:
+    label = "seal schema OK"
+    try:
+        validate(read_doc(c.root / c.seal_rel), "seal", strict=c.strict)
+    except FileNotFoundError:
+        return Check("V-HASH-MISSING", label, False, f"{c.seal_rel} not found")
+    except (ValueError, AssetValidationError) as e:
+        return Check("V-SCHEMA-INVALID", label, False, f"{c.seal_rel}: {e}")
+    return Check("V-SCHEMA-INVALID", label, True, f"{'closed' if c.strict else 'reader'} form")
+
+
+def _seal_rehash(c: _Ctx) -> Check:
+    label = "holdout re-hashed"
+    bad = _holdout(c, label)
+    if bad is not None:
+        return bad
+    return Check("V-HASH-MISMATCH", label, True, f"{len(c.holdout_rows or [])} rows, sha256 and Merkle root match SEAL.json")
+
+
+def _seal_rows(c: _Ctx) -> Check:
+    label = "holdout rows OK"
+    for i, row in enumerate(c.holdout_rows or [], 1):
+        try:
+            validate(row, "holdout-row", strict=True)
+        except AssetValidationError as e:
+            return Check("V-SCHEMA-INVALID", label, False, f"{c.holdout_rel} line {i}: {e}")
+    return Check("V-SCHEMA-INVALID", label, True, "holdout-row schema, closed form: no raw input field")
+
+
+def _seal_pii(c: _Ctx) -> Check:
+    label = "no personal data (email) in the holdout"
+    for rel, doc in ((c.seal_rel, c.seal), (c.holdout_rel, c.holdout_rows)):
+        for text in _strings(doc):
+            for m in EMAIL.finditer(text):
+                if not FILE_EXT.search(m.group(0)):
+                    return Check("V-PII", label, False, f"{rel} holds an email address")
+    return Check("V-PII", label, True, "SEAL.json and holdout.jsonl scanned")
+
+
+def _seal_committed(c: _Ctx) -> Check:
+    label = "seal committed and unchanged"
+    if not c.git:
+        return c.skip_or_fail("V-SEAL-ORDER", label, "the asset is not a git clone; commit the asset to anchor the seal")
+    try:
+        for rel in (c.seal_rel, c.holdout_rel):
+            if not gitlog.matches_head(c.root, rel):
+                return Check("V-SEAL-ORDER", label, False, f"{rel} differs from the committed file at HEAD")
+        commit = gitlog.added_in(c.root, c.seal_rel)
+        if gitlog.added_in(c.root, c.holdout_rel) != commit:
+            return Check("V-SEAL-ORDER", label, False, f"{c.holdout_rel} and {c.seal_rel} were not added in one commit")
+    except gitlog.GitError as e:
+        return Check("V-SEAL-ORDER", label, False, str(e))
+    return Check("V-SEAL-ORDER", label, True, f"commit {commit[:12]}")
+
+
+def _seal_minhash(c: _Ctx) -> Check:
+    """The sealed MinHash object is in --objects, uses the policy's num_perm and shingle and covers exactly the sealed
+    rows. With the raw holdout inputs in --objects (the sealer's store), it must also be their MinHash."""
+    _, num_perm, shingle = _policy_contamination(c)
+    label = "MinHash object covers the sealed rows"
+    oid = (c.seal or {})["minhash_oid"]
+    if c.store is None:
+        return c.skip_or_fail("V-OBJECT-MISSING", label, f"MinHash object {oid[:12]} not checked; pass --objects")
+    if not c.store.has(oid):
+        return c.skip_or_fail("V-OBJECT-MISSING", label, f"MinHash object {oid[:12]} is not in --objects")
+    assert c.holdout_rows is not None
+    try:
+        n, k, sigs = parse_minhash_object(c.store.get(oid))
+        if (n, k) != (num_perm, shingle):
+            return Check("V-HOLDOUT-OVERLAP", label, False, f"MinHash object uses num_perm {n}, shingle {k}; policy says {num_perm}, {shingle}")
+        if set(sigs) != {holdout_row_hash(r) for r in c.holdout_rows}:
+            return Check("V-HOLDOUT-OVERLAP", label, False, "MinHash object does not cover exactly the sealed holdout rows")
+        hold = _texts(c, c.holdout_rows)
+        bad = _minhash_matches_raw(c, hold, num_perm, shingle) if hold is not None else None
+    except (ObjectError, UnicodeDecodeError, ValueError) as e:
+        return Check("V-HASH-MISMATCH", label, False, str(e))
+    if bad is not None:
+        return Check("V-HASH-MISMATCH", label, False, bad)
+    return Check("V-HOLDOUT-OVERLAP", label, True, f"{oid[:12]}, num_perm {n}, shingle {k}")
+
+
+def _seal_eval_sets(c: _Ctx) -> Check:
+    """Rows ever in evals/golden.jsonl or evals/correction_tests.jsonl (evals/seen.jsonl and the two current files)
+    share no id, input or row hash with the holdout: they are developer-visible."""
+    from roadbed.evals.build import read_seen  # here, not at the top: roadbed.evals imports roadbed.asset
+
+    label = "eval sets disjoint from the holdout"
+    hold = c.holdout_rows or []
+    seen = read_seen(c.root)
+    for key, k in (("id", "interaction_id"), ("input_ref", "input_ref"), ("row_hash", "row_hash")):
+        shared = {r[key] for r in hold if r.get(key)} & {r[k] for r in seen if r[k]}
+        if shared:
+            return Check("V-HOLDOUT-OVERLAP", label, False, f"{len(shared)} holdout rows share {k} with golden or correction tests, "
+                         f"first {sorted(shared)[0][:19]}")
+    return Check("V-HOLDOUT-OVERLAP", label, True, f"{len(seen)} rows ever in golden or correction tests: 0 shared ids, inputs, row hashes")
+
+
+def _seal_snapshot(c: _Ctx) -> Check:
+    """The snapshot the seal was drawn from, re-hashed (its rows go to the exact and near checks)."""
+    snap_id = (c.seal or {}).get("snapshot")
+    if c.snapshot is None:
+        return c.skip_or_fail("V-HASH-MISSING", "datasets re-hashed", f"snapshot {snap_id} named by {c.seal_rel} is not in the asset "
+                              f"({c.snapshot_rel or 'no path'})")
+    return _datasets(c)
+
+
+def run_seal(
+    asset: Asset,
+    hdir: Path,
+    on_check: Callable[[Check], None],
+    *,
+    objects: str | Path | None = None,
+    strict: bool = False,
+) -> list[Check]:
+    """Verify the sealed holdout in hdir (data/holdout/<id>). Calls on_check(check) for each check in order. Raises
+    VerifyFailed on the first failure. A control-plane seal adds a named skip for its audit seq: a signed receipt binds
+    it at rebase time, which only `roadbed verify rebases/N` can check."""
+    store = ObjectStore(objects) if objects is not None else None
+    holder: list[_Ctx] = []
+
+    def ctx() -> _Ctx:
+        if not holder:
+            holder.append(_seal_ctx(asset, hdir, store, strict))
+        return holder[0]
+
+    def audit_seq() -> Check:
+        seq = (ctx().seal or {}).get("audit_seq")
+        return ctx().skip_or_fail("V-SEAL-ORDER", "seal audit seq", f"not checked here: a receipt binds audit seq {seq} at rebase time")
+
+    steps: list[Callable[[], Check]] = [lambda: _seal_schema(ctx())]
+    if (_try_doc(hdir / "SEAL.json") or {}).get("provenance") != "local":
+        steps.append(audit_seq)
+    steps += [
+        lambda: _seal_rehash(ctx()),
+        lambda: _seal_rows(ctx()),
+        lambda: _seal_pii(ctx()),
+        lambda: _synthetic(ctx()),
+        lambda: _seal_committed(ctx()),
+        lambda: _seal_minhash(ctx()),
+        lambda: _seal_eval_sets(ctx()),
+        lambda: _seal_snapshot(ctx()),
+        lambda: _exact(ctx()),
+        lambda: _near(ctx()),
+    ]
+    done: list[Check] = []
+    for fn in steps:
+        try:
+            c = fn()
+        except (OSError, ValueError, KeyError, TypeError, IndexError, AttributeError) as e:
+            c = Check("V-CHECK-ERROR", "", False, f"{type(e).__name__}: {e}")
+        done.append(c)
+        on_check(c)
+        if c.ok is False:
+            raise VerifyFailed(c)
+    return done
+
+
+# ---------------------------------------------------------------- local rebase (a local seal, predictions supplied)
+
+
+CONTROL_PLANE = re.compile(r"^(roadbed\.lock|policy/keys/.*|versions/[^/]+/receipt\.(json|sig)|"
+                           r"rebases/[^/]+/(receipt\.(json|sig)|evidence/.*|receipts/.*))$")
+
+
+def _local_seal(root: Path) -> bool:
+    """True when roadbed.yaml's holdout has a local seal (provenance local)."""
+    try:
+        cfg = read_doc(root / "roadbed.yaml")
+        hdir = str(((cfg.get("data") or {}).get("holdout") or {}).get("path") or "").rstrip("/")
+        seal = _try_doc(root / hdir / "SEAL.json") if hdir and safe_rel(f"{hdir}/SEAL.json") else None
+    except Exception:  # noqa: BLE001  (an unreadable roadbed.yaml is reported by the checks)
+        return False
+    return (seal or {}).get("provenance") == "local"
+
+
+def _control_plane_file(root: Path, d: Path) -> str | None:
+    """The first file from the control plane that the asset holds, its rebase manifest names, or its git history
+    (merges included) ever held, said in words; None when there is none."""
+    for rel in tree_files(root):
+        if CONTROL_PLANE.match(rel):
+            return f"{rel} is in the asset"
+    rrel = d.resolve().relative_to(root.resolve()).as_posix()
+    m = d / MANIFEST
+    if m.is_file():
+        text = m.read_text(encoding="utf-8", errors="replace")
+        for f in (RECEIPT, RECEIPT_SIG, f"{EVIDENCE}/", f"{RECEIPTS}/"):
+            if f"{rrel}/{f}" in text:
+                return f"{rrel}/{MANIFEST} names {rrel}/{f}"
+    if gitlog.is_repo_root(root):
+        r = gitlog.git(root, "log", "-m", "--format=", "--name-only", check=False)  # -m: merges list their files too
+        if r.returncode != 0:
+            return "git history cannot be read"
+        for rel in r.stdout.splitlines():
+            if CONTROL_PLANE.match(rel):
+                return f"{rel} is in git history"
+    return None
+
+
+def is_local(root: Path, d: Path) -> bool:
+    """True when roadbed.yaml's holdout has a local seal (provenance local) and nothing in the asset comes from the
+    control plane: no roadbed.lock, policy/keys/, version receipt or rebase receipt, receipt signature, evidence/ or
+    receipts/, on disk, in the rebase manifest or in git history. A control-plane asset stripped of those files and
+    relabelled stays full or engine-scored."""
+    return _local_seal(root) and _control_plane_file(root, d) is None
+
+
+def _local_required(c: _Ctx) -> list[str]:
+    """Every path the rebase MANIFEST of a local rebase must list: every file of the rebase, the seal, the holdout,
+    and the training snapshot MANIFEST.json when roadbed.yaml names one."""
+    own = {f for f in c.files if f.startswith(c.rrel + "/") and f != f"{c.rrel}/{MANIFEST}"}
+    own |= {f"{c.rrel}/{f}" for f in ("rebase.yaml", "scores.json", "gate.json", *PRED_FILES.values())}
+    bound = {c.seal_rel, c.holdout_rel} | ({c.snapshot_rel} if c.snapshot_rel else set())
+    return sorted(own | bound)
+
+
+def _local_seal_time(c: _Ctx) -> Check:
+    """sealed_at not after rebase.yaml created_at. Both are self-declared with seconds precision, so a script that seals
+    and rebases in the same second passes; the git ancestry check carries the order."""
+    label = "seal not after rebase"
+    if not c.meta or "created_at" not in c.meta:
+        return Check("V-SEAL-AFTER-REBASE", f"{label}: skipped (no rebase.yaml)", None)
+    sealed, created = _when(seal_time(c.asset)), _when(c.meta["created_at"])
+    if sealed > created:
+        return Check("V-SEAL-AFTER-REBASE", label, False, f"holdout sealed {sealed.isoformat()} is after rebase created {created.isoformat()}")
+    return Check("V-SEAL-AFTER-REBASE", label, True, "sealed_at not after rebase.yaml created_at; both are self-declared")
+
+
+def _local_ancestry(c: _Ctx) -> Check:
+    """The seal commit is a strict ancestor of the commits that added both prediction files, and the seal and the
+    prediction files match HEAD. This proves commit order, not when the predictions were made."""
+    label = "seal precedes predictions: git ancestry"
+    if not c.git:
+        return c.skip_or_fail("V-SEAL-ORDER", label, "the asset is not a git clone; clone it to check the commit order")
+    preds = [f"{c.rrel}/{f}" for f in PRED_FILES.values()]
+    try:
+        for rel in (c.seal_rel, *preds):
+            if not gitlog.matches_head(c.root, rel):
+                return Check("V-SEAL-ORDER", label, False, f"{rel} differs from the committed file at HEAD")
+        seal_commit = gitlog.added_in(c.root, c.seal_rel)
+        for rel in preds:
+            pc = gitlog.added_in(c.root, rel)
+            if pc == seal_commit or not gitlog.is_ancestor(c.root, seal_commit, pc):
+                return Check("V-SEAL-ORDER", label, False, f"seal commit {seal_commit[:12]} is not a strict ancestor of {pc[:12]}, "
+                             f"which added {rel}")
+    except gitlog.GitError as e:
+        return Check("V-SEAL-ORDER", label, False, str(e))
+    return Check("V-SEAL-ORDER", label, True, f"{seal_commit[:12]} < {pc[:12]}; commit order only")
+
+
+def _local_steps(asset: Asset, d: Path, n: int, ctx: Callable[[], _Ctx]) -> list[Callable[[], Check]]:
+    """The checks of a local rebase. What a laptop cannot prove is a named skip, never a pass; the first skip is
+    "receipts signed", so --strict fails there when every check it can run passes."""
+    def skip(code: str, label: str, why: str) -> Callable[[], Check]:
+        return lambda: ctx().skip_or_fail(code, label, why)
+
+    return [
+        lambda: _hashes(asset, d, _local_required(ctx())),
+        lambda: _pii(ctx()),
+        lambda: _seal_schema(ctx()),
+        lambda: _seal_rehash(ctx()),
+        lambda: _seal_rows(ctx()),
+        lambda: _seal_pii(ctx()),
+        lambda: _synthetic(ctx()),
+        lambda: _seal_committed(ctx()),
+        lambda: _seal_minhash(ctx()),
+        lambda: _seal_eval_sets(ctx()),
+        skip("V-SIG-MISSING", "receipts signed", "no receipt: predictions supplied, no run attested"),
+        skip("V-RECEIPT-CHAIN", "receipt chain OK", "no receipts in a local asset"),
+        skip("V-RECEIPT-MISMATCH", "receipts bind the predictions and the holdout", "no receipt; the unsigned rebase manifest names them"),
+        skip("V-LOCK-MISSING", "lock files re-hashed", f"no {LOCK} in a local asset; git history is the anchor"),
+        lambda: _policy(ctx()),
+        lambda: _schemas(d),
+        lambda: _engine_holdout(ctx()),
+        lambda: _scores(asset, d, n, ctx().scores()),
+        lambda: _engine_gate(ctx()),
+        lambda: _local_seal_time(ctx()),
+        skip("V-SEAL-ORDER", "seal precedes training: audit seq", "no audit chain in a local asset"),
+        lambda: _local_ancestry(ctx()),
+        lambda: _datasets(ctx()) if ctx().snapshot is not None else ctx().skip_or_fail(
+            "V-HASH-MISSING", "datasets re-hashed", f"no training snapshot: roadbed.yaml data.snapshot is {ctx().snapshot_rel or 'not set'}"),
+        lambda: _exact(ctx()),
+        lambda: _near(ctx()),
+        skip("V-CONTAMINATION-MISMATCH", "contamination.json matches", "not produced by a local rebase"),
+        skip("V-HASH-MISSING", "license.json", "not produced by a local rebase; the gate license check is recomputed"),
+        skip("V-HASH-MISSING", "bom.cdx.json", "not produced by a local rebase"),
+        skip("V-MANIFEST-MISSING", "evidence manifest OK", "no evidence/ in a local rebase"),
+        skip("V-SOD", "segregation of duties (SoD-01, SoD-02)", "local asset: no role enforcement; the sealer may run the rebase"),
+        lambda: _objects(ctx()),
+    ]
+
+
 # ---------------------------------------------------------------- driver
 
 
@@ -1026,8 +1350,11 @@ def run(
             holder.append(_Ctx(asset, d, n, store, strict, trusted))
         return holder[0]
 
+    blocker = _control_plane_file(asset.root, d) if _local_seal(asset.root) else None
     if not is_full(asset.root, d):
         steps = [lambda: _hashes(asset, d), lambda: _schemas(d), lambda: _scores(asset, d, n), lambda: _seal(asset, d)]
+    elif _local_seal(asset.root) and blocker is None:
+        steps = _local_steps(asset, d, n, ctx)
     elif is_engine_scored(asset.root, d):
         steps = _engine_steps(asset, d, n, ctx)
     else:
@@ -1061,6 +1388,8 @@ def run(
             c = fn()
         except (OSError, ValueError, KeyError, TypeError, IndexError, AttributeError) as e:
             c = Check("V-CHECK-ERROR", "", False, f"{type(e).__name__}: {e}")
+        if c.ok is False and blocker is not None:  # a local seal under full or engine mode: say what refused local mode
+            c = Check(c.code, c.label, False, f"local mode refused: {blocker}; {c.detail}")
         done.append(c)
         on_check(c)
         if c.ok is False:

@@ -35,6 +35,10 @@ A case whose only fault is an unknown field fails the published (closed) schema;
 | `invalid/seal/probe-w01-fields-partial.json` | `seal.schema.json` | merkle_root, minhash_oid, snapshot and stratification come together (verifier probe) |
 | `invalid/seal/probe-sealed-by-email.json` | `seal.schema.json` | sealed_by is a user id, never an email address (verifier probe) |
 | `invalid/seal/missing-audit-seq.json` | `seal.schema.json` | audit_seq is required (seal ordering) |
+| `invalid/seal/local-with-audit-seq.json` | `seal.schema.json` | a local seal has no audit_seq: no audit chain on a laptop (W01d) |
+| `invalid/seal/local-day0.json` | `seal.schema.json` | a local seal is a full seal: merkle_root, minhash_oid, snapshot and stratification (W01d) |
+| `invalid/seal/bad-provenance.json` | `seal.schema.json` | provenance is control_plane or local (W01d) |
+| `invalid/seal/control-plane-without-audit-seq.json` | `seal.schema.json` | a control-plane seal needs audit_seq (W01d) |
 | `invalid/seal/short-commit.json` | `seal.schema.json` | seal_commit must be a 40-hex commit |
 | `invalid/tombstone-row/raw-email-subject.json` | `tombstone-row.schema.json` | subject_token must be an HMAC token tok_<hex>, never a raw identifier |
 | `invalid/golden-row/extra-field.json` | `golden-row.schema.json` | unknown fields are rejected |
@@ -127,6 +131,8 @@ More valid cases (besides `valid/<schema>/example.json`):
 
 | File | Schema | What it shows |
 |---|---|---|
+| `valid/seal/local.json` | `seal.schema.json` | a local seal (roadbed evals seal) has provenance local, the full group and no audit_seq (W01d) |
+| `valid/roadbed/unsealed.json` | `roadbed.schema.json` | data.holdout is optional until a holdout is sealed (W01d) |
 | `valid/executor-job/eval-with-snapshot.json` | `executor-job.schema.json` | an eval job carries the snapshot ref its receipt copies |
 | `valid/executor-job/bench-with-refs.json` | `executor-job.schema.json` | a bench job may carry snapshot and sealed holdout refs |
 | `valid/executor-job/attest-rebase.json` | `executor-job.schema.json` | an attest job (kind rebase) binds the job receipts and signs rebases/N/receipt.json (W01c) |

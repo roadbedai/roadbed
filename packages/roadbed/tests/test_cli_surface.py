@@ -12,7 +12,7 @@ from test_cli_fakeapi import Fixture
 
 cli = CliRunner()
 COMMANDS = [["init"], ["sample"], ["seal"], ["watch"], ["rebase"], ["status"], ["verify"], ["eval", "reproduce"], ["audit", "verify"],
-            ["evidence", "verify"], ["promote"], ["rollback"]]
+            ["evidence", "verify"], ["promote"], ["rollback"], ["new"], ["evals", "seal"]]
 
 
 @pytest.mark.parametrize("cmd", COMMANDS, ids=" ".join)
@@ -61,3 +61,12 @@ def test_follow_times_out():
     got = remote.follow(Stuck(), views[0], lambda e: None, interval=1, timeout=3, sleep=lambda s: None,  # type: ignore[arg-type]
                         clock=lambda: next(t))
     assert got.timed_out and got.view["state"] == "seal_check" and len(got.events) == 3
+
+
+@pytest.mark.parametrize("cmd,holdout", [(["verify"], True), (["eval", "reproduce"], False)])
+def test_path_help_offers_a_holdout_only_where_the_command_takes_one(cmd: list[str], holdout: bool):
+    node = typer.main.get_command(app)
+    for name in cmd:
+        node = node.commands[name]  # type: ignore[attr-defined]
+    path = next(p for p in node.params if p.name == "path")
+    assert ("data/holdout" in (path.help or "")) is holdout  # type: ignore[attr-defined]

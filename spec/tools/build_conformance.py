@@ -218,7 +218,13 @@ def extra_valid_cases() -> dict[str, list[tuple[str, Any, str]]]:
     partial_config["predicate"]["config"] = {"seal_sha256": receipt["predicate"]["config"]["seal_sha256"]}
     audit = valid_cases()["audit-event"]
     cost = _json("rebases/13/cost.json")
+    seal = _json("data/holdout/H-2026-11-01/SEAL.json")
+    local = {**{k: v for k, v in seal.items() if k != "audit_seq"}, "provenance": "local"}
+    roadbed = _yaml("roadbed.yaml")
+    unsealed = {**roadbed, "data": {k: v for k, v in roadbed["data"].items() if k not in ("holdout", "snapshot")}}
     return {
+        "seal": [("local", local, "a local seal (roadbed evals seal) has provenance local, the full group and no audit_seq (W01d)")],
+        "roadbed": [("unsealed", unsealed, "data.holdout is optional until a holdout is sealed (W01d)")],
         "executor-job": [("eval-with-snapshot", _eval_job(receipt), "an eval job carries the snapshot ref its receipt copies"),
                          ("bench-with-refs", _bench_job(receipt), "a bench job may carry snapshot and sealed holdout refs"),
                          ("attest-rebase", _attest_job(receipt),
@@ -299,6 +305,13 @@ INVALID: dict[str, list[tuple[str, Mut, str]]] = {
              ("probe-sealed-by-email", _set("jane.doe@acme.example", "sealed_by"),
               "sealed_by is a user id, never an email address (verifier probe)"),
              ("missing-audit-seq", _del("audit_seq"), "audit_seq is required (seal ordering)"),
+             ("local-with-audit-seq", _set("local", "provenance"), "a local seal has no audit_seq: no audit chain on a laptop (W01d)"),
+             ("local-day0", _all(_set("local", "provenance"), _del("audit_seq"), _del("merkle_root"), _del("minhash_oid"),
+                                 _del("snapshot"), _del("stratification")),
+              "a local seal is a full seal: merkle_root, minhash_oid, snapshot and stratification (W01d)"),
+             ("bad-provenance", _set("laptop", "provenance"), "provenance is control_plane or local (W01d)"),
+             ("control-plane-without-audit-seq", _all(_set("control_plane", "provenance"), _del("audit_seq")),
+              "a control-plane seal needs audit_seq (W01d)"),
              ("short-commit", _set("5e41c0a", "seal_commit"), "seal_commit must be a 40-hex commit")],
     "tombstone-row": [("raw-email-subject", _set("jane@example.com", "subject_token"),
                        "subject_token must be an HMAC token tok_<hex>, never a raw identifier")],

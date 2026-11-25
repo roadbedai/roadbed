@@ -1,6 +1,7 @@
 """Seal a holdout: write holdout.jsonl, the MinHash object and SEAL.json once (SPEC.md, Seal precedes training).
 
-Only a validator seals (SoD-05); the control plane enforces the role, this library writes the files. The holdout rows
+Only a validator seals (SoD-05); the control plane enforces the role, this library writes the files. A local seal
+(provenance local, `roadbed evals seal`) names a person, has no audit seq and is always a full seal. The holdout rows
 carry no raw input, only its content address; the raw inputs are read here to build the MinHash signatures and are
 not written to the asset.
 """
@@ -10,7 +11,7 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from roadbed.asset.files import SYNTHETIC_MD, AssetValidationError, validate
 from roadbed.asset.hashing import jcs_sha256, merkle_root, sha256_bytes, sha256_file
@@ -40,7 +41,7 @@ def seal_holdout(
     *,
     sealed_by: str,
     sealed_at: str,
-    audit_seq: int,
+    audit_seq: int | None,
     seed: int,
     synthetic: bool,
     stratification: Mapping[str, Any] | None = None,
@@ -49,8 +50,12 @@ def seal_holdout(
     store: ObjectStore | None = None,
     num_perm: int = DEFAULT_NUM_PERM,
     shingle: int = DEFAULT_SHINGLE,
+    provenance: Literal["control_plane", "local"] = "control_plane",
 ) -> dict[str, Any]:
     """Write data/holdout/<id>/{holdout.jsonl, SEAL.json} under root and return the SEAL document.
+
+    A control-plane seal needs audit_seq. A local seal (provenance="local") takes audit_seq=None and must be full;
+    SEAL.json then carries provenance: local and no audit_seq.
 
     A full seal needs stratification, snapshot, `inputs` (input_ref -> raw text, for every row) and a `store` for
     the MinHash object. Without them it is a Day 0 seal, which supports no near-overlap check. Refuses to write over
@@ -79,6 +84,10 @@ def seal_holdout(
         "id": holdout_id, "sealed_by": sealed_by, "sealed_at": sealed_at, "audit_seq": audit_seq, "seed": seed,
         "rows": len(out), "sha256": "", "synthetic": synthetic,
     }
+    if audit_seq is None:
+        del seal["audit_seq"]
+    if provenance == "local":
+        seal["provenance"] = "local"
     blob = b""
     if full:
         assert inputs is not None and stratification is not None

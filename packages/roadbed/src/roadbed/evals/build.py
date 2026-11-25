@@ -40,7 +40,7 @@ from collections import Counter, defaultdict
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from roadbed.asset import AssetValidationError, ObjectStore, merkle_root, seal_holdout, shingles, validate
 from roadbed.asset.hashing import jcs_sha256, row_hash, sha256_bytes
@@ -136,6 +136,7 @@ class EvalBuild:
     eval_only: list[dict[str, Any]]
     proof: dict[str, Any]
     report: dict[str, Any]
+    train_inputs: dict[str, str] = field(default_factory=dict, repr=False)  # input_ref -> raw text of each training row
 
     def write(self, root: str | Path, *, snapshots_dir: str = "data/snapshots", store: ObjectStore | None = None) -> list[str]:
         """Write the snapshot, golden set, correction tests and build report into the asset at root.
@@ -413,7 +414,8 @@ def build(
         proof["pairs"][name] = p
 
     # snapshot
-    snap_rows = sorted((_proj(r, SNAPSHOT_FIELDS) for r in train), key=lambda r: (r["row_hash"], r["interaction_id"]))
+    flag = {"synthetic": True} if synthetic else {}  # every row of a synthetic build says so (SPEC.md, rule 9)
+    snap_rows = sorted(({**_proj(r, SNAPSHOT_FIELDS), **flag} for r in train), key=lambda r: (r["row_hash"], r["interaction_id"]))
     _validate_all(snap_rows, "snapshot-row")
     parts = _parts(snap_rows, policy.part_bytes, snap_id)
     manifest: dict[str, Any] = {
@@ -431,7 +433,7 @@ def build(
 
     # holdout candidate and golden
     def eval_row(r: Mapping[str, Any], rid: str) -> dict[str, Any]:
-        return {"id": rid, "slices": r["slices"], "input_ref": r["input_ref"], "expected": r["verdict"], "row_hash": r["row_hash"]}
+        return {"id": rid, "slices": r["slices"], "input_ref": r["input_ref"], "expected": r["verdict"], "row_hash": r["row_hash"], **flag}
 
     hrows = [eval_row(r, r["interaction_id"]) for r in holdout]
     _validate_all(hrows, "holdout-row")
@@ -449,7 +451,7 @@ def build(
         {
             "id": f"CT-{n:04d}", "interaction_id": r["interaction_id"], "input_ref": r["input_ref"], "slices": r["slices"],
             "model_version": r["model_version"], "model_output": r["output"], "expected": r["fix"], "reason_code": r["reason_code"],
-            "created_by": r["actor"] or UNATTRIBUTED, "created_at": r["ts"], "row_hash": r["row_hash"],
+            "created_by": r["actor"] or UNATTRIBUTED, "created_at": r["ts"], "row_hash": r["row_hash"], **flag,
         }
         for n, r in enumerate(visible, policy.ct_start)
     ]
@@ -484,7 +486,7 @@ def build(
         "merkle": {"train": manifest["merkle_root"], "holdout_candidate": candidate.merkle_root},
     }
     return EvalBuild(snapshot=snapshot, holdout_candidate=candidate, golden=grows, correction_tests=cts, eval_only=ev,
-                     proof=proof, report=report)
+                     proof=proof, report=report, train_inputs={r["input_ref"]: r["input_text"] for r in train})
 
 
 def _pinned_rows(rows: Iterable[Mapping[str, Any]], what: str, *, check_hash: bool) -> list[dict[str, Any]]:
@@ -571,6 +573,9 @@ def _write(b: EvalBuild, root: Path, snapshots_dir: str, store: ObjectStore | No
         written.append(mp["path"])
         if store is not None:
             store.put(p.data)
+    if store is not None:  # the raw training inputs, under their input_ref, so verify can run the near check
+        for text in b.train_inputs.values():
+            store.put(text.encode("utf-8"))
     (d / "MANIFEST.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     (d / "build.json").write_text(json.dumps({"report": b.report, "proof": b.proof}, indent=2) + "\n", encoding="utf-8")
     written += [f"{snap_rel}/MANIFEST.json", f"{snap_rel}/build.json"]
@@ -694,15 +699,16 @@ def read_candidate(out_dir: str | Path) -> HoldoutCandidate:
 
 
 def seal_candidate(
-    c: HoldoutCandidate, root: str | Path, holdout_id: str, *, sealed_by: str, sealed_at: str, audit_seq: int,
-    store: ObjectStore, num_perm: int = 128, shingle: int = 3,
+    c: HoldoutCandidate, root: str | Path, holdout_id: str, *, sealed_by: str, sealed_at: str, audit_seq: int | None,
+    store: ObjectStore, num_perm: int = 128, shingle: int = 3, provenance: Literal["control_plane", "local"] = "control_plane",
 ) -> dict[str, Any]:
     """The validator's step: seal the candidate through seal_holdout (full seal: stratification, snapshot,
-    MinHash object). The caller must be the validator (SoD-05, enforced by the control plane)."""
+    MinHash object). The caller must be the validator (SoD-05, enforced by the control plane). A local seal
+    (`roadbed evals seal`) passes provenance="local" and audit_seq=None: it names a person, no role is enforced."""
     return seal_holdout(
         root, holdout_id, c.rows, sealed_by=sealed_by, sealed_at=sealed_at, audit_seq=audit_seq, seed=c.seed,
         synthetic=c.synthetic, stratification=c.stratification, snapshot=c.snapshot, inputs=c.inputs, store=store,
-        num_perm=num_perm, shingle=shingle,
+        num_perm=num_perm, shingle=shingle, provenance=provenance,
     )
 
 
