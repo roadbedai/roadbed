@@ -1,9 +1,22 @@
 [project]
 name = "roadbed"
-version = "0.0.1"
-description = "Roadbed engine: per-slice scoring, paired bootstrap, and release gate for fine-tuned model rebases (prototype)."
+version = "0.1.0"
+description = "Roadbed engine: per-slice scoring, paired bootstrap, and release gate for fine-tuned model rebases."
 readme = "README.md"
 license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{name = "Roadbed", email = "founders@roadbed.ai"}]
+keywords = ["llm", "fine-tuning", "evaluation", "model-rebase", "release-gate", "bootstrap"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Intended Audience :: Developers",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Typing :: Typed",
+]
 requires-python = ">=3.12"
 dependencies = [
     "pydantic>=2",
@@ -13,11 +26,17 @@ dependencies = [
     "typer",
     "rich",
     "httpx",
-    "huggingface_hub",
     "rfc8785",
     "cryptography>=43",
     "duckdb>=2.0.0",
 ]
+
+[project.urls]
+Homepage = "https://roadbed.ai"
+Source = "https://github.com/roadbedai/roadbed"
+Spec = "https://github.com/roadbedai/roadbed/blob/main/spec/SPEC.md"
+Changelog = "https://github.com/roadbedai/roadbed/blob/main/CHANGELOG.md"
+Issues = "https://github.com/roadbedai/roadbed/issues"
 
 [project.scripts]
 roadbed = "roadbed.cli.main:app"

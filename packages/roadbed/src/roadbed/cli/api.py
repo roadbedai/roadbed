@@ -1,4 +1,4 @@
-"""HTTP client for the control plane (platform/contracts/openapi.yaml, v0.1).
+"""HTTP client for the control plane (tests/cli_fixtures/openapi.yaml, v0.1).
 
 No proxy or netrc from the environment, no redirects, bearer token from the token file only. Every failure is an
 ApiError (exit 3) that carries the RFC 9457 problem fields the server sent: code, rule, audit_seq.

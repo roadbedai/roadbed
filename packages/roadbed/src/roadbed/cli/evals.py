@@ -145,6 +145,7 @@ def build_cmd(
     th = out.proof["pairs"]["train-holdout"]
     con.print(f"train vs holdout: 0 shared rows, 0 shared inputs, max Jaccard {th['max_jaccard']} (< {out.proof['purge_threshold']})")
     if cand:
-        con.print(Text("holdout candidate ", style="bold") + Text(f"{len(out.holdout_candidate)} rows -> {holdout_out} (validator seals it)"))
+        seal_hint = "seal it: roadbed evals seal --candidate <dir>"
+        con.print(Text("holdout candidate ", style="bold") + Text(f"{len(out.holdout_candidate)} rows -> {holdout_out} ({seal_hint})"))
     else:
         con.print(Text(f"holdout candidate {len(out.holdout_candidate)} rows not written; pass --holdout-out <validator dir>", style="dim"))

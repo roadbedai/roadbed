@@ -15,7 +15,7 @@ import roadbed_sdk
 from conftest import API, GATEWAY, TEST_KEY, FakeIngest, chat_completion, spool_bytes
 from roadbed_sdk._pseudo import Pseudonymiser, Session, normalise_pii
 
-NAME, EMAIL, PHONE, IBAN = "Jane Doe", "jane.doe@example.com", "+358 40 123 4567", "FI21 1234 5600 0007 85"
+NAME, EMAIL, PHONE, IBAN = "Jane Doe", "jane.doe@example.com", "+44 7700 900123", "FI21 1234 5600 0007 85"
 UNLISTED = "Mikko Virtanen"  # a name the host did not list: free text must still not carry it
 SUBJECT = "claimant-778899"
 SSN = "123-45-6789"
@@ -35,7 +35,7 @@ def test_no_raw_pii_in_spool_wire_or_log(mock: respx.MockRouter, ingest: FakeIng
     caplog.set_level(logging.DEBUG, logger="roadbed_sdk")
     roadbed_sdk.init(API, "test-token", TEST_KEY, "insurer-default@v1", keep=("route", "severity", "claimant", "note"),
                      spool_path=spool_path, background=False)
-    echo = f'{{"severity": 2, "route": "{EMAIL}", "claimant": "{NAME}", "note": "{UNLISTED}", "phone": 358401234567, "card": "4012888888881881"}}'
+    echo = f'{{"severity": 2, "route": "{EMAIL}", "claimant": "{NAME}", "note": "{UNLISTED}", "phone": 447700900123, "card": "4012888888881881"}}'
     mock.post(f"{GATEWAY}/chat/completions").mock(return_value=httpx.Response(200, json=chat_completion(echo)))
     client = roadbed_sdk.wrap_openai(oai)
     ingest.down = True

@@ -1,6 +1,6 @@
 """Remote commands against a respx fake of the control plane (test_cli_fakeapi.py): rebase, status, seal, promote,
 rollback, init --check. The fake serves spec fixture files; the tests check what the CLI prints, sends and exits with.
-Server-side rules (SoD, RBAC, promote preconditions) are W11/W20's; here a fake deny only checks that the CLI reports
+Server-side rules (SoD, RBAC, promote preconditions) belong to the server; here a fake deny only checks that the CLI reports
 the server's code, rule and audit seq and exits 3. Nothing here claims the server enforces them.
 """
 

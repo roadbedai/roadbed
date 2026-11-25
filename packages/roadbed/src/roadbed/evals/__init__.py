@@ -1,4 +1,4 @@
-"""Eval synthesis (W14): frozen snapshot, holdout candidate, golden set and correction tests from resolved rows.
+"""Eval synthesis: frozen snapshot, holdout candidate, golden set and correction tests from resolved rows.
 
     from roadbed.labels import resolve
     from roadbed.evals import build, EvalPolicy

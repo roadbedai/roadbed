@@ -21,7 +21,7 @@ from conftest import API, GATEWAY, GATEWAY_HEADERS, TEST_KEY, TRIAGE, FakeIngest
 N = 400
 MESSAGES = [
     {"role": "system", "content": "Triage the claim. Answer JSON with severity, route and line."},
-    {"role": "user", "content": "Claim by Jane Doe (jane.doe@example.com, +358 40 123 4567): rear-ended at a junction, neck pain, car towed."},
+    {"role": "user", "content": "Claim by Jane Doe (jane.doe@example.com, +44 7700 900123): rear-ended at a junction, neck pain, car towed."},
 ]
 
 

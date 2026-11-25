@@ -1,4 +1,4 @@
-"""W02 hashing: golden vectors from spec/conformance and SPEC.md, Merkle trees of 1, 2, odd and 1000 leaves."""
+"""Hashing: golden vectors from spec/conformance and SPEC.md, Merkle trees of 1, 2, odd and 1000 leaves."""
 
 from __future__ import annotations
 

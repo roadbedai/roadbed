@@ -1,4 +1,4 @@
-"""W14 CLI hook: roadbed evals build (for W21)."""
+"""CLI hook: roadbed evals build."""
 
 from __future__ import annotations
 
@@ -82,7 +82,7 @@ def test_second_build_never_holds_out_what_the_first_snapshot_trained_on(tmp_pat
 
 
 def test_a_leakage_refusal_exits_4_and_other_failures_exit_2(tmp_path, monkeypatch):
-    """Exit codes follow W21: a leakage refusal is a failed check (4, like roadbed verify); bad input is 2."""
+    """Exit codes follow the CLI rules: a leakage refusal is a failed check (4, like roadbed verify); bad input is 2."""
     root, ev = _asset(tmp_path)
 
     def refuse(*a, **k):

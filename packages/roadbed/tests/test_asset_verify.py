@@ -1,4 +1,4 @@
-"""W02 verify: passes on both fixture assets, and each tamper fails with its V-* code.
+"""Verify: passes on both fixture assets, and each tamper fails with its V-* code.
 
 Most tampers go through reseal(): the attacker holds the signing keys and makes every hash, manifest, signature and
 the lock consistent again, so only the check under test can catch the change.
@@ -607,7 +607,7 @@ def test_named_object_missing_from_objects(tmp_path, store):
     assert f.code == "V-OBJECT-MISSING" and "--strict" in f.detail
 
 
-# ---------------------------------------------------------------- W01c: receipt config binding
+# ---------------------------------------------------------------- receipt config binding
 
 CONFIG_FILES = {"roadbed.yaml": "roadbed_yaml_sha256", "evals/slices.yaml": "slices_sha256",
                 "evals/scorers.yaml": "scorers_sha256", GATE: "gate_policy_sha256", f"{HOLD}/SEAL.json": "seal_sha256"}

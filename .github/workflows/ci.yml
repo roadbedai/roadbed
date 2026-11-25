@@ -11,11 +11,15 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
       - name: Lint (ruff)
         run: uv run ruff check .
       - name: Type check (mypy, packages/roadbed/src)
@@ -23,10 +27,12 @@ jobs:
       - name: Tests (includes the schema drift and fixture drift tests)
         run: uv run pytest -q
       - name: Schema drift (regenerate, then require no diff)
+        if: matrix.python-version == '3.12'
         run: |
           uv run python -c "from roadbed.contracts import export_schemas; export_schemas('spec/schemas/v0.1')"
           git diff --exit-code -- spec/schemas
       - name: Fixture and conformance drift (rebuild, then require no diff)
+        if: matrix.python-version == '3.12'
         run: |
           uv run python spec/tools/build_examples.py
           uv run python spec/tools/build_conformance.py
@@ -34,3 +40,38 @@ jobs:
           for a in pass blocked; do
             test "$(git bundle list-heads spec/examples/$a.bundle)" = "$(git show HEAD:spec/examples/$a.bundle > /tmp/$a.bundle && git bundle list-heads /tmp/$a.bundle)"
           done
+
+  docs-drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+        with:
+          python-version: "3.12"
+      - name: Regenerate docs/cli.md, then require no diff
+        run: |
+          uv run typer roadbed.cli.main utils docs --name roadbed --output docs/cli.md
+          git diff --exit-code -- docs/cli.md
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+        with:
+          python-version: "3.12"
+      - name: Build both packages
+        run: |
+          uv build --package roadbed
+          uv build --package roadbed-sdk
+      - name: Check the package metadata
+        run: uvx twine check dist/*
+
+  gitleaks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+      - name: Scan the history for secrets
+        run: docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.30.1 detect --source /repo --no-banner --redact

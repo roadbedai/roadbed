@@ -1,4 +1,4 @@
-"""Shared helpers for the W02 asset tests: the fixture builder, bundle clones, a bucket of raw inputs, and an
+"""Shared helpers for the asset tests: the fixture builder, bundle clones, a bucket of raw inputs, and an
 "attacker with the keys" that re-hashes and re-signs a tampered asset so only the check under test can catch it.
 
 The signing keys are the fixture TEST KEYS from spec/tools/build_examples.py (derived from public strings).

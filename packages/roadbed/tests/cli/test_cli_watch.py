@@ -90,7 +90,7 @@ def test_watch_offline_uses_cache(tmp_path: Path, monkeypatch):
 def test_watch_offline_without_cache_fails(tmp_path: Path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     r = runner.invoke(app, ["watch", "--base", GLOB, "--offline"])
-    assert r.exit_code == 3 and "no cached Hub listing" in r.output  # W21: Hub unreachable is a remote error
+    assert r.exit_code == 3 and "no cached Hub listing" in r.output  # Hub unreachable is a remote error
 
 
 def test_age():

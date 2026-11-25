@@ -1,4 +1,4 @@
-"""`roadbed verify`: recompute and re-hash a rebase offline. The checks live in roadbed.asset (W02)."""
+"""`roadbed verify`: recompute and re-hash a rebase offline. The checks live in roadbed.asset."""
 
 from __future__ import annotations
 

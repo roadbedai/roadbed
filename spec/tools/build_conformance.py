@@ -340,7 +340,7 @@ INVALID: dict[str, list[tuple[str, Mut, str]]] = {
              ("probe-mock-with-h100", _set({"name": "NVIDIA H100 80GB HBM3", "count": 1}, "gpu"),
               "a mock or replay cost.json has gpu 'none' and zero cost (verifier probe)")],
     "license-decision": [("decision-maybe", _set("maybe", "decision"), "decision must be allow, review or deny")],
-    "approvals": [("probe-comment-free-text", _set("Called claimant Jane Doe at +358401234567", "approvals", "vik", "comment"),
+    "approvals": [("probe-comment-free-text", _set("Called claimant Jane Doe at +447700900123", "approvals", "vik", "comment"),
                    "no free-text comment: reason_code and refs only (verifier probe)"),
                   ("probe-same-actor-two-roles", lambda o: o.update(approvals=[
                       {"actor": "vik", **o["approvals"]["vik"]},

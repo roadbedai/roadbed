@@ -1,5 +1,5 @@
 """The Day 0 checks of `roadbed verify`: rebase manifest hashes, scores.json and gate.json schemas, scores recomputed,
-seal time before the rebase. Moved here from roadbed.cli.verify (W02); their output for a Day 0 rebase is unchanged."""
+seal time before the rebase. Moved here from roadbed.cli.verify; their output for a Day 0 rebase is unchanged."""
 
 from __future__ import annotations
 

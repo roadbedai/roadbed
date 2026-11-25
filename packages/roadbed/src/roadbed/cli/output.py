@@ -12,7 +12,7 @@ from rich.text import Text
 
 MINUS = "−"
 
-# Exit codes (W21): 0 ok, 2 usage or bad local input, 3 remote error, 4 a check failed.
+# Exit codes: 0 ok, 2 usage or bad local input, 3 remote error, 4 a check failed.
 EXIT_OK = 0
 EXIT_USAGE = 2  # bad arguments, no asset repo, a local file missing or not valid, no Hub match
 EXIT_REMOTE = 3  # control plane or Hub unreachable or returned an error (incl. 401, 403, 409)

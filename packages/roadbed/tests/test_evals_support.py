@@ -1,4 +1,4 @@
-"""Shared helpers for the W14 tests (labels and evals). No tests here."""
+"""Shared helpers for the label and eval tests (labels and evals). No tests here."""
 
 from __future__ import annotations
 

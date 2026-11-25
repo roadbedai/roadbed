@@ -1,4 +1,4 @@
-"""W02 against spec/conformance: every valid case validates, every invalid case is refused, and an invalid case
+"""The asset library against spec/conformance: every valid case validates, every invalid case is refused, and an invalid case
 planted in a real asset (re-hashed and re-signed, so only the schema can catch it) fails verify with V-SCHEMA-INVALID."""
 
 from __future__ import annotations

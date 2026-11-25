@@ -1,4 +1,4 @@
-"""W14 eval synthesis on the 2k demo fixture: disjointness, stratification, correction tests, determinism, schemas."""
+"""Eval synthesis on the 2k demo fixture: disjointness, stratification, correction tests, determinism, schemas."""
 
 from __future__ import annotations
 
@@ -57,7 +57,7 @@ def test_train_and_holdout_share_nothing(out, resolved):
     assert not {r["interaction_id"] for r in train} & {r["id"] for r in hold}
     assert not {r["row_hash"] for r in train} & {r["row_hash"] for r in hold}
     assert not {r["input_ref"] for r in train} & {r["input_ref"] for r in hold}
-    # near overlap, recomputed with the W02 shingles and Jaccard over every pair (not the build's own index)
+    # near overlap, recomputed with the asset shingles and Jaccard over every pair (not the build's own index)
     text = {r["input_ref"]: r["input_text"] for r in resolved if r["use"] != "quarantine"}
     hs = [shingles(text[r["input_ref"]]) for r in hold]
     worst = max(jaccard(shingles(text[r["input_ref"]]), h) for r in train[::7] for h in hs)
@@ -88,7 +88,7 @@ def test_golden_and_eval_only_are_disjoint_from_holdout_and_train(out):
 
 
 def test_the_w03_contamination_check_passes_on_the_sealed_candidate(out, resolved, tmp_path):
-    """Seal the candidate through W02 and run the gate's contamination check (MinHash, as in a rebase)."""
+    """Seal the candidate through the asset library and run the gate's contamination check (MinHash, as in a rebase)."""
     store = ObjectStore(tmp_path / "bucket")
     seal = seal_candidate(out.holdout_candidate, tmp_path / "asset", "H-2026-11-01-s7", sealed_by="vik",
                           sealed_at="2026-11-01T09:02:00Z", audit_seq=1204, store=store)
@@ -215,7 +215,7 @@ def test_outputs_validate_against_the_published_schemas(out, tmp_path):
     _check(out.golden, "golden-row")
     _check(out.correction_tests, "correction-test-row")
     written = out.write(tmp_path)
-    for rel in written:  # and through the W02 path rules, closed form
+    for rel in written:  # and through the asset path rules, closed form
         validate_file(tmp_path, rel, strict=True)
 
 

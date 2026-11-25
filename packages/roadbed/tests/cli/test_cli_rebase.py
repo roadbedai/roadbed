@@ -75,7 +75,7 @@ def test_rebase_pass(asset: Path):
 def test_rebase_blocked(asset: Path):
     before = (asset / "roadbed.yaml").read_bytes()
     r = _rebase(asset, 14)
-    assert r.exit_code == 4, r.output  # W21: a blocked gate exits 4 (Day 0: 3)
+    assert r.exit_code == 4, r.output  # a blocked gate exits 4 (Day 0: 3)
     assert _last(r.output) == BLOCK_LINE
     d = asset / "rebases/14"
     gate = _validate(d / "gate.json", "gate")

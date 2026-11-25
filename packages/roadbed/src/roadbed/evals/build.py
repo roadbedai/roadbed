@@ -1,10 +1,10 @@
-"""Eval synthesis (W14): resolved rows -> frozen snapshot, holdout candidate, golden set, correction tests.
+"""Eval synthesis: resolved rows -> frozen snapshot, holdout candidate, golden set, correction tests.
 
     from roadbed.evals import build
     out = build(resolved, slices, EvalPolicy(), seed=7, as_of="2026-11-01T09:00:00Z", output_schema=schema)
 
 The library proposes; the validator seals. `holdout_candidate` is a proposal held in memory: `EvalBuild.write`
-never puts it in the asset tree, and only `seal_candidate` (the validator's step, through W02 `seal_holdout`)
+never puts it in the asset tree, and only `seal_candidate` (the validator's step, through `seal_holdout`)
 turns it into `data/holdout/<id>/`. The control plane enforces who may call that (SoD-05).
 
 Leakage rules, each checked at the end and proven in `proof` (a failed check raises LeakageError, nothing is
@@ -697,7 +697,7 @@ def seal_candidate(
     c: HoldoutCandidate, root: str | Path, holdout_id: str, *, sealed_by: str, sealed_at: str, audit_seq: int,
     store: ObjectStore, num_perm: int = 128, shingle: int = 3,
 ) -> dict[str, Any]:
-    """The validator's step: seal the candidate through W02 seal_holdout (full seal: stratification, snapshot,
+    """The validator's step: seal the candidate through seal_holdout (full seal: stratification, snapshot,
     MinHash object). The caller must be the validator (SoD-05, enforced by the control plane)."""
     return seal_holdout(
         root, holdout_id, c.rows, sealed_by=sealed_by, sealed_at=sealed_at, audit_seq=audit_seq, seed=c.seed,
