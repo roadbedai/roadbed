@@ -68,6 +68,18 @@ def test_files_are_0600_in_a_0700_dir(mock: respx.MockRouter, events: Path, loca
         assert stat.S_IMODE(os.stat(events / f"{name}.jsonl").st_mode) == 0o600
 
 
+def test_a_wider_existing_file_and_dir_are_narrowed(mock: respx.MockRouter, events: Path, local: roadbed_sdk.Recorder,
+                                                   oai: openai.OpenAI) -> None:
+    _capture_one(mock, oai)
+    roadbed_sdk.flush()
+    os.chmod(events, 0o755)
+    os.chmod(events / "interactions.jsonl", 0o644)
+    _capture_one(mock, oai)
+    roadbed_sdk.flush()
+    assert stat.S_IMODE(os.stat(events).st_mode) == 0o700
+    assert stat.S_IMODE(os.stat(events / "interactions.jsonl").st_mode) == 0o600
+
+
 def test_synthetic_is_on_every_written_interaction(mock: respx.MockRouter, events: Path, local: roadbed_sdk.Recorder, oai: openai.OpenAI) -> None:
     for _ in range(3):
         _capture_one(mock, oai)

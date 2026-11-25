@@ -203,8 +203,10 @@ class JsonlSink:
 
     def _append(self, path: Path, data: bytes) -> None:
         self.dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+        os.chmod(self.dir, 0o700)  # the modes apply only on create: narrow a directory and a file that already existed
         fd = os.open(path, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o600)
         try:
+            os.fchmod(fd, 0o600)
             view = memoryview(data)
             while view:
                 view = view[os.write(fd, view):]
