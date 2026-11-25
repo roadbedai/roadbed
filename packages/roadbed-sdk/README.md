@@ -63,6 +63,7 @@ Pseudonymisation is on by default.
 - Free text becomes an HMAC token. The stored input has no readable text.
 - Values that you pass in `pii=` and patterns such as email, phone and IBAN become placeholders.
 - A field in `keep` and a slice label keep a short lowercase label value.
+- Lowercase snake_case dict keys and `keep` label values stay as raw text (rules 4 and 6). Thus a key named after a person, such as `jane_doe`, goes into the event files unless you give that name in `pii=`.
 
 With `text="redact"`, Presidio replaces the names that it finds. Install the `redact` extra and a spaCy model first. Tokens cannot find near-copies of a holdout input. Use `text="redact"` for text that goes to training.
 
