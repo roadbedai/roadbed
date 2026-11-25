@@ -89,3 +89,9 @@ def test_httpx_floor_has_allow_nan_false() -> None:
     from importlib.metadata import requires
 
     assert "httpx>=0.28" in (requires("roadbed-sdk") or [])
+
+
+def test_version_is_the_installed_package_version() -> None:
+    from importlib.metadata import version
+
+    assert roadbed_sdk.__version__ == version("roadbed-sdk") == "0.1.0"

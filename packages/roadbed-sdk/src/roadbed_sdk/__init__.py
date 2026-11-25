@@ -15,6 +15,7 @@ from __future__ import annotations
 import hashlib
 import os
 from collections.abc import Iterable, Mapping
+from importlib.metadata import version
 from pathlib import Path
 from typing import Any, Literal
 
@@ -32,6 +33,8 @@ __all__ = [
     "capture", "flush", "init", "init_local", "last_interaction_id", "outcome", "reconcile", "shutdown", "subject_token", "verdict",
     "wrap_anthropic", "wrap_openai",
 ]
+
+__version__ = version("roadbed-sdk")
 
 
 def _default_spool(url: str) -> Path:
