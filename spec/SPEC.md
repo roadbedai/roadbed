@@ -1,6 +1,6 @@
 # Roadbed asset format, v0.1
 
-Status: frozen for the demo build (W01, 2026-11-01). Spec id: `roadbed/v0.1`.
+Status: v0.1, amendment W01d (2026-11-25). Changes within 0.1.x are additive; see CHANGELOG.md. Spec id: `roadbed/v0.1`.
 
 An asset repo holds everything Roadbed needs to rebase one fine-tuned model onto a new base model, score it, gate it, and prove what happened.
 It is plain files: a git repo of manifests, plus content-addressed objects in the customer's bucket.
@@ -25,7 +25,7 @@ A contract change is a pull request to this directory that the founder approves.
 | Verdict | A reviewer's label for one interaction (approve, fix, reject, escalate). |
 | Snapshot | A frozen set of resolved verdict rows that training reads (`S-<date>`). |
 | Holdout | Rows kept out of training and sealed by a validator (`H-...`). Scores come only from it. |
-| Seal | `SEAL.json`: who sealed the holdout, when (time and audit seq), and its hashes. |
+| Seal | `SEAL.json`: who sealed the holdout, when (time and audit seq), and its hashes. A local seal (`provenance: local`, made by `roadbed evals seal` on a laptop) names a person and has no audit seq. |
 | Slice | One value of one slice key, e.g. `line=bodily_injury`. The gate checks every slice. |
 | Gate | The policy check that passes or blocks a rebase (`gate.json`). |
 | Receipt | A signed record of one run: inputs, environment, cost, executor. |
@@ -59,7 +59,7 @@ A contract change is a pull request to this directory that the founder approves.
 
 | Path (from asset root) | Schema | Purpose |
 |---|---|---|
-| `roadbed.yaml` | `roadbed` | Root manifest: model, tenant, task and output schema, base repo and revision, data (holdout, verdicts, snapshot), evals (scorers, slices, margin, min_n, golden, correction tests), recipe, gate policy, alias, license policy, lineage. |
+| `roadbed.yaml` | `roadbed` | Root manifest: model, tenant, task and output schema, base repo and revision, data (holdout once sealed, verdicts, snapshot), evals (scorers, slices, margin, min_n, golden, correction tests), recipe, gate policy, alias, license policy, lineage. |
 | `roadbed.lock` | `lock` | Every tracked file except itself (path, sha256, size), sorted bytewise by path. Every bucket object the tree names (oid, size, the path that names it), sorted by oid. JSON. |
 | `<path>.ptr` | `object-pointer` | Stands in git for a file over 1 MB. The bytes live in the bucket at `objects/sha256/<oid[0:2]>/<oid[2:4]>/<oid>`. |
 | `policy/gate.yaml` | `gate-policy` | margin, min_n, ci, n_boot, seed, block_on, stages (stub), optional cost_cap and contamination settings. |
@@ -67,7 +67,7 @@ A contract change is a pull request to this directory that the founder approves.
 | `policy/keys/<name>.pub` | (PEM) | ed25519 public key, SubjectPublicKeyInfo PEM. `receipt.pub` verifies receipts; `evidence.pub` verifies evidence manifests. |
 | `data/snapshots/<date>/MANIFEST.json` | `snapshot-manifest` | One frozen training snapshot: id `S-<date>`, rows, schema hash, Merkle root, parts, label rules, pseudonymisation profile and HMAC key id, parent. |
 | snapshot part (`part-NNNN.jsonl` or a bucket object) | `snapshot-row` | One resolved verdict row per line, with its row hash. Training reads these. |
-| `data/holdout/<id>/SEAL.json` | `seal` | The seal. Written once, by a validator. `merkle_root`, `minhash_oid`, `snapshot` and `stratification` come together: all present (a full seal) or all absent (a Day 0 seal, which supports no disjointness check). |
+| `data/holdout/<id>/SEAL.json` | `seal` | The seal. Written once, by a validator on the control plane, or by a named person for a local seal (`provenance: local`, no `audit_seq`, always full, see "Local seal"). `merkle_root`, `minhash_oid`, `snapshot` and `stratification` come together: all present (a full seal) or all absent (a Day 0 seal, which supports no disjointness check). |
 | `data/holdout/<id>/holdout.jsonl` | `holdout-row` | Sealed holdout: id, slice values, input content address, reviewer verdict, row hash. No raw input. |
 | `data/tombstones.jsonl` | `tombstone-row` | Erasure requests, by HMAC subject token. |
 | `evals/golden.jsonl` | `golden-row` | Golden set rows. |
@@ -109,6 +109,7 @@ Schemas for API bodies and runner messages (not asset files) are in the same dir
 - **Readers are lenient.** Consumers of files and responses ignore unknown fields: the Pydantic models of files and responses use `extra="ignore"`, and `json_schema(name, reader=True)` is the schema without `additionalProperties: false`. `roadbed verify` and `load_asset` read this way. So an older CLI, runner or gateway reads a newer producer's output.
 - **Requests are strict.** Request bodies (`InteractionIn`, `VerdictIn`, `OutcomeIn`, `JobStatus`, `JobResult`, `Heartbeat`) use `extra="forbid"`. The server rejects an unknown field with 422.
 - **Markers.** A file that has a `spec` field keeps `spec: roadbed/v0.1` for every additive change. Row files (JSONL) and policy files carry no marker; the asset's `roadbed.yaml` speaks for them.
+- **W01d relaxations.** W01d relaxes two required fields: `SEAL.json` `audit_seq` is required unless `provenance` is `local`, and `roadbed.yaml` `data.holdout` is optional until a holdout is sealed. Every v0.1 file stays valid. A reader older than W01d refuses a local seal or an unsealed `roadbed.yaml` with a schema error.
 - **v0.2.** A change that is not additive is v0.2. It is signalled by `spec: roadbed/v0.2` in `roadbed.yaml` and in each file that has a marker, and by a new schema directory `schemas/v0.2/`. A v0.2 reader accepts both markers (its models type `spec` as `roadbed/v0.1 | roadbed/v0.2`) and reads v0.1 assets as they are. A v0.1 reader refuses a v0.2 marker with a clear error. Breaking changes after v0.x need a migration command.
 
 ## Rules from the plan
@@ -162,7 +163,7 @@ A `MANIFEST.sha256` is text: one line per file, `<sha256>  <path>` (two spaces),
 
 A rebase is valid only if all of these hold:
 
-1. **Audit seq.** `SEAL.json.audit_seq` < the training receipt's `predicate.audit_seq`.
+1. **Audit seq.** `SEAL.json.audit_seq` < the training receipt's `predicate.audit_seq`. A local seal has no audit seq, so no receipt can bind it (see "Local seal").
 2. **Timestamp.** `SEAL.json.sealed_at` < `predicate.started_at`.
 3. **Git ancestry.** The seal commit is an ancestor of the train commit, and they differ. The seal commit is the commit that added `SEAL.json`: `git log --diff-filter=A --format=%H -- data/holdout/<id>/SEAL.json`. The train commit is the commit that added the training `receipt.json`, found the same way. Both come from git, never from a stored field. `SEAL.json.seal_commit` is informational only; a file cannot name the commit that adds it.
 4. **No exact overlap.** The training snapshot and the holdout share no row hash.
@@ -181,7 +182,21 @@ The receipt binds the seal: `predicate.holdout` repeats `seal_seq`, `sealed_at`,
 
 `contamination.json` reports the result. Its `seal_order` holds the two commits and one boolean per leg (`audit_seq`, `timestamp`, `git_ancestor`), plus `ok`. It copies no seqs or times: verify reads those from `SEAL.json` and the receipt and recomputes every leg. `ok` is true only when all three legs are true. `status: pass` needs `exact.shared` 0, no near pairs and `seal_order.ok`. The gate's `contamination` check has the same status as `contamination.json`.
 
-Only a validator seals or reads holdout rows (SoD-05), and the sealer cannot request the run (SoD-01).
+Only a validator seals or reads holdout rows (SoD-05), and the sealer cannot request the run (SoD-01). A local seal names a person. No role is enforced for it.
+
+## Local seal
+
+A holdout sealed on a laptop by `roadbed evals seal` carries `provenance: local` and no `audit_seq`.
+The sealer is the person named in `sealed_by`. No role is enforced, so SoD-01 and SoD-05 are not checkable.
+The seal is full: `stratification`, `merkle_root`, `minhash_oid` and `snapshot` are present, so a Day 0 local seal is not valid.
+The MinHash object lives in the local object store (`--objects`). The raw holdout inputs stay with the sealer, outside the asset.
+
+The anchor for the order is git: the seal commit must be a strict ancestor of the commits that added the rebase's prediction files.
+This proves commit order, not when the predictions were made. `sealed_at` and `rebase.yaml` `created_at` are self-declared.
+A receipt cannot bind a local seal, because `predicate.holdout.seal_seq` is required. The control plane trains only on holdouts it sealed.
+
+`roadbed verify` names each check that it cannot run on a local asset as a skip. `--strict` fails on the first skip.
+Record the Merkle root and the seal commit outside the repository.
 
 ## Lineage
 
@@ -240,6 +255,86 @@ A Day 0 rebase (no receipt, no evidence, no lock) gets the Day 0 checks, in orde
 
 For each receipt in the asset, the transcript names the executor and the key id of its signature, for example `receipt rebases/13/receipt.json: executor mock, signed by cb54bac00a07`. When a receipt is `mock` or `replay`, the last line is `MOCK: no model was trained`. `--json` carries the same list as `executors` and the flag as `mock`.
 
+A full rebase is **engine-scored** when `roadbed rebase --from-predictions` scored it from runner jobs: signed runner receipts in `rebases/N/receipts/` and no control-plane `receipt.json`, `receipt.sig` or `evidence/` (on disk, in the manifest or in git history). It gets these checks: the hashes, the files of the lock, the runner receipt signatures, and the receipts against the predictions and the holdout.
+It also gets the policy hash, the scores and the gate recomputed, and the seal order by audit seq and time.
+Seven checks are named skips, because such a run does not produce their inputs.
+These are the full lock, the receipt chain, the git ancestry, `contamination.json`, `license.json`, `bom.cdx.json` and `evidence/`.
+
+`roadbed verify data/holdout/<id>` checks one sealed holdout:
+
+- The seal schema, and the holdout re-hashed (sha256, rows, Merkle root).
+- The holdout rows against the closed `holdout-row` schema, so no raw input field.
+- Personal data and synthetic flags.
+- The seal committed and unchanged (git).
+- The MinHash object: it covers exactly the sealed rows, with the policy's `num_perm` and `shingle`.
+- The eval sets: no row that was ever in `evals/golden.jsonl` or `evals/correction_tests.jsonl` shares an id, input or row hash with the holdout.
+- Exact and near disjointness from the snapshot that the seal names.
+
+A control-plane seal gets the same checks plus a line for its audit seq. The signed receipt binds the audit seq at rebase time.
+With a git clone and `--objects`, a local seal passes `--strict` with no skip:
+
+```
+$ roadbed verify data/holdout/H-2026-11-02 --objects ../objects --strict
+seal schema OK  (closed form)
+holdout re-hashed  (296 rows, sha256 and Merkle root match SEAL.json)
+holdout rows OK  (holdout-row schema, closed form: no raw input field)
+no personal data (email) in the holdout  (SEAL.json and holdout.jsonl scanned)
+synthetic flags OK  (SYNTHETIC)
+seal committed and unchanged  (commit 5bb7398638e4)
+MinHash object covers the sealed rows  (1bed66c23fd2, num_perm 128, shingle 3)
+eval sets disjoint from the holdout  (281 rows ever in golden or correction tests: 0 shared ids, inputs, row hashes)
+datasets re-hashed  (S-2026-11-02 1579 rows, H-2026-11-02 296 rows, Merkle roots match)
+train and holdout disjoint: exact  (0 shared row hashes, 0 shared inputs (1579 x 296))
+train and holdout disjoint: near (Jaccard < 0.8)  (minhash, max 0.507812)
+verified seal H-2026-11-02
+LOCAL seal: sealed by vik; no audit chain; no role enforcement
+```
+
+A full rebase is **local** when the asset's holdout has a local seal and the rebase has no `receipt.json`, `receipt.sig`, `evidence/` or `receipts/` (on disk, in the manifest or in git history). Its predictions came from a laptop. It gets the seal checks, and the scores and the gate recomputed.
+It also gets the seal time before `rebase.yaml` `created_at`, and the git ancestry of the seal before both prediction files.
+Last, it gets exact and near disjointness from the training snapshot (`roadbed.yaml` `data.snapshot`).
+Each check that only the control plane can supply is a named skip.
+
+A local rebase never passes `--strict`: it fails at "receipts signed", and the skips are the list of what the control plane adds.
+
+```
+$ roadbed verify rebases/1 --objects ../objects
+hashes OK  (10 files)
+seal schema OK  (reader form)
+holdout re-hashed  (296 rows, sha256 and Merkle root match SEAL.json)
+holdout rows OK  (holdout-row schema, closed form: no raw input field)
+no personal data (email) in the holdout  (SEAL.json and holdout.jsonl scanned)
+synthetic flags OK  (SYNTHETIC)
+seal committed and unchanged  (commit 5bb7398638e4)
+MinHash object covers the sealed rows  (1bed66c23fd2, num_perm 128, shingle 3)
+eval sets disjoint from the holdout  (281 rows ever in golden or correction tests: 0 shared ids, inputs, row hashes)
+receipts signed: skipped  (no receipt: predictions supplied, no run attested)
+receipt chain OK: skipped  (no receipts in a local asset)
+receipts bind the predictions and the holdout: skipped  (no receipt; the unsigned rebase manifest names them)
+lock files re-hashed: skipped  (no roadbed.lock in a local asset; git history is the anchor)
+gate policy matches gate.json  (95c7e2f84804 (policy/gate.yaml))
+schemas OK  (scores.json, gate.json)
+predictions cover the sealed holdout  (H-2026-11-02 296 rows, Merkle root matches; both prediction files)
+scores recomputed: match  (overall + 14 slices, 6 decimals)
+gate recomputed: match  (status pass, 6 checks, 0 findings)
+seal precedes rebase: OK  (sealed_at before rebase.yaml created_at; both are self-declared)
+seal precedes training: audit seq: skipped  (no audit chain in a local asset)
+seal precedes predictions: git ancestry  (5bb7398638e4 < 135cc03e73cf; commit order only)
+datasets re-hashed  (S-2026-11-02 1579 rows, H-2026-11-02 296 rows, Merkle roots match)
+train and holdout disjoint: exact  (0 shared row hashes, 0 shared inputs (1579 x 296))
+train and holdout disjoint: near (Jaccard < 0.8)  (minhash, max 0.507812)
+contamination.json matches: skipped  (not produced by a local rebase)
+license.json: skipped  (not produced by a local rebase; the gate license check is recomputed)
+bom.cdx.json: skipped  (not produced by a local rebase)
+evidence manifest OK: skipped  (no evidence/ in a local rebase)
+segregation of duties (SoD-01, SoD-02): skipped  (local asset: no role enforcement; the sealer may run the rebase)
+bucket objects re-hashed  (1 objects)
+verified rebase #1
+LOCAL: no run was attested; sealed by vik; no audit chain; no role enforcement
+```
+
+A full or engine-scored rebase whose receipt names a local seal fails `V-SEAL-ORDER`: a receipt cannot bind a local seal.
+
 A full rebase gets every check below. Without git history or `--objects`, the git and near-overlap checks are skipped, not passed; `--strict` makes a skip a failure. These are all the codes verify emits:
 
 | Code | The check fails when |
@@ -260,7 +355,7 @@ A full rebase gets every check below. Without git history or `--objects`, the gi
 | `V-SCORES-MISMATCH` | `scores.json` differs from the recomputed scores. |
 | `V-SEAL-AFTER-REBASE` | The holdout was sealed after the rebase was created (Day 0 check). |
 | `V-SEAL-INCOMPLETE` | Row hashes, Merkle roots or snapshot parts do not re-hash to the sealed values. |
-| `V-SEAL-ORDER` | A leg of "Seal precedes training" (audit seq, timestamp, git ancestry) fails. |
+| `V-SEAL-ORDER` | A leg of "Seal precedes training" (audit seq, timestamp, git ancestry) fails, a receipt names a local seal, or a seal or prediction file changed after its commit. |
 | `V-HOLDOUT-OVERLAP` | Train and holdout share a row hash or an input, or a pair is near (Jaccard ≥ threshold). |
 | `V-CONTAMINATION-MISMATCH` | `contamination.json` or the gate's contamination check differs from what verify computed. |
 | `V-SOD` | SoD-01 (the sealer requested the run) or SoD-02 (the requester approved). |
@@ -300,6 +395,7 @@ This section changes as the build goes on. The rules above do not.
 | W02 | Asset library `roadbed.asset` and verify of a full rebase: the lock, schemas of every file, synthetic flags, personal data, signatures, the receipt chain, the policy hash, the seal (row hashes, Merkle roots), the seal order (ancestry from git), disjointness, the contamination report, SoD and bucket objects. It emits every code in the Verify table; the codes that were planned in W01 (`V-HASH-MISMATCH` for the MinHash object, `V-SEAL-ORDER`, `V-HOLDOUT-OVERLAP`) exist now. |
 | W01b | Additive amendments from the week-1 change requests: `synthetic` on rows and on verdict and outcome bodies, `audit_seq` and `prev_receipt` on the lease, `snapshot` on eval and bench jobs and `holdout` on bench jobs, bench receipts without data, `receipt_path`, `task.text_field`, the exact MinHash input, the full code table, and an approver in the pass fixture. Known gaps: the fixtures still address inputs by `sha256` of the raw narrative bytes, and W02 and W03 shingle the whole input text without the token rule; both move to this spec in a follow-up. |
 | W01c | Additive amendments from the week-2 change requests: attest jobs (`AttestSpec`, spec kind `rebase`), `config` digests on the receipt predicate (the pass and blocked rebase receipts carry them, and each fixture commits the lock its rebase starts from), `verdict-record` with the server-set `actor`, at most 128 characters for `interaction_id`, bench `cost.json` with `cap_eur` null, and patterns for audit `object` and safe-integer bounds for payload numbers. `roadbed verify` checks `config`. |
+| W01d | Local seal (2026-11-25): `SEAL.json` `provenance` (`control_plane` or `local`), `audit_seq` required unless local, `roadbed.yaml` `data.holdout` optional until sealed. `roadbed new`, `roadbed evals seal`, `roadbed evals build --objects` stores the training inputs, `roadbed verify data/holdout/<id>` and the local rebase mode of `roadbed verify`. No new verify code. |
 | W03 | Stats and gate engine: `roadbed.stats.compare`, `roadbed.gate.evaluate` (contamination report and license decision as inputs), `roadbed.contamination.check` (exact row hashes, MinHash or exact Jaccard). METHOD.md explains the statistics. |
 
 **Compatibility with Day 0.** Every Day 0 file stays valid: W01 adds fields as optional only, and new constraints (actor ids, timestamps, the seal field group, the gate rules, check names) accept every Day 0 file. `policy_sha256` leaves out null fields, so the new optional policy fields do not change Day 0 hashes. Day 0 rebases have no `evidence/` and no receipt, so their manifests stay valid under the Day 0 rule, and `roadbed verify` prints the same bytes for them as on Day 0.
