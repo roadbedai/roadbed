@@ -1,15 +1,11 @@
 # Every finding in the first scan was a synthetic value: HMAC-style tokens in fixtures, test tokens, and one false match in signing.py.
+# The allowlist names those values, never a path, so the tests and the spec are scanned too.
 title = "roadbed gitleaks config"
 
 [extend]
 useDefault = true
 
-[allowlist]
-description = "Synthetic fixtures, test data and generated examples"
-paths = [
-    '''^spec/conformance/''',
-    '''^spec/examples/''',
-    '''^spec/tools/build_(examples|conformance)\.py$''',
-    '''^packages/[^/]+/tests/''',
-    '''^packages/roadbed/src/roadbed/asset/signing\.py$''',
-]
+[[allowlists]]
+description = "synthetic fixture values"
+regexTarget = "match"
+regexes = ['''tok_[0-9a-f]{8,32}''', '''rbt_test_[0-9a-f]+''', '''AKIA/secret\+key=''', '''key: Ed25519PrivateKey''']
