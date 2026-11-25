@@ -175,3 +175,14 @@ def test_cli_bad_seal_file_exits_4_and_names_it(asset, damage, code):
     r = cli.invoke(app, ["verify", HDIR, "--asset", str(asset), "--json"])
     o = json.loads(r.output)
     assert r.exit_code == 4 and o["failed"] == code and f"{HDIR}/SEAL.json" in o["detail"]
+
+
+def test_minhash_object_not_in_the_given_store(asset):
+    oid = json.loads((asset / HDIR / "SEAL.json").read_text())["minhash_oid"]
+    ObjectStore(asset.parent / "objects").path(oid).unlink()
+    checks, failed = _run(asset)
+    assert failed is None
+    skip = next(c for c in checks if c.label == "MinHash object covers the sealed rows: skipped")
+    assert skip.detail == f"MinHash object {oid[:12]} is not in --objects"
+    skip = next(c for c in _run(asset, objects=False)[0] if c.label == "MinHash object covers the sealed rows: skipped")
+    assert skip.detail == f"MinHash object {oid[:12]} not checked; pass --objects"

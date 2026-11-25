@@ -1114,8 +1114,10 @@ def _seal_minhash(c: _Ctx) -> Check:
     _, num_perm, shingle = _policy_contamination(c)
     label = "MinHash object covers the sealed rows"
     oid = (c.seal or {})["minhash_oid"]
-    if c.store is None or not c.store.has(oid):
+    if c.store is None:
         return c.skip_or_fail("V-OBJECT-MISSING", label, f"MinHash object {oid[:12]} not checked; pass --objects")
+    if not c.store.has(oid):
+        return c.skip_or_fail("V-OBJECT-MISSING", label, f"MinHash object {oid[:12]} is not in --objects")
     assert c.holdout_rows is not None
     try:
         n, k, sigs = parse_minhash_object(c.store.get(oid))
