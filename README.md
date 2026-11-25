@@ -18,9 +18,9 @@ pip install roadbed        # engine and command line tool
 pip install roadbed-sdk    # capture SDK
 ```
 
-## Fifteen minutes to a sealed holdout
+## Quickstart: a sealed holdout in about 10 seconds
 
-This path runs on a laptop. It needs no account and no network. It takes about <measured> minutes [[time]].
+This path needs no account and no network. It takes about 10 seconds on a laptop (measured 25 November 2026).
 
 ```
 pip install roadbed
@@ -32,7 +32,7 @@ roadbed evals seal --candidate ../vault --sealed-by <you> --objects ../objects
 git add -A && git commit -qm "seal"
 roadbed verify data/holdout/H-2026-11-02 --objects ../objects --strict
 # optional, stand-in predictions, no model runs:
-python ../events/stand_in_predictions.py data/holdout/H-2026-11-02/holdout.jsonl rebases/1
+python3 ../events/stand_in_predictions.py data/holdout/H-2026-11-02/holdout.jsonl rebases/1
 roadbed rebase claims-triage --from-predictions rebases/1 --base Qwen/Qwen3-8B
 git add -A && git commit -qm "rebase 1" && roadbed verify rebases/1 --objects ../objects
 ```
@@ -46,12 +46,16 @@ On a laptop, `verify` can prove these facts:
 - The files are intact.
 - The holdout shares no row with the training data.
 - The seal commit comes before the commits with the predictions.
+- The asset holds no email address.
+- Every synthetic flag agrees with `roadbed.yaml`.
 
 On a laptop, `verify` cannot prove these facts:
 
 - When a person made the predictions. Git records the order of commits only.
 - That an audit chain exists. A laptop has no audit chain.
 - That roles were enforced. The person who seals is whoever types the command.
+- Which model, if any, made the predictions.
+- That the person who made the predictions did not see the holdout labels. They sit in the same repository, so commit order is not blindness.
 
 ## Your own verdicts
 

@@ -37,8 +37,8 @@ The root README of the repository has the full quickstart.
 | `roadbed sample acme-2k DIR` | local | Copies the synthetic sample events to DIR. |
 | `roadbed evals build --events DIR --holdout-out DIR --objects DIR` | local | Builds the snapshot, the golden set, the correction tests and a holdout candidate. |
 | `roadbed evals seal --candidate DIR --sealed-by ID --objects DIR` | local | Seals a holdout candidate. The seal has `provenance: local`. |
-| `roadbed verify data/holdout/H-...` | offline | Seal mode. Checks the seal, the holdout hashes and the overlap with the training data. |
-| `roadbed verify rebases/N` | offline | Full mode, engine-scored mode or local mode. Local mode applies to a local seal and has no receipts. |
+| `roadbed verify data/holdout/H-...` | offline | Seal mode. Checks the seal, the holdout hashes, email addresses, synthetic flags, the eval sets and the overlap with the training data. It refuses a symlink in the path. |
+| `roadbed verify rebases/N` | offline | Full mode, engine-scored mode or local mode. Local mode applies to a local seal and has no receipts. It scores the predictions again and names each skipped check. |
 | `roadbed eval reproduce rebases/N` | offline | Computes `scores.json` again from the two prediction files. |
 | `roadbed audit verify --export F` | offline | Checks the audit chain of an export. |
 | `roadbed evidence verify rebases/N/evidence` | offline | Checks the signature and hashes of an evidence pack. |

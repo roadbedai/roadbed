@@ -18,14 +18,29 @@ The versions follow [Semantic Versioning](https://semver.org/). See [docs/VERSIO
 - Engine: per-slice scoring, paired bootstrap, gate, contamination check, license policy, base model watch, labels resolver and eval builder.
 - Offline verify with three modes: full, engine-scored and local.
 - CLI commands: `new`, `sample`, `evals build`, `evals seal`, `verify`, `rebase`, `eval reproduce`, `audit verify`, `evidence verify`, `watch`, `status`, `init`, `seal`, `promote` and `rollback`.
-- SDK: `HttpSink` and `JsonlSink`, with `init` and `init_local`.
-- Synthetic sample `acme-2k`.
+- `roadbed new` scaffolds an asset repo with no holdout and no control plane. With `--synthetic` it also writes `SYNTHETIC.md` and `rebases/SYNTHETIC.md`.
+- `roadbed evals seal` seals a holdout candidate on your machine. The seal has `provenance: local` and no audit seq.
+- `roadbed verify data/holdout/<id>` checks one sealed holdout (seal mode). It refuses a symlink in the path.
+- `roadbed verify rebases/N` has a local mode for a local seal. It names each check that a laptop cannot do as a skip. It also checks that the asset holds no email address and that every synthetic flag agrees with `roadbed.yaml`.
+- `roadbed evals build --objects` also stores the raw training inputs, so verify can run the near check on a local asset.
+- A synthetic `roadbed evals build` writes `synthetic: true` on every row.
+- SDK: `HttpSink` and `JsonlSink`, with `init` and `init_local`. `JsonlSink` writes captured events to local JSONL files. No server is needed.
+- Synthetic sample `acme-2k`. It ships inside the `roadbed` wheel with `stand_in_predictions.py`. `roadbed sample NAME DIR` copies it out. `roadbed sample --list` names the samples.
+- Typing marker `py.typed` in both packages.
+- Conformance cases `seal/local` and `roadbed/unsealed`.
 
 ### Changed
 
 - Spec amendment W01d: `Seal.provenance` is a new optional field (`control_plane` or `local`).
 - Spec amendment W01d: `Seal.audit_seq` is optional for local seals.
 - Spec amendment W01d: `data.holdout` in `roadbed.yaml` is optional until the asset has a sealed holdout.
+- `roadbed rebase --from-predictions` and `roadbed verify rebases/N` exit 2 on an asset with no sealed holdout.
+- A receipt over a local seal fails `V-SEAL-ORDER`, not `V-CHECK-ERROR`.
+- The package descriptions and the CLI help no longer say `(prototype)`.
+
+### Removed
+
+- The unused `huggingface_hub` dependency.
 
 ### Notes
 

@@ -13,6 +13,7 @@ from test_asset_verify_engine import engine_scored
 from typer.testing import CliRunner
 
 from roadbed.asset import build_lock, verify, write_lock
+from roadbed.asset.gitlog import GitError, added_in
 from roadbed.asset.hashing import merkle_root, sha256_bytes
 from roadbed.asset.verify import is_engine_scored, is_full, is_local
 from roadbed.cli.main import app
@@ -325,11 +326,28 @@ def test_a_control_plane_file_in_history_is_named(asset):
     git(asset, "rm", "-q", "roadbed.lock")
     git(asset, "commit", "-q", "-m", "drop the lock")
     f = _failed(asset)
-    assert f.detail.startswith("local mode refused: roadbed.lock is in git history; "), f.detail
+    assert f.detail == "local mode refused: roadbed.lock is in git history", f.detail
 
 
 def test_a_control_plane_file_on_disk_is_named(asset):
     (asset / "policy/keys").mkdir()
     (asset / "policy/keys/receipt.pub").write_text("x\n")
     f = _failed(asset)
-    assert f.detail.startswith("local mode refused: policy/keys/receipt.pub is in the asset; "), f.detail
+    assert f.detail == "local mode refused: policy/keys/receipt.pub is in the asset", f.detail
+
+
+def test_a_file_added_only_by_a_merge_commit_says_so(asset):
+    base = git(asset, "rev-parse", "--abbrev-ref", "HEAD")
+    git(asset, "checkout", "-q", "-B", "side", base)
+    (asset / "side.txt").write_text("side")
+    git(asset, "add", "side.txt")
+    git(asset, "commit", "-q", "-m", "side")
+    git(asset, "checkout", "-q", base)
+    git(asset, "merge", "-q", "--no-ff", "--no-commit", "side")
+    (asset / "merged.txt").write_text("x")
+    git(asset, "add", "merged.txt")
+    git(asset, "commit", "-q", "-m", "merge adds a file")
+    with pytest.raises(GitError, match=r"merged.txt was not added by a non-merge commit \(added by a merge\)"):
+        added_in(asset, "merged.txt")
+    with pytest.raises(GitError, match=r"never.txt is not in the git history"):
+        added_in(asset, "never.txt")

@@ -1389,7 +1389,8 @@ def run(
         except (OSError, ValueError, KeyError, TypeError, IndexError, AttributeError) as e:
             c = Check("V-CHECK-ERROR", "", False, f"{type(e).__name__}: {e}")
         if c.ok is False and blocker is not None:  # a local seal under full or engine mode: say what refused local mode
-            c = Check(c.code, c.label, False, f"local mode refused: {blocker}; {c.detail}")
+            tail = "" if "is not Day 0" in c.detail else f"; {c.detail}"  # that hint names no real file here
+            c = Check(c.code, c.label, False, f"local mode refused: {blocker}{tail}")
         done.append(c)
         on_check(c)
         if c.ok is False:

@@ -231,4 +231,4 @@ def test_a_symlinked_rebase_dir_never_reaches_seal_mode(rebased, tmp_path):
 def test_a_symlinked_holdout_dir_is_not_seal_mode(asset):
     (asset / "data/holdout/H-link").symlink_to(LOCAL_HID)
     r = cli.invoke(app, ["verify", "data/holdout/H-link", "--asset", str(asset), "--objects", str(asset.parent / "objects")])
-    assert r.exit_code == 2 and "verified" not in r.output and "rebase directory must be named by its number" in r.output, r.output
+    assert r.exit_code == 2 and "verified" not in r.output and "seal mode refuses a symlink in the path: data/holdout/H-link" in r.output, r.output
