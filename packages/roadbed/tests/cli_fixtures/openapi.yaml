@@ -58,7 +58,7 @@ info:
   x-roadbed-spec:
     version: roadbed/v0.1
     source: roadbedai/roadbed spec/schemas/v0.1
-    commit: 5ea428d25ba422a33b6a914959b3be9691ef1eeb
+    commit: 911ad7f90afc6d689af4791779fb74fec363ea29
     schemas_sha256: 14801afa15b4bc66173a1f748ea832305f85bff9776b671aeae26bd2c291147d
 servers:
 - url: /
