@@ -274,6 +274,40 @@ def test_verify_refuses_a_roadbed_yaml_path_outside_the_asset_without_echoing_it
 
 
 @pytest.mark.parametrize("target", [HDIR, "rebases/1"])
+@pytest.mark.parametrize("link", ["policy/gate.yaml", "evals/golden.jsonl"])
+def test_verify_fails_v_path_unsafe_on_a_committed_symlink(rebased_copy, target, link):
+    root = rebased_copy
+    outside = root.parent / ("secret.yaml" if link == "policy/gate.yaml" else "empty")
+    outside.write_text(SECRET if link == "policy/gate.yaml" else "")
+    (root / link).unlink()
+    (root / link).symlink_to(outside)
+    git(root, "add", "-A")
+    git(root, "commit", "-q", "-m", "hostile link")
+    r = _verify_cli(root, target)
+    assert r.exit_code == 4 and "V-PATH-UNSAFE" in r.output and link in r.output and "verified" not in r.output, r.output
+    _no_leak(r.output)
+
+
+@pytest.mark.parametrize("target", [HDIR, "rebases/1"])
 def test_a_plain_asset_still_verifies_in_seal_and_local_mode(rebased_copy, target):
     r = _verify_cli(rebased_copy, target)
     assert r.exit_code == 0 and "verified" in r.output, r.output
+
+
+def test_library_verify_fails_v_path_unsafe_on_a_symlink_and_refuses_an_outside_path(rebased_copy):
+    from roadbed.asset import verify
+    from roadbed.cli.asset import AssetError
+
+    root = rebased_copy
+    (root.parent / "secret.yaml").write_text(SECRET)
+    (root / "policy/gate.yaml").rename(root / "policy/gate.real.yaml")
+    (root / "policy/gate.yaml").symlink_to(root.parent / "secret.yaml")
+    res = verify(root / "rebases/1", objects=root.parent / "objects")
+    assert res.failed is not None and res.failed.code == "V-PATH-UNSAFE" and "policy/gate.yaml" in res.failed.detail
+    _no_leak(res.failed.detail)
+    (root / "policy/gate.yaml").unlink()
+    (root / "policy/gate.real.yaml").rename(root / "policy/gate.yaml")
+    (root / "roadbed.yaml").write_text((root / "roadbed.yaml").read_text().replace("gate: policy/gate.yaml",
+                                                                                   "gate: ../secret.yaml"))
+    with pytest.raises(AssetError, match="roadbed.yaml gate must be a relative path inside the asset"):
+        verify(root / "rebases/1", objects=root.parent / "objects")

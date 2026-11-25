@@ -19,7 +19,7 @@ from rich.text import Text
 
 from roadbed import __version__
 from roadbed import watch as hub_watch
-from roadbed.asset.verify import _try_doc, is_local, run_seal
+from roadbed.asset.verify import _try_doc, is_local, run_seal, symlink_check
 from roadbed.cli import audit as audit_mod
 from roadbed.cli import config as config_mod
 from roadbed.cli import evidence as evidence_mod
@@ -398,8 +398,19 @@ def verify(
 
     try:
         p = Path(path)
-        a = open_asset(asset.resolve() if asset else find_root(p.resolve() if p.is_dir() else Path.cwd()), plain_files=False)
-        if _seal_dir(a.root, p):
+        root = (asset.resolve() if asset else find_root(p.resolve() if p.is_dir() else Path.cwd())).resolve()
+        if not os.path.lexists(root / "roadbed.yaml"):
+            raise AssetError(f"no roadbed.yaml in {root}")
+        seal_mode = _seal_dir(root, p)
+        if (bad := symlink_check(root)) is not None:  # after _seal_dir, which names a symlink in the holdout path itself
+            on_check(bad)
+            if as_json:
+                print_json({"ok": False, "failed": bad.code, "detail": bad.detail, "checks": checks, "exit_code": EXIT_VERIFY_FAILED})
+            else:
+                con.print(Text("verify failed: ", style="bold red") + Text(bad.code, style="bold"))
+            raise typer.Exit(EXIT_VERIFY_FAILED)
+        a = open_asset(root, plain_files=False)
+        if seal_mode:
             _verify_seal(a, a.root / "data" / "holdout" / Path(os.path.normpath(p)).name, on_check, checks, objects, strict, as_json, con)
             return
         _need_holdout(a.cfg)
