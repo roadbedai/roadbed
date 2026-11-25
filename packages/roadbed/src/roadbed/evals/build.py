@@ -311,7 +311,10 @@ def build(
             if r["slices"].get(k) not in vals:
                 raise ValueError(f"{r['interaction_id']}: slice {k} has a value not declared in slices.yaml")
     if not live:
-        raise ValueError("no resolved rows to build from")
+        why = {r["interaction_id"]: r.get("reason") for r in resolved if r["use"] == "quarantine"}
+        first = f"; first: {quarantined[0]}: {why[quarantined[0]]}" if quarantined else ""
+        raise ValueError(f"no resolved rows to build from: all {len(quarantined)} rows are quarantined{first}" if quarantined
+                         else "no resolved rows to build from")
     synthetic = bool(_one((r["synthetic"] for r in live), "synthetic flag (do not mix synthetic and real rows)"))
     if not synthetic:  # a stream that lost its flag must not be labelled real
         syn = [r["interaction_id"] for r in live

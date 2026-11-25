@@ -44,6 +44,8 @@ The versions follow [Semantic Versioning](https://semver.org/). See [docs/VERSIO
 - The quickstart in the READMEs runs as written. The sealer is `vik`, not `<you>`, which the shell read as a redirect. The quickstart test runs the README commands verbatim.
 - The free path in the `roadbed` package README has the `cd`, `git init` and commit steps, so it runs.
 - The build command in the SDK README has `--as-of` and runs inside the asset.
+- "Your own verdicts" in the README and the SDK docs set `keep=("route",)` and read the tenant key from `ROADBED_TENANT_KEY`. They say that each string field of the model output goes in `keep` and that slice values must be short and lowercase.
+- When every row is quarantined, `roadbed evals build` names the quarantine count and the first reason.
 
 ### Removed
 

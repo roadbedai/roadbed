@@ -18,24 +18,29 @@ pip install 'roadbed-sdk[redact]'   # optional: Presidio for names in free text
 `init_local` writes to JSONL files in a folder. It needs no URL, no token and no network.
 
 ```python
+import os
+
 import roadbed_sdk
 from openai import OpenAI
 
 roadbed_sdk.init_local(
-    "events",                      # folder for the JSONL files
-    tenant_key,                    # 16 bytes or more. It stays in this process.
+    "events",                          # folder for the JSONL files
+    os.environ["ROADBED_TENANT_KEY"],  # 16 bytes or more. It stays in this process.
     "profile@v1",
     model="claims-triage",
+    keep=("route",),                   # string fields of the model output
 )
 client = roadbed_sdk.wrap_openai(OpenAI())
 
 with roadbed_sdk.capture(subject="claimant-123", slices={"line": "auto"}) as cap:
     client.chat.completions.create(model="gpt-4o", messages=messages)
 
-roadbed_sdk.verdict(cap.interaction_id, "fix", {"severity": 3, "line": "auto"},
+roadbed_sdk.verdict(cap.interaction_id, "fix", {"route": "complex", "severity": 3},
                     reason_code="underestimated_injury")
 roadbed_sdk.flush()
 ```
+
+Put each string field of the model output in keep. Use short lowercase slice values. The SDK turns other strings into tokens, and the build then quarantines the row.
 
 Then build the eval assets from the folder. Run it inside the asset that roadbed new made.
 

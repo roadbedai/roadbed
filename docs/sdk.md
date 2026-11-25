@@ -29,7 +29,7 @@ Sends events to a control plane. The `profile_id` is required.
 | `tenant_key` | The HMAC key. 16 bytes or more. It stays in this process. |
 | `profile_id` | The pseudonymisation profile, for example `insurer-default@v1`. |
 | `text` | `tokenize` (default) or `redact`. |
-| `keep` | Keys whose short label values stay as they are. |
+| `keep` | Keys whose short lowercase label values stay as they are. Put each string field of the model output here. A slice value must be short and lowercase, or it becomes a token. |
 | `synthetic` | `True` flags each interaction as synthetic. The flag is sticky. |
 
 ## Wrap a client

@@ -64,16 +64,18 @@ On a laptop, `verify` cannot prove these facts:
 Use the SDK to capture the verdicts of your reviewers on your own machine.
 
 ```python
+import os
+
 import roadbed_sdk
 from openai import OpenAI
 
-roadbed_sdk.init_local("events", tenant_key, "profile@v1", model="claims-triage")
+roadbed_sdk.init_local("events", os.environ["ROADBED_TENANT_KEY"], "profile@v1", model="claims-triage", keep=("route",))
 client = roadbed_sdk.wrap_openai(OpenAI())
 # call the client, record verdicts with roadbed_sdk.verdict(...), then:
 roadbed_sdk.flush()
 ```
 
-Then run `roadbed new` and `roadbed evals build --events events` as in the quickstart. The SDK pseudonymises free text by default. Tokens hide near-copies, so verify cannot find near-duplicates in tokenized text. Use text="redact" if the near check must work. The tenant key never leaves your process.
+Then run `roadbed new` and `roadbed evals build --events events` as in the quickstart. Put each string field of the model output in keep. Use short lowercase slice values. The SDK turns other strings into tokens, and the build then quarantines the row. The SDK pseudonymises free text by default. Tokens hide near-copies, so verify cannot find near-duplicates in tokenized text. Use text="redact" if the near check must work. The tenant key never leaves your process.
 
 ## What is in this repo
 
