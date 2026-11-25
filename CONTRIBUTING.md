@@ -8,7 +8,7 @@ You need Python 3.12 or newer and [uv](https://docs.astral.sh/uv/).
 
 ```
 uv sync
-pre-commit install
+uvx pre-commit install
 ```
 
 Run the checks before you open a pull request:
