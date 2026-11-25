@@ -357,7 +357,7 @@ A full rebase gets every check below. Without git history or `--objects`, the gi
 | `V-RECEIPT-MISMATCH` | The receipt names predictions, a recipe, a snapshot or a holdout that is not the one in the asset. |
 | `V-POLICY-MISMATCH` | `gate.json` `policy_sha256` is not `sha256(JCS(policy/gate.yaml))`. |
 | `V-SCORES-MISMATCH` | `scores.json` differs from the recomputed scores. |
-| `V-SEAL-AFTER-REBASE` | The holdout was sealed after the rebase was created. A local rebase also passes when both times are in the same second. |
+| `V-SEAL-AFTER-REBASE` | The holdout was not sealed before the rebase was created. Day 0, full and engine-scored rebases also fail when both times are equal. A local rebase passes when both times are in the same second. |
 | `V-SEAL-INCOMPLETE` | Row hashes, Merkle roots or snapshot parts do not re-hash to the sealed values. |
 | `V-SEAL-ORDER` | A leg of "Seal precedes training" (audit seq, timestamp, git ancestry) fails, a receipt names a local seal, or a seal or prediction file changed after its commit. |
 | `V-HOLDOUT-OVERLAP` | Train and holdout share a row hash or an input, or a pair is near (Jaccard ≥ threshold). |
