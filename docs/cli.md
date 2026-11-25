@@ -16,6 +16,7 @@ $ roadbed [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
+* `sample`: Copy a synthetic sample event stream into...
 * `watch`: Report new Hugging Face Hub bases matching...
 * `rebase`: Start a rebase on the control plane and...
 * `verify`: Offline check: re-hash files, re-validate...
@@ -28,6 +29,27 @@ $ roadbed [OPTIONS] COMMAND [ARGS]...
 * `eval`: Evaluation commands.
 * `audit`: Audit log commands.
 * `evidence`: Evidence pack commands.
+
+## `roadbed sample`
+
+Copy a synthetic sample event stream into a new directory. No network, no model.
+
+**Usage**:
+
+```console
+$ roadbed sample [OPTIONS] [name] [dest]
+```
+
+**Arguments**:
+
+* `name`: Sample name, for example acme-2k.
+* `dest`: New directory to copy the sample into.
+
+**Options**:
+
+* `--list`: Print the sample names and stop.
+* `--json`: Print one JSON object instead of text.
+* `--help`: Show this message and exit.
 
 ## `roadbed watch`
 
