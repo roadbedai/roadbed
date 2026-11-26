@@ -22,10 +22,14 @@ These commands need no account and no network.
 ```
 roadbed sample acme-2k events
 roadbed new acme --model claims-triage --synthetic --slices events/slices.yaml --output-schema events/output.schema.json
+cd acme && git init -q && git add -A && git commit -qm "asset"
 roadbed evals build --events ../events --as-of 2026-11-02T09:00:00Z --seed 7 --holdout-out ../vault --objects ../objects
-roadbed evals seal --candidate ../vault --sealed-by <you> --objects ../objects
+roadbed evals seal --candidate ../vault --sealed-by vik --objects ../objects
+git add -A && git commit -qm "seal"
 roadbed verify data/holdout/H-2026-11-02 --objects ../objects --strict
 ```
+
+`vik` is the name of the sealer. Use your own name, in lowercase.
 
 The root README of the repository has the full quickstart.
 

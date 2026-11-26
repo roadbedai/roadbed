@@ -1,7 +1,7 @@
 [project]
 name = "roadbed-workspace"
 version = "0.0.0"
-description = "Roadbed workspace root (prototype)."
+description = "Roadbed workspace root."
 requires-python = ">=3.12"
 dependencies = ["roadbed"]
 

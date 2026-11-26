@@ -177,9 +177,10 @@ LOCAL_HID = "H-2026-11-02"
 LOCAL_N = 1
 
 
-def local_asset(dest: Path, *, rebase: bool = False) -> Path:
+def local_asset(dest: Path, *, rebase: bool = False, events: Path | None = None) -> Path:
     """An asset built on the free path, in dest/acme (a git repo): roadbed new --synthetic over the acme-2k events,
-    commit, evals build (candidate in dest/vault, store in dest/objects), evals seal, commit. With rebase: stand-in
+    commit, evals build (candidate in dest/vault, store in dest/objects), evals seal, commit. events: another events
+    directory for the build (default the acme-2k events). With rebase: stand-in
     predictions from the holdout's expected outputs (candidate exact, incumbent wrong on every fifth severity),
     rebase --from-predictions as rebases/1 one minute after the seal, commit. Returns the asset root."""
     from test_evals_support import FIXTURE
@@ -194,8 +195,8 @@ def local_asset(dest: Path, *, rebase: bool = False) -> Path:
     steps = [
         ["new", str(root), "--model", "claims-triage", "--synthetic", "--slices", str(FIXTURE / "slices.yaml"),
          "--output-schema", str(FIXTURE / "output.schema.json")],
-        ["evals", "build", "--asset", str(root), "--events", str(FIXTURE), "--as-of", "2026-11-02T09:00:00Z", "--seed", "7",
-         "--holdout-out", str(dest / "vault"), "--objects", str(dest / "objects")],
+        ["evals", "build", "--asset", str(root), "--events", str(events or FIXTURE), "--as-of", "2026-11-02T09:00:00Z",
+         "--seed", "7", "--holdout-out", str(dest / "vault"), "--objects", str(dest / "objects")],
         ["evals", "seal", "--asset", str(root), "--candidate", str(dest / "vault"), "--sealed-by", "vik",
          "--objects", str(dest / "objects")],
     ]

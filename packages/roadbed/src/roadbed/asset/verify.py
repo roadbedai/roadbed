@@ -61,8 +61,10 @@ from roadbed.asset.overlap import (
     DEFAULT_NUM_PERM,
     DEFAULT_SHINGLE,
     DEFAULT_THRESHOLD,
+    TOKENISED,
     Overlap,
     exact_overlap,
+    is_tokenised,
     minhash,
     near_exact,
     near_minhash,
@@ -74,7 +76,7 @@ from roadbed.asset.signing import SignatureError, verify_signature
 from roadbed.cli.asset import PRED_FILES, Asset, AssetError, open_asset, refuse_symlinks, seal_time
 from roadbed.cli.rebase import FINDING_RE
 from roadbed.contracts import SCHEMA_MODELS, Scores
-from roadbed.gate import decide_license, evaluate
+from roadbed.gate import LOCAL_REBASE, decide_license, evaluate
 
 __all__ = ["Check", "VerifyFailed", "VerifyResult", "is_engine_scored", "is_full", "is_local", "receipt_executors", "run", "run_seal",
            "verify"]
@@ -687,6 +689,11 @@ def _near(c: _Ctx) -> Check:
         if train is None:
             return c.skip_or_fail("V-OBJECT-MISSING", label, "raw training inputs are in the bucket only; pass --objects")
         hold = _texts(c, c.holdout_rows)
+        tok = sum(1 for _, t in train + (hold or []) if is_tokenised(t))
+        if tok:  # one shingle per row: the check would find nothing and report a pass
+            n = len(train) + len(hold or [])
+            return c.skip_or_fail("V-HOLDOUT-OVERLAP", label, f'{TOKENISED}; use text="redact" for text that goes to training '
+                                  f"({tok} of {n} inputs are tokens)")
         if hold is not None:
             bad = _minhash_matches_raw(c, hold, num_perm, shingle)
             if bad is not None:
@@ -954,9 +961,10 @@ def _engine_holdout(c: _Ctx) -> Check:
     return Check("V-SEAL-INCOMPLETE", label, True, f"{c.seal['id']} {len(want)} rows, Merkle root matches; both prediction files")
 
 
-def _engine_gate(c: _Ctx) -> Check:
+def _engine_gate(c: _Ctx, *, local: bool = False) -> Check:
     """gate.json is the gate the engine computes from the recomputed scores, policy/gate.yaml, the base license in
-    rebase.yaml and no contamination input (`roadbed rebase --from-predictions`)."""
+    rebase.yaml and no contamination input (`roadbed rebase --from-predictions`). A local rebase names why the
+    contamination check is skipped."""
     label = "gate recomputed: match"
     lic_id = ((c.meta or {}).get("base") or {}).get("license")
     lic = decide_license(lic_id, c.asset.license_policy) if lic_id and c.asset.license_policy is not None else None
@@ -965,7 +973,7 @@ def _engine_gate(c: _Ctx) -> Check:
         m = FINDING_RE.match(f.name)
         if m and (_try_doc(f) or {}).get("rebase") != c.n:
             offset = max(offset, int(m.group(1)))
-    gate = evaluate(c.scores(), None, lic, c.asset.policy, finding_offset=offset)
+    gate = evaluate(c.scores(), None, lic, c.asset.policy, finding_offset=offset, **({"contamination_skip": LOCAL_REBASE} if local else {}))
     where = _diff(read_doc(c.d / "gate.json"), json.loads(gate.model_dump_json(exclude_none=True)))
     if where:
         return Check("V-SCORES-MISMATCH", label, False, f"{c.rrel}/gate.json differs from the recomputed gate at {where}")
@@ -1319,7 +1327,7 @@ def _local_steps(asset: Asset, d: Path, n: int, ctx: Callable[[], _Ctx]) -> list
         lambda: _schemas(d),
         lambda: _engine_holdout(ctx()),
         lambda: _scores(asset, d, n, ctx().scores()),
-        lambda: _engine_gate(ctx()),
+        lambda: _engine_gate(ctx(), local=True),
         lambda: _local_seal_time(ctx()),
         skip("V-SEAL-ORDER", "seal precedes training: audit seq", "no audit chain in a local asset"),
         lambda: _local_ancestry(ctx()),

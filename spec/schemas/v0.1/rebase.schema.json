@@ -55,7 +55,7 @@
       "additionalProperties": false
     },
     "RebaseState": {
-      "description": "Orchestrator states of a rebase (W17).",
+      "description": "Orchestrator states of a rebase.",
       "enum": [
         "detected",
         "license",

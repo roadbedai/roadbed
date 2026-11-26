@@ -26,9 +26,9 @@ Rebase #14 moves `claims-triage` for Acme Mutual (SYNTHETIC) from `Qwen/Qwen3.6-
 | slice_margin | fail | 1 of 9 slices below -2.0 margin (line=bodily_injury -20.0); 8 flagged low-n |
 | license | pass | apache-2.0 allowed by policy/license.yaml |
 | contamination | pass | 0 shared row ids between train manifest and holdout |
-| stage:shadow | skipped | stub: not run in prototype |
-| stage:canary | skipped | stub: not run in prototype |
-| stage:bias_tests | skipped | stub: not run in prototype |
+| stage:shadow | skipped | stub: not run |
+| stage:canary | skipped | stub: not run |
+| stage:bias_tests | skipped | stub: not run |
 
 ## Findings
 

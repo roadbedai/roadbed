@@ -1,6 +1,6 @@
 """Capture OpenAI calls to local files. No control plane is needed.
 
-Run: OPENAI_API_KEY=... python openai_local_sink.py
+Run: OPENAI_API_KEY=... ROADBED_TENANT_KEY=<16 or more characters> python openai_local_sink.py
 """
 
 import os

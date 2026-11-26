@@ -10,7 +10,7 @@ from collections import Counter
 
 import jsonschema
 import pytest
-from test_evals_support import AS_OF, SEED, events, fresh, output_schema, published_schema, slices
+from test_evals_support import AS_OF, SEED, events, fresh, interaction, output_schema, published_schema, slices, verdict
 
 from conftest import make_policy
 from roadbed.asset import ObjectStore, jaccard, merkle_root, shingles, validate_file
@@ -288,6 +288,15 @@ def test_undeclared_slice_values_are_refused(resolved):
     rows = [dict(r) for r in resolved]
     rows[0] = {**rows[0], "slices": {**rows[0]["slices"], "state": "ZZ"}}
     with pytest.raises(ValueError, match="not declared"):
+        build(rows, slices(), EvalPolicy(), SEED, as_of=AS_OF, output_schema=output_schema())
+
+
+def test_no_resolved_rows_names_the_quarantine_count_and_the_first_reason():
+    tok = "<TEXT:tok_9162abcd9162abcd9162abcd9162abcd>"  # an SDK token where the schema wants a route enum
+    ints = [interaction(f"i{n}", output={"route": tok, "severity": 2}) for n in range(3)]
+    rows = resolve(ints, [verdict(f"i{n}", "approve") for n in range(3)], [], as_of=AS_OF, output_schema=output_schema())
+    with pytest.raises(ValueError, match=r"no resolved rows to build from: all 3 rows are quarantined; first: i0: output does not "
+                                         r"match the output schema"):
         build(rows, slices(), EvalPolicy(), SEED, as_of=AS_OF, output_schema=output_schema())
 
 

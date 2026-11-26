@@ -28,7 +28,7 @@ roadbed sample acme-2k events
 roadbed new acme --model claims-triage --synthetic --slices events/slices.yaml --output-schema events/output.schema.json
 cd acme && git init -q && git add -A && git commit -qm "asset"
 roadbed evals build --events ../events --as-of 2026-11-02T09:00:00Z --seed 7 --holdout-out ../vault --objects ../objects
-roadbed evals seal --candidate ../vault --sealed-by <you> --objects ../objects
+roadbed evals seal --candidate ../vault --sealed-by vik --objects ../objects
 git add -A && git commit -qm "seal"
 roadbed verify data/holdout/H-2026-11-02 --objects ../objects --strict
 # optional, stand-in predictions, no model runs:
@@ -37,6 +37,8 @@ roadbed rebase claims-triage --from-predictions rebases/1 --base Qwen/Qwen3-8B
 git add -A && git commit -qm "rebase 1" && roadbed verify rebases/1 --objects ../objects
 ```
 
+`vik` is the name of the sealer. Use your own name, in lowercase.
+
 The sample holds synthetic verdicts. The `build` step turns them into a snapshot, a golden set and correction tests. It also draws a holdout.
 
 The `seal` step writes the seal. The `verify` step checks the seal again from the files.
@@ -44,10 +46,11 @@ The `seal` step writes the seal. The `verify` step checks the seal again from th
 On a laptop, `verify` can prove these facts:
 
 - The files are intact.
-- The holdout shares no row with the training data.
+- The holdout shares no row with the training snapshot. The near-duplicate check needs readable text. With the SDK default text="tokenize" it finds nothing. Use text="redact" for text that goes to training.
 - The seal commit comes before the commits with the predictions.
 - The asset holds no email address.
 - Every synthetic flag agrees with `roadbed.yaml`.
+- The scores and the gate decision recompute from the prediction files.
 
 On a laptop, `verify` cannot prove these facts:
 
@@ -56,22 +59,27 @@ On a laptop, `verify` cannot prove these facts:
 - That roles were enforced. The person who seals is whoever types the command.
 - Which model, if any, made the predictions.
 - That the person who made the predictions did not see the holdout labels. They sit in the same repository, so commit order is not blindness.
+- That nobody rewrote the repository. The hashes and the git history are in the same repository. Record the Merkle root and the seal commit outside it.
 
 ## Your own verdicts
 
 Use the SDK to capture the verdicts of your reviewers on your own machine.
 
 ```python
+import os
+
 import roadbed_sdk
 from openai import OpenAI
 
-roadbed_sdk.init_local("events", tenant_key, "profile@v1", model="claims-triage")
+roadbed_sdk.init_local("events", os.environ["ROADBED_TENANT_KEY"], "profile@v1", model="claims-triage", keep=("route",))
 client = roadbed_sdk.wrap_openai(OpenAI())
 # call the client, record verdicts with roadbed_sdk.verdict(...), then:
 roadbed_sdk.flush()
 ```
 
-Then run `roadbed new` and `roadbed evals build --events events` as in the quickstart. The SDK pseudonymises free text by default. The tenant key never leaves your process.
+Then run `roadbed new` and `roadbed evals build --events events` as in the quickstart. Put each string field of the model output in keep. Use short lowercase slice values. The SDK turns other strings into tokens, and the build then quarantines the row.
+
+The SDK pseudonymises free text by default. Tokens hide near-copies, so verify cannot find near-duplicates in tokenized text. Use text="redact" if the near check must work. The tenant key never leaves your process.
 
 ## What is in this repo
 
@@ -83,9 +91,11 @@ Then run `roadbed new` and `roadbed evals build --events events` as in the quick
 | `examples/` | Runnable SDK snippets. |
 | `docs/` | The SDK reference, the command reference and the versioning rules. |
 
+The CLI also holds client commands for the platform (init, seal, promote, rollback, rebase without --from-predictions, status --remote). They need an account.
+
 ## What the Roadbed platform adds
 
-The platform is not in this repo. It watches for new base models and starts a rebase. It retrains the model on your GPUs. It runs the gate and signs a receipt for each run.
+The platform is not in this repo. It watches for new base models on a schedule and starts a rebase by itself. It retrains the model on your GPUs. It runs the gate and signs a receipt for each run.
 
 It opens the pull request. It keeps the audit chain and builds the evidence pack for your model-risk team. See [roadbed.ai](https://roadbed.ai).
 

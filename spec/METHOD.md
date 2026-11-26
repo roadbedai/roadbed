@@ -96,6 +96,8 @@ Two flags come from `policy/gate.yaml`:
 - **low_n.** A slice with fewer than `min_n` rows (30) is `low_n`. A low-n slice never blocks. Its CI is too wide to support a decision.
 - **below_margin.** A slice is `below_margin` when its delta is less than `margin` (-2.0) and it is not low-n. A delta of exactly -2.0 does not block. The engine ignores floating-point noise smaller than 1e-9.
 
+The gate uses the point delta. The CI is for information. It does not decide. A slice with fewer than `min_n` rows never blocks, whatever its delta.
+
 The overall delta can look good while one slice is bad.
 In the blocked fixture, the overall delta is -5.0, but `line=bodily_injury` is -20.0.
 The gate looks at each slice for this reason.
@@ -119,7 +121,7 @@ Each text must have the sha256 of its `input_ref`. If not, the check stops with 
 A text with fewer than 3 words is one shingle.
 
 The report also holds the seal order: the seal must come before the training run.
-This check needs git, so the caller supplies it (W02).
+This check needs git, so the caller supplies it (roadbed verify).
 The report has `status: pass` only when there is no shared row, no near pair, and the seal order is correct.
 
 Tests: `test_contamination.py`, and `test_fixture_reproduction.py` for the fixtures.

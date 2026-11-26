@@ -277,9 +277,11 @@ def test_rebase_over_a_local_seal_says_local_not_attested(template):
     from roadbed.contracts import GateResult
 
     report = (template / REBASE / "report.md").read_text()
-    assert f"rebase #{LOCAL_N}: gate pass, local, not attested; commit it, then roadbed verify {REBASE}" in report
+    assert f"rebase #{LOCAL_N}: gate pass (contamination skipped), local, not attested; commit it, then roadbed verify {REBASE}" in report
     assert "MRM" not in report
     gate = GateResult.model_validate(json.loads((template / REBASE / "gate.json").read_text()))
+    cont = next(c for c in gate.checks if c.name == "contamination")
+    assert (cont.status, cont.detail) == ("skipped", "not computed by a local rebase; roadbed verify checks disjointness")
     assert final_line(LOCAL_N, gate, -2.0) == f"opened rebase #{LOCAL_N} → awaiting MRM sign-off"  # control-plane seal
 
 

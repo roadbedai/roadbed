@@ -29,7 +29,7 @@ Sends events to a control plane. The `profile_id` is required.
 | `tenant_key` | The HMAC key. 16 bytes or more. It stays in this process. |
 | `profile_id` | The pseudonymisation profile, for example `insurer-default@v1`. |
 | `text` | `tokenize` (default) or `redact`. |
-| `keep` | Keys whose short label values stay as they are. |
+| `keep` | Keys whose short lowercase label values stay as they are. Put each string field of the model output here. A slice value must be short and lowercase, or it becomes a token. |
 | `synthetic` | `True` flags each interaction as synthetic. The flag is sticky. |
 
 ## Wrap a client
@@ -62,7 +62,7 @@ roadbed_sdk.outcome(interaction_id, outcome, *, source="system_of_record", outco
 roadbed_sdk.reconcile("outcomes.csv", id_column="interaction_id", observed_at_column="observed_at")
 ```
 
-`outcome` records a late result from a system of record. `reconcile` records one outcome for each row of a CSV file and returns a report. A second run of the same file adds nothing.
+`outcome` records a late result from a system of record. `reconcile` records one outcome for each row of a CSV file and returns a report. A second run of the same file appends the same rows again. The build drops identical rows.
 
 ### `subject_token`
 
@@ -87,7 +87,7 @@ A sink delivers the request bodies. The `Sink` protocol has one method: `write(k
 
 ## Pseudonymisation
 
-Pseudonymisation is on by default. Free text becomes an HMAC token. Values in `pii=` and patterns such as email, phone and IBAN become placeholders. The tenant key never leaves the process. Lowercase snake_case dict keys and `keep` label values stay as raw text (rules 4 and 6). Thus a key named after a person, such as `jane_doe`, goes into the event files unless you give that name in `pii=`.
+Pseudonymisation is on by default. Free text becomes an HMAC token. Values in `pii=` and patterns such as email, phone and IBAN become placeholders. The tenant key never leaves the process. Two kinds of value stay as raw text: dict keys in lowercase snake_case, and the label values of the keys in `keep`. Thus a key named after a person, such as `jane_doe`, goes into the event files unless you give that name in `pii=`.
 
 With `text="redact"`, Presidio replaces the names that it finds. Install it with `pip install 'roadbed-sdk[redact]'` and a spaCy model.
 

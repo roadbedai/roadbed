@@ -6,11 +6,7 @@ The versions follow [Semantic Versioning](https://semver.org/). See [docs/VERSIO
 
 ## [Unreleased]
 
-### Fixed
-
-- SDK: ids and pseudonymisation tokens can no longer look like a phone or card number. Ids are `ix_`, `vd_` or `oc_` plus 26 base32 characters. Neither ids nor tokens hold a run of 7 or more digits. Some tokens differ from earlier 0.1.0 pre-release builds.
-
-## [0.1.0] - TBD
+## [0.1.0] - 2026-11-26
 
 ### Added
 
@@ -27,6 +23,8 @@ The versions follow [Semantic Versioning](https://semver.org/). See [docs/VERSIO
 - SDK: `HttpSink` and `JsonlSink`, with `init` and `init_local`. `JsonlSink` writes captured events to local JSONL files. No server is needed.
 - Synthetic sample `acme-2k`. It ships inside the `roadbed` wheel with `stand_in_predictions.py`. `roadbed sample NAME DIR` copies it out. `roadbed sample --list` names the samples.
 - Typing marker `py.typed` in both packages.
+- Python 3.14 in the CI matrix and the package classifiers.
+- `roadbed_sdk.__version__`.
 - Conformance cases `seal/local` and `roadbed/unsealed`.
 
 ### Changed
@@ -37,6 +35,22 @@ The versions follow [Semantic Versioning](https://semver.org/). See [docs/VERSIO
 - `roadbed rebase --from-predictions` and `roadbed verify rebases/N` exit 2 on an asset with no sealed holdout.
 - A receipt over a local seal fails `V-SEAL-ORDER`, not `V-CHECK-ERROR`.
 - The package descriptions and the CLI help no longer say `(prototype)`.
+- A stub gate stage says `stub: not run`, not `stub: not run in prototype`. The example gate files, reports, manifests, signatures, locks, bundles and conformance cases are rebuilt.
+- The spec, the CLI help, the schemas and the sample files use public wording only. `SPEC.md` has an "Amendments" section that defines W01, W01b, W01c and W01d.
+
+### Fixed
+
+- SDK: ids and pseudonymisation tokens can no longer look like a phone or card number. Ids are `ix_`, `vd_` or `oc_` plus 26 base32 characters. Neither ids nor tokens hold a run of 7 or more digits.
+- The near-duplicate check no longer passes on inputs that the SDK tokenised (`text="tokenize"`). `roadbed evals build` warns and writes `near_check: not_applicable_tokenised` in `build.json`. `roadbed verify` reports the near check as a named skip, so `--strict` fails.
+- The quickstart in the READMEs runs as written. The sealer is `vik`, not `<you>`, which the shell read as a redirect. The quickstart test runs the README commands verbatim.
+- The free path in the `roadbed` package README has the `cd`, `git init` and commit steps, so it runs.
+- The build command in the SDK README has `--as-of` and runs inside the asset.
+- "Your own verdicts" in the README and the SDK docs set `keep=("route",)` and read the tenant key from `ROADBED_TENANT_KEY`. They say that each string field of the model output goes in `keep` and that slice values must be short and lowercase.
+- When every row is quarantined, `roadbed evals build` names the quarantine count and the first reason.
+- The run line of `examples/sdk/openai_local_sink.py` sets `ROADBED_TENANT_KEY`.
+- A local rebase no longer says "train manifest absent" for its skipped contamination check. The detail is "not computed by a local rebase; roadbed verify checks disjointness". The summary line names the skipped checks, for example `rebase #1: gate pass (license, contamination skipped), local, not attested`.
+- The README says that a local `verify` cannot prove that nobody rewrote the repository.
+- `examples/sdk/reconcile_outcomes.py` uses `init_local` and writes `outcomes.jsonl`. It needs no control plane. A test runs it.
 
 ### Removed
 
@@ -56,6 +70,7 @@ The versions follow [Semantic Versioning](https://semver.org/). See [docs/VERSIO
 - CI: `uv run --locked`, a gitleaks image pinned by digest, a ruff hook pinned by commit, and publish only from a commit on `main`.
 - Gitleaks scans the tests and the spec. The allowlist names synthetic values, not paths.
 - Version floors on the `roadbed` runtime dependencies.
+- CI: a `dco` job checks that each commit of a pull request has a `Signed-off-by:` line. Commits by maintainers in `.github/CODEOWNERS` and by bots are exempt. The job reads the script and `CODEOWNERS` from the base branch.
 
 ### Notes
 

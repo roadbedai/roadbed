@@ -26,7 +26,7 @@ from roadbed.cli.asset import (
 )
 from roadbed.cli.output import MINUS, plain, signed
 from roadbed.contracts import FileDigest, GateContaminationInput, GateResult, HoldoutDigest, PredictionDigests, Scores
-from roadbed.gate import decide_license, evaluate
+from roadbed.gate import LOCAL_REBASE, decide_license, evaluate
 from roadbed.hashing import sha256_file
 from roadbed.io import read_yaml, write_yaml
 from roadbed.stats import compare
@@ -101,7 +101,9 @@ def final_line(n: int, gate: GateResult, margin: float, *, local: bool = False) 
     """local: the holdout has a local seal (no control plane, no sign-off); a pass says so."""
     if gate.status == "pass":
         if local:
-            return f"rebase #{n}: gate pass, local, not attested; commit it, then roadbed verify rebases/{n}"
+            skipped = [c.name for c in gate.checks if c.status == "skipped" and not c.name.startswith("stage:")]
+            note = f" ({', '.join(skipped)} skipped)" if skipped else ""
+            return f"rebase #{n}: gate pass{note}, local, not attested; commit it, then roadbed verify rebases/{n}"
         return f"opened rebase #{n} → awaiting MRM sign-off"
     blocking = gate.findings
     if blocking and any(c.name == "slice_margin" and c.status == "fail" for c in gate.checks):
@@ -256,8 +258,11 @@ def run(asset: Asset, d: Path, n: int, base: BaseRef, emit, contamination: GateC
         lic = decide_license(base.license, asset.license_policy)
         emit(f"license {lic.license}: {'allowed' if lic.allowed else 'denied'} by policy")
 
+    sf = seal_file(asset)
+    local = sf is not None and (read_yaml(sf) or {}).get("provenance") == "local"
     findings_dir = asset.root / "findings"
-    gate = evaluate(scores, contamination, lic, asset.policy, finding_offset=_finding_offset(findings_dir, n))
+    gate = evaluate(scores, contamination, lic, asset.policy, finding_offset=_finding_offset(findings_dir, n),
+                    **({"contamination_skip": LOCAL_REBASE} if local else {}))
     emit(summary_line(scores, asset.policy.margin))
 
     # rebase.yaml records which base was used and when the rebase was created.
@@ -276,8 +281,6 @@ def run(asset: Asset, d: Path, n: int, base: BaseRef, emit, contamination: GateC
 
     (d / "scores.json").write_text(scores.model_dump_json(indent=2, exclude_none=True) + "\n", encoding="utf-8")
     (d / "gate.json").write_text(gate.model_dump_json(indent=2, exclude_none=True) + "\n", encoding="utf-8")
-    sf = seal_file(asset)
-    local = sf is not None and (read_yaml(sf) or {}).get("provenance") == "local"
     final = final_line(n, gate, asset.policy.margin, local=local)
     (d / "report.md").write_text(report_md(asset, n, base, scores, gate, final, executor), encoding="utf-8")
 

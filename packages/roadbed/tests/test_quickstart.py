@@ -1,6 +1,7 @@
 """The README quickstart, run as a user runs it: every command from the fenced block under the Quickstart heading,
 in order, in a fresh directory with a real git repository, through the `roadbed` console script of this environment
-(roadbed.cli.main has no __main__ module). The test reads README.md, so the test and the README cannot drift."""
+(roadbed.cli.main has no __main__ module). The test reads README.md and runs each command verbatim, with no placeholder
+substitution, so the test and the README cannot drift."""
 
 from __future__ import annotations
 
@@ -20,7 +21,7 @@ def quickstart_commands() -> list[str]:
     m = re.search(r"^## [^\n]*[Qq]uickstart[^\n]*\n.*?^```[^\n]*\n(.*?)^```", text, re.S | re.M)
     assert m, "README.md has no fenced block under a Quickstart heading"
     lines = [ln.strip() for ln in m.group(1).splitlines()]
-    return [ln.replace("<you>", "vik") for ln in lines if ln and not ln.startswith("#") and not ln.startswith("pip install")]
+    return [ln for ln in lines if ln and not ln.startswith("#") and not ln.startswith("pip install")]
 
 
 def test_quickstart(tmp_path, record_property):
@@ -47,6 +48,17 @@ def test_quickstart(tmp_path, record_property):
     verifies = [out for cmd, out in outputs if re.search(r"\broadbed verify\b", cmd)]
     assert len(verifies) == 2
     assert "verified seal" in verifies[0] and "verified rebase" in verifies[1], verifies
+    rebase = next(out for cmd, out in outputs if cmd.startswith("roadbed rebase "))
+    assert "rebase #1: gate pass (license, contamination skipped), local, not attested" in rebase, rebase
     record_property("quickstart_seconds", round(elapsed, 1))
     print(f"\nquickstart: {len(commands)} commands, {elapsed:.1f} s wall time (install excluded)")
     assert elapsed < MAX_SECONDS
+
+
+def test_package_readme_free_path_is_the_root_quickstart():
+    """packages/roadbed/README.md (the PyPI page) shows the same commands as the tested root quickstart, up to verify."""
+    text = (README.parent / "packages" / "roadbed" / "README.md").read_text(encoding="utf-8")
+    m = re.search(r"^## Free path[^\n]*\n.*?^```[^\n]*\n(.*?)^```", text, re.S | re.M)
+    assert m, "packages/roadbed/README.md has no fenced block under a Free path heading"
+    free = [ln.strip() for ln in m.group(1).splitlines() if ln.strip()]
+    assert free == quickstart_commands()[:len(free)] and free[-1].startswith("roadbed verify data/holdout/"), free

@@ -8,7 +8,7 @@ You need Python 3.12 or newer and [uv](https://docs.astral.sh/uv/).
 
 ```
 uv sync
-pre-commit install
+uvx pre-commit install
 ```
 
 Run the checks before you open a pull request:
@@ -34,6 +34,8 @@ Each commit needs a sign-off. It says that you have the right to give the code u
 ```
 git commit -s -m "Your message"
 ```
+
+Maintainers' commits are exempt. Every other contributor signs off with `git commit -s`. The CI job `dco` checks each commit of a pull request. A commit without a `Signed-off-by:` line fails it, unless its author is a maintainer in `.github/CODEOWNERS` or a bot, such as Dependabot.
 
 ## Pull request checklist
 

@@ -79,7 +79,7 @@ class ExecutorName(StrEnum):
 
 
 class RebaseState(StrEnum):
-    """Orchestrator states of a rebase (W17)."""
+    """Orchestrator states of a rebase."""
 
     detected = "detected"
     license = "license"

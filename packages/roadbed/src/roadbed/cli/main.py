@@ -200,7 +200,7 @@ def rebase(
     model: Annotated[str, typer.Argument(help="Model name; must match roadbed.yaml in local mode.")],
     from_predictions: Annotated[
         str | None,
-        typer.Option("--from-predictions", help="Local Day 0 mode: rebase directory holding predictions.{incumbent,candidate}.jsonl."),
+        typer.Option("--from-predictions", help="Local mode: rebase directory holding predictions.{incumbent,candidate}.jsonl."),
     ] = None,
     base: Annotated[str | None, typer.Option("--base", "--on", help="New base repo (local default: rebase.yaml, then last watch).")] = None,
     revision: Annotated[str | None, typer.Option("--revision", help="40-hex revision of the new base (default: last watch).")] = None,
@@ -213,8 +213,9 @@ def rebase(
 ) -> None:
     """Start a rebase on the control plane and stream its events, or (with --from-predictions) score local predictions.
 
-    Remote: ends with "opened rebase #N → awaiting MRM sign-off" (exit 0) or "blocked: <slice> <delta> ..." (exit 4).
-    Local Day 0: scores supplied predictions on the sealed holdout, applies the gate, writes the rebase files.
+    Remote: follows the timeline up to model-risk (MRM) sign-off. It ends with "opened rebase #N → awaiting MRM sign-off" (exit 0) or
+    "blocked: <slice> <delta> ..." (exit 4).
+    Local: scores supplied predictions on the sealed holdout, applies the gate, writes the rebase files.
     """
     as_json = _json(as_json)
     if from_predictions is None:

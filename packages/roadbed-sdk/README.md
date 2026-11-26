@@ -18,29 +18,34 @@ pip install 'roadbed-sdk[redact]'   # optional: Presidio for names in free text
 `init_local` writes to JSONL files in a folder. It needs no URL, no token and no network.
 
 ```python
+import os
+
 import roadbed_sdk
 from openai import OpenAI
 
 roadbed_sdk.init_local(
-    "events",                      # folder for the JSONL files
-    tenant_key,                    # 16 bytes or more. It stays in this process.
+    "events",                          # folder for the JSONL files
+    os.environ["ROADBED_TENANT_KEY"],  # 16 bytes or more. It stays in this process.
     "profile@v1",
     model="claims-triage",
+    keep=("route",),                   # string fields of the model output
 )
 client = roadbed_sdk.wrap_openai(OpenAI())
 
 with roadbed_sdk.capture(subject="claimant-123", slices={"line": "auto"}) as cap:
     client.chat.completions.create(model="gpt-4o", messages=messages)
 
-roadbed_sdk.verdict(cap.interaction_id, "fix", {"severity": 3, "line": "auto"},
+roadbed_sdk.verdict(cap.interaction_id, "fix", {"route": "complex", "severity": 3},
                     reason_code="underestimated_injury")
 roadbed_sdk.flush()
 ```
 
-Then build the eval assets from the folder:
+Put each string field of the model output in keep. Use short lowercase slice values. The SDK turns other strings into tokens, and the build then quarantines the row.
+
+Then build the eval assets from the folder. Run it inside the asset that roadbed new made.
 
 ```
-roadbed evals build --events events --holdout-out ../vault --objects ../objects
+roadbed evals build --events ../events --as-of 2026-11-26T00:00:00Z --holdout-out ../vault --objects ../objects
 ```
 
 `VerdictIn` has no reviewer id. A correction test that comes from local events gets `created_by: unattributed`.
@@ -53,7 +58,7 @@ roadbed evals build --events events --holdout-out ../vault --objects ../objects
 roadbed_sdk.init("https://roadbed.example.eu", token, tenant_key, "profile@v1", model="claims-triage")
 ```
 
-`init` is the only call that raises (`ConfigError`, `ProfileRequiredError`). Capture, `verdict`, `outcome`, `reconcile` and `flush` never raise into your app.
+`init` and `init_local` are the only calls that raise (`ConfigError`, `ProfileRequiredError`). Capture, `verdict`, `outcome`, `reconcile` and `flush` never raise into your app.
 
 ## Pseudonymisation
 
@@ -63,7 +68,7 @@ Pseudonymisation is on by default.
 - Free text becomes an HMAC token. The stored input has no readable text.
 - Values that you pass in `pii=` and patterns such as email, phone and IBAN become placeholders.
 - A field in `keep` and a slice label keep a short lowercase label value.
-- Lowercase snake_case dict keys and `keep` label values stay as raw text (rules 4 and 6). Thus a key named after a person, such as `jane_doe`, goes into the event files unless you give that name in `pii=`.
+- Two kinds of value stay as raw text: dict keys in lowercase snake_case, and the label values of the keys in `keep`. Thus a key named after a person, such as `jane_doe`, goes into the event files unless you give that name in `pii=`.
 
 With `text="redact"`, Presidio replaces the names that it finds. Install the `redact` extra and a spaCy model first. Tokens cannot find near-copies of a holdout input. Use `text="redact"` for text that goes to training.
 

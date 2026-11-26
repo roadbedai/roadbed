@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.12", "3.13"]
+        python-version: ["3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
@@ -40,6 +40,31 @@ jobs:
           for a in pass blocked; do
             test "$(git bundle list-heads spec/examples/$a.bundle)" = "$(git show HEAD:spec/examples/$a.bundle > /tmp/$a.bundle && git bundle list-heads /tmp/$a.bundle)"
           done
+
+  dco:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Require a Signed-off-by line on each commit that is not from a maintainer or a bot
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          # The maintainers and the script come from the base branch, so a pull request cannot edit its own check.
+          git show "$BASE:.github/CODEOWNERS" > "$RUNNER_TEMP/CODEOWNERS"
+          if ! git show "$BASE:.github/scripts/dco.sh" > "$RUNNER_TEMP/dco.sh" 2>/dev/null; then
+            echo "::notice::the base has no .github/scripts/dco.sh yet; this pull request adds it, so its own copy runs"
+            cp .github/scripts/dco.sh "$RUNNER_TEMP/dco.sh"
+          fi
+          gh api --paginate "repos/$REPO/pulls/$PR/commits" --jq '.[]' | bash "$RUNNER_TEMP/dco.sh" "$RUNNER_TEMP/CODEOWNERS"
 
   docs-drift:
     runs-on: ubuntu-latest

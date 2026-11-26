@@ -59,7 +59,7 @@ info:
     version: roadbed/v0.1
     source: roadbedai/roadbed spec/schemas/v0.1
     commit: 14baa6e26287a8a2cebfcafb650d5759ad26dccd
-    schemas_sha256: b0a957244c696e16e1754becea7213f1cf122e8b2c33216f5658d6dec6253694
+    schemas_sha256: c12974b41faf812e11068fd7c9114e5c0d534e1d22ccfaa8a11d724c8f6ad11d
 servers:
 - url: /
 tags:

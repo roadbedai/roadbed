@@ -44,6 +44,7 @@ from typing import Any, Literal
 
 from roadbed.asset import AssetValidationError, ObjectStore, merkle_root, seal_holdout, shingles, validate
 from roadbed.asset.hashing import jcs_sha256, row_hash, sha256_bytes
+from roadbed.asset.overlap import is_tokenised
 from roadbed.contracts import GatePolicy, Slices
 from roadbed.evals.split import draw, max_share_gap
 from roadbed.io import write_nofollow
@@ -310,7 +311,10 @@ def build(
             if r["slices"].get(k) not in vals:
                 raise ValueError(f"{r['interaction_id']}: slice {k} has a value not declared in slices.yaml")
     if not live:
-        raise ValueError("no resolved rows to build from")
+        why = {r["interaction_id"]: r.get("reason") for r in resolved if r["use"] == "quarantine"}
+        first = f"; first: {quarantined[0]}: {why[quarantined[0]]}" if quarantined else ""
+        raise ValueError(f"no resolved rows to build from: all {len(quarantined)} rows are quarantined{first}" if quarantined
+                         else "no resolved rows to build from")
     synthetic = bool(_one((r["synthetic"] for r in live), "synthetic flag (do not mix synthetic and real rows)"))
     if not synthetic:  # a stream that lost its flag must not be labelled real
         syn = [r["interaction_id"] for r in live
@@ -327,6 +331,7 @@ def build(
         if "sha256:" + sha256_bytes(r["input_text"].encode("utf-8")) != r["input_ref"]:
             raise ValueError(f"{r['interaction_id']}: input_text does not hash to input_ref")
         texts.add(r["interaction_id"], r["input_text"])
+    tokenised = sum(1 for r in live if is_tokenised(r["input_text"]))  # no text to shingle: exact checks only
 
     # 4. an already sealed holdout: out of everything
     sealed = [dict(r) for r in sealed_holdout]
@@ -412,6 +417,8 @@ def build(
             p["without_text"] = 0  # rows not in this event stream: exact checks only, counted here
             p["exact_only"] = len(b) - sum(1 for r in b if r["interaction_id"] in texts.sets)
         _require_clean(name, p, th)
+        if tokenised:  # one shingle per tokenised row: a max of 0.0 would read as a measured result
+            p["max_jaccard"] = None
         proof["pairs"][name] = p
 
     # snapshot
@@ -470,7 +477,9 @@ def build(
             "seen_before": len(seen_before), "eligible": len(hold_pool), "eval_only": len(ev),
             "holdout_candidate": len(hrows), "golden": len(grows), "train": len(snap_rows), "correction_tests": len(cts),
             "outcome_overrides": sum(1 for r in train if r["label_source"] == "outcome"),
+            "tokenised_inputs": tokenised,
         },
+        "near_check": "not_applicable_tokenised" if tokenised else "jaccard",
         "purged": {"train": len(purged_train), "golden": len(purged_golden), "eval_only": len(purged_eval)},
         "edits": {
             "total": len(fixes_all), "correction_tests": len(cts),

@@ -14,12 +14,12 @@ The format has its own version. The current version is `roadbed/v0.1`. Each asse
 
 A change to the format in 0.1.x must be additive. Each file that is valid for an earlier 0.1.x reader stays valid for a later reader.
 
-One release has an exception. The amendment W01d made two fields optional:
+Before the release of 0.1.0, the amendment W01d made two fields optional:
 
 - `Seal.audit_seq` is optional for a local seal.
 - `data.holdout` in `roadbed.yaml` is optional until the asset has a sealed holdout.
 
-A reader of an earlier 0.1.x version can refuse a file that uses these relaxations. Each later change must be additive without such an exception.
+0.1.0 is the first public version. Each later 0.1.x change must be additive.
 
 ## Deprecation before 1.0
 
