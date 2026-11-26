@@ -6,7 +6,7 @@ The versions follow [Semantic Versioning](https://semver.org/). See [docs/VERSIO
 
 ## [Unreleased]
 
-## [0.1.0] - TBD
+## [0.1.0] - 2026-11-26
 
 ### Added
 
