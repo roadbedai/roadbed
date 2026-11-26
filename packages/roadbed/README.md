@@ -9,11 +9,11 @@ This is version 0.1 of the format `roadbed/v0.1`. The format can change before 1
 You need Python 3.12 or newer.
 
 ```
-pip install roadbed
+uv tool install roadbed    # or: pip install roadbed
 roadbed --version
 ```
 
-To capture verdicts, install the SDK: `pip install roadbed-sdk`.
+To capture verdicts, add the SDK to your app: `uv add roadbed-sdk` or `pip install roadbed-sdk`.
 
 ## Free path on a laptop
 

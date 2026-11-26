@@ -21,7 +21,7 @@ def quickstart_commands() -> list[str]:
     m = re.search(r"^## [^\n]*[Qq]uickstart[^\n]*\n.*?^```[^\n]*\n(.*?)^```", text, re.S | re.M)
     assert m, "README.md has no fenced block under a Quickstart heading"
     lines = [ln.strip() for ln in m.group(1).splitlines()]
-    return [ln for ln in lines if ln and not ln.startswith("#") and not ln.startswith("pip install")]
+    return [ln for ln in lines if ln and not ln.startswith("#") and not ln.startswith(("pip install", "uv tool install", "uvx "))]
 
 
 def test_quickstart(tmp_path, record_property):
