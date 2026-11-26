@@ -25,7 +25,7 @@ uv add roadbed-sdk         # the capture SDK in your app; or: pip install roadbe
 This path needs no account and no network. It takes about 10 seconds on a laptop (measured 25 November 2026).
 
 ```
-pip install roadbed
+uv tool install roadbed
 roadbed sample acme-2k events
 roadbed new acme --model claims-triage --synthetic --slices events/slices.yaml --output-schema events/output.schema.json
 cd acme && git init -q && git add -A && git commit -qm "asset"

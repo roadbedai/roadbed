@@ -9,8 +9,8 @@ This is version 0.1. The format can change before 1.0.
 You need Python 3.12 or newer.
 
 ```
-pip install roadbed-sdk
-pip install 'roadbed-sdk[redact]'   # optional: Presidio for names in free text
+uv add roadbed-sdk                 # or: pip install roadbed-sdk
+uv add 'roadbed-sdk[redact]'       # optional: Presidio for names in free text
 ```
 
 ## Capture to a local folder
