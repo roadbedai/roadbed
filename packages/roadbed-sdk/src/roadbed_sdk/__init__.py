@@ -128,7 +128,13 @@ def outcome(interaction_id: str, outcome: Mapping[str, Any], *, source: Literal[
 def subject_token(subject: str) -> str | None:
     """The tok_ HMAC token of a subject id, as captured. Use it for erasure requests (DELETE /v1/subjects/{token})."""
     rec = _runtime.get()
-    return hmac_token(rec.pseudo.key, subject) if rec is not None else None
+    if rec is None:
+        return None
+    try:
+        return hmac_token(rec.pseudo.key, subject)
+    except Exception as e:
+        _runtime.log.warning("roadbed_sdk: subject_token not computed: %s", type(e).__name__)
+        return None
 
 
 def flush() -> dict[str, int]:

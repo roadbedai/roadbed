@@ -13,12 +13,14 @@
         },
         "num_perm": {
           "description": "MinHash permutations.",
+          "maximum": 4096,
           "minimum": 16,
           "title": "Num Perm",
           "type": "integer"
         },
         "shingle": {
           "description": "Word shingle size.",
+          "maximum": 64,
           "minimum": 1,
           "title": "Shingle",
           "type": "integer"
@@ -122,6 +124,7 @@
     },
     "n_boot": {
       "description": "Bootstrap resamples.",
+      "maximum": 1000000,
       "minimum": 100,
       "title": "N Boot",
       "type": "integer"

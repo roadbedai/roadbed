@@ -282,8 +282,8 @@ class CostCap(_Model):
 
 class ContaminationPolicy(_Model):
     minhash_threshold: float = Field(gt=0, le=1, description="Near-duplicate when MinHash Jaccard >= this. Plan value 0.8.")
-    num_perm: int = Field(ge=16, description="MinHash permutations.")
-    shingle: int = Field(ge=1, description="Word shingle size.")
+    num_perm: int = Field(ge=16, le=4096, description="MinHash permutations.")
+    shingle: int = Field(ge=1, le=64, description="Word shingle size.")
 
 
 class GatePolicy(_Model):
@@ -294,7 +294,7 @@ class GatePolicy(_Model):
     margin: float = Field(description="Block when a slice delta is below this (score points).")
     min_n: int = Field(ge=1, description="Slices with fewer rows are flagged low_n and never block.")
     ci: float = Field(gt=0, lt=1, description="Confidence level of the percentile bootstrap CI.")
-    n_boot: int = Field(ge=100, description="Bootstrap resamples.")
+    n_boot: int = Field(ge=100, le=1_000_000, description="Bootstrap resamples.")
     seed: int = Field(ge=0, description="Seed for the bootstrap RNG.")
     block_on: list[BlockReason] = Field(description="Failed checks with these reasons block the rebase.")
     stages: Stages

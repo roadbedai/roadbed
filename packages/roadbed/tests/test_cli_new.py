@@ -123,3 +123,19 @@ def test_bad_input_shapes_exit_2_and_name_the_file(tmp_path):
                       (["--slices", str(slices), "--output-schema", str(FIXTURE / "output.schema.json")], slices)):
         r = cli.invoke(app, ["new", str(tmp_path / "acme"), "--model", "m", "--synthetic", *args])
         assert r.exit_code == 2 and bad.name in r.output and not (tmp_path / "acme").exists(), r.output
+
+
+def test_a_dangling_symlink_is_refused_and_not_followed(tmp_path):
+    (tmp_path / "acme").symlink_to(tmp_path / "elsewhere" / "made_by_new")
+    r = _new(tmp_path, "--synthetic")
+    assert r.exit_code == 2 and isinstance(r.exception, SystemExit) and "exists" in r.output, r.output
+    assert not (tmp_path / "elsewhere").exists()
+
+
+def test_the_git_hint_quotes_the_path(tmp_path):
+    d = tmp_path / "x;touch PWN"
+    r = cli.invoke(app, ["new", str(d / "acme dir"), "--model", "claims-triage", "--slices", str(FIXTURE / "slices.yaml"),
+                         "--output-schema", str(FIXTURE / "output.schema.json"), "--synthetic", "--json"])
+    assert r.exit_code == 0, r.output
+    nxt = json.loads(r.output)["next"]
+    assert nxt.startswith(f"cd '{d}/acme dir' && git init")

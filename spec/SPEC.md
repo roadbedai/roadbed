@@ -300,6 +300,10 @@ Each check that only the control plane can supply is a named skip.
 
 A local rebase never passes `--strict`: it fails at "receipts signed", and the skips are the list of what the control plane adds.
 
+A local seal can pass `--strict`, so its exit code is 0, the same as for a control-plane seal.
+A script must read the `LOCAL` line of the text output, or `local: true` in the JSON output.
+The exit code alone does not tell a local seal from a control-plane seal.
+
 ```
 $ roadbed verify rebases/1 --objects ../objects
 hashes OK  (10 files)

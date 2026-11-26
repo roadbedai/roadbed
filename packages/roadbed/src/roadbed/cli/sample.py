@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+import shlex
 from pathlib import Path
 from typing import Annotated
 
@@ -39,6 +41,8 @@ def sample(
         raise _fail("give a sample name and a new directory, or use --list", as_json)
     if name not in names:
         raise _fail(f"no sample named {name}; samples: {', '.join(names)}", as_json)
+    if os.path.lexists(dest):  # also a dangling symlink: resolve() would follow it
+        raise _fail(f"{dest} exists; give a new directory", as_json)
     out = dest.resolve()
     if out.exists():
         raise _fail(f"{dest} exists; give a new directory", as_json)
@@ -49,7 +53,8 @@ def sample(
     else:
         raise _fail(f"{dest} is inside an asset; copy the sample outside the asset", as_json)
     files = copy_sample(name, out)
-    nxt = f"roadbed new acme --model claims-triage --synthetic --slices {dest}/slices.yaml --output-schema {dest}/output.schema.json"
+    nxt = (f"roadbed new acme --model claims-triage --synthetic --slices {shlex.quote(f'{dest}/slices.yaml')} "
+           f"--output-schema {shlex.quote(f'{dest}/output.schema.json')}")
     if as_json:
         print_json({"ok": True, "sample": name, "dir": str(out), "files": files, "next": nxt, "exit_code": EXIT_OK})
         return

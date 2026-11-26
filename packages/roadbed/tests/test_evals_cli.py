@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 import shutil
 
+import pytest
+import yaml
 from test_evals_support import FIXTURE, SCHEMAS
 from typer.testing import CliRunner
 
@@ -109,3 +111,70 @@ def test_objects_store_holds_the_training_inputs_and_no_holdout_input(tmp_path):
     assert train and all(store.has(t["input_ref"].removeprefix("sha256:")) for t in train)
     held = [json.loads(x) for x in (tmp_path / "vik" / "candidate.jsonl").read_text().splitlines()]
     assert held and not any(store.has(h["input_ref"].removeprefix("sha256:")) for h in held)
+
+
+def test_evals_build_refuses_an_objects_store_inside_the_asset_and_writes_nothing(tmp_path, monkeypatch):
+    root, ev = _asset(tmp_path)
+    monkeypatch.chdir(root)
+    for objects in ("./objects", "."):
+        r = CliRunner().invoke(app, [*ARGS, "--asset", str(root), "--events", str(ev), "--objects", objects])
+        assert r.exit_code == 2 and "--objects must be outside the asset" in r.output
+    assert not (root / "objects").exists()
+    assert not (root / "data" / "snapshots").exists() and not (root / "evals" / "seen.jsonl").exists()
+
+
+@pytest.mark.parametrize("field", [("gate",), ("evals", "scorers"), ("evals", "slices"), ("task", "output_schema")])
+@pytest.mark.parametrize("kind", ["absolute", "dotdot"])
+def test_a_roadbed_yaml_path_outside_the_asset_is_refused_without_echoing_the_file(tmp_path, field, kind):
+    root, ev = _asset(tmp_path)
+    secret = tmp_path / "outside_secret.yaml"
+    secret.write_text('margin: -2.0\nsecret_api_key: "sk-live-THIS-IS-A-SECRET-OUTSIDE-ASSET"\n')
+    cfg = yaml.safe_load((root / "roadbed.yaml").read_text())
+    node = cfg
+    for k in field[:-1]:
+        node = node[k]
+    node[field[-1]] = str(secret) if kind == "absolute" else "../outside_secret.yaml"
+    (root / "roadbed.yaml").write_text(yaml.safe_dump(cfg, sort_keys=False))
+    r = CliRunner().invoke(app, [*ARGS, "--asset", str(root), "--events", str(ev)])
+    assert r.exit_code == 2, r.output
+    assert ".".join(field) in r.output and "relative path inside the asset" in r.output, r.output
+    assert "sk-live" not in r.output and "secret_api_key" not in r.output and "margin" not in r.output
+
+
+def test_evals_build_refuses_an_existing_non_empty_candidate_dir_before_any_write(tmp_path):
+    root, ev = _asset(tmp_path)
+    vault = tmp_path / "usr"
+    vault.mkdir()
+    (vault / "bin").write_text("keep\n")
+    vault.chmod(0o755)
+    r = CliRunner().invoke(app, [*ARGS, "--asset", str(root), "--events", str(ev), "--holdout-out", str(vault)])
+    assert r.exit_code == 2 and "not empty" in r.output, r.output
+    assert not (root / "data" / "snapshots").exists() and not (root / "evals" / "seen.jsonl").exists()
+    assert sorted(p.name for p in vault.iterdir()) == ["bin"] and (vault.stat().st_mode & 0o777) == 0o755
+
+
+def test_evals_build_exits_2_when_the_candidate_dir_cannot_be_created(tmp_path):
+    root, ev = _asset(tmp_path)
+    ro = tmp_path / "ro"
+    ro.mkdir()
+    ro.chmod(0o500)
+    try:
+        r = CliRunner().invoke(app, [*ARGS, "--asset", str(root), "--events", str(ev), "--holdout-out", str(ro / "vault")])
+    finally:
+        ro.chmod(0o700)
+    assert r.exit_code == 2 and isinstance(r.exception, SystemExit) and "Permission denied" in r.output, r.output
+    assert not (root / "data" / "snapshots").exists()
+
+
+def test_evals_build_leaves_the_mode_of_an_existing_empty_candidate_dir(tmp_path):
+    root, ev = _asset(tmp_path)
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    vault.chmod(0o750)
+    r = CliRunner().invoke(app, [*ARGS, "--asset", str(root), "--events", str(ev), "--holdout-out", str(vault)])
+    assert r.exit_code == 0, r.output
+    assert (vault.stat().st_mode & 0o777) == 0o750 and (vault / "candidate.jsonl").stat().st_mode & 0o777 == 0o600
+    new = tmp_path / "made" / "vault"
+    r = CliRunner().invoke(app, [*ARGS, "--suffix", "b", "--asset", str(root), "--events", str(ev), "--holdout-out", str(new)])
+    assert r.exit_code == 0, r.output
+    assert (new.stat().st_mode & 0o777) == 0o700

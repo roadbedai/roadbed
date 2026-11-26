@@ -19,7 +19,7 @@ from roadbed.asset import build_lock, read_doc, row_hash, verify, write_lock
 from roadbed.asset.hashing import jcs_sha256
 from roadbed.asset.overlap import minhash_object, parse_minhash_object
 from roadbed.asset.verify import _config, _Ctx
-from roadbed.cli.asset import open_asset
+from roadbed.cli.asset import AssetError, open_asset
 from roadbed.cli.main import app
 from roadbed.contracts import GatePolicy
 from test_asset_support import EXAMPLES, REBASE, bucket, builder, clone, copy, edit_json, git, reseal
@@ -701,3 +701,15 @@ def test_config_start_lock_without_history(tmp_path):
     lock.write_text(json.dumps(doc, indent=2) + "\n")
     c = _config(_Ctx(open_asset(root), root / "rebases/13", 13, None, False, None))
     assert c.ok is False and c.code == "V-HASH-MISMATCH" and "lock_sha256" in c.detail
+
+
+def test_a_gate_path_outside_the_asset_fails_and_its_file_is_never_echoed(tmp_path):
+    root = copy("pass", tmp_path / "a")
+    secret = tmp_path / "outside_secret.yaml"
+    secret.write_text('margin: -2.0\nsecret_api_key: "sk-live-THIS-IS-A-SECRET-OUTSIDE-ASSET"\n')
+    cfg = yaml.safe_load((root / "roadbed.yaml").read_text())
+    cfg["gate"] = str(secret)
+    (root / "roadbed.yaml").write_text(yaml.safe_dump(cfg, sort_keys=False))
+    with pytest.raises(AssetError, match="roadbed.yaml gate must be a relative path inside the asset") as e:
+        verify(root / "rebases/13")
+    assert "sk-live" not in str(e.value) and "margin" not in str(e.value)

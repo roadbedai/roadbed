@@ -6,6 +6,8 @@ Every file validates against its closed schema. Runs no git: it prints the line 
 from __future__ import annotations
 
 import json
+import os
+import shlex
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -76,7 +78,7 @@ def new_cmd(
 ) -> None:
     """Create a new asset repo: roadbed.yaml, the gate and license policies, slices, scorers and the output schema."""
     try:
-        if path.exists():
+        if os.path.lexists(path):  # also a dangling symlink, which mkdir would otherwise follow or fail on
             raise ValueError(f"{path} exists; roadbed new writes a new directory only")
         schema_bytes = output_schema.read_bytes()
         slices_doc, schema_doc = read_yaml(slices), json.loads(schema_bytes)
@@ -102,7 +104,7 @@ def new_cmd(
         for rel in ("SYNTHETIC.md", "rebases/SYNTHETIC.md"):
             (path / rel).write_text(SYNTHETIC_TEXT, encoding="utf-8")
             files.append(rel)
-    git_line = f'cd {path} && git init -q && git add -A && git commit -qm "asset"'
+    git_line = f'cd {shlex.quote(str(path))} && git init -q && git add -A && git commit -qm "asset"'
     if as_json:
         print_json({"ok": True, "dir": str(path), "files": files, "next": git_line, "exit_code": EXIT_OK})
         return

@@ -87,7 +87,7 @@ A sink delivers the request bodies. The `Sink` protocol has one method: `write(k
 
 ## Pseudonymisation
 
-Pseudonymisation is on by default. Free text becomes an HMAC token. Values in `pii=` and patterns such as email, phone and IBAN become placeholders. The tenant key never leaves the process.
+Pseudonymisation is on by default. Free text becomes an HMAC token. Values in `pii=` and patterns such as email, phone and IBAN become placeholders. The tenant key never leaves the process. Lowercase snake_case dict keys and `keep` label values stay as raw text (rules 4 and 6). Thus a key named after a person, such as `jane_doe`, goes into the event files unless you give that name in `pii=`.
 
 With `text="redact"`, Presidio replaces the names that it finds. Install it with `pip install 'roadbed-sdk[redact]'` and a spaCy model.
 

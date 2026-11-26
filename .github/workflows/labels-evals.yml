@@ -30,8 +30,8 @@ jobs:
         with:
           python-version: "3.12"
       - name: Lint (ruff)
-        run: uv run ruff check packages/roadbed/src/roadbed/labels packages/roadbed/src/roadbed/evals packages/roadbed/src/roadbed/cli/evals.py packages/roadbed/tests
+        run: uv run --locked ruff check packages/roadbed/src/roadbed/labels packages/roadbed/src/roadbed/evals packages/roadbed/src/roadbed/cli/evals.py packages/roadbed/tests
       - name: Type check (mypy)
-        run: uv run mypy
+        run: uv run --locked mypy
       - name: Label resolver and eval synthesis tests
-        run: uv run pytest -q packages/roadbed/tests/test_labels_resolve.py packages/roadbed/tests/test_evals_build.py packages/roadbed/tests/test_evals_leakage.py packages/roadbed/tests/test_evals_cli.py packages/roadbed/tests/test_evals_verifier.py
+        run: uv run --locked pytest -q packages/roadbed/tests/test_labels_resolve.py packages/roadbed/tests/test_evals_build.py packages/roadbed/tests/test_evals_leakage.py packages/roadbed/tests/test_evals_cli.py packages/roadbed/tests/test_evals_verifier.py

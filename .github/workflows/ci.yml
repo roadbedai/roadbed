@@ -21,21 +21,21 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Lint (ruff)
-        run: uv run ruff check .
+        run: uv run --locked ruff check .
       - name: Type check (mypy, packages/roadbed/src)
-        run: uv run mypy
+        run: uv run --locked mypy
       - name: Tests (includes the schema drift and fixture drift tests)
-        run: uv run pytest -q
+        run: uv run --locked pytest -q
       - name: Schema drift (regenerate, then require no diff)
         if: matrix.python-version == '3.12'
         run: |
-          uv run python -c "from roadbed.contracts import export_schemas; export_schemas('spec/schemas/v0.1')"
+          uv run --locked python -c "from roadbed.contracts import export_schemas; export_schemas('spec/schemas/v0.1')"
           git diff --exit-code -- spec/schemas
       - name: Fixture and conformance drift (rebuild, then require no diff)
         if: matrix.python-version == '3.12'
         run: |
-          uv run python spec/tools/build_examples.py
-          uv run python spec/tools/build_conformance.py
+          uv run --locked python spec/tools/build_examples.py
+          uv run --locked python spec/tools/build_conformance.py
           git diff --exit-code -- spec/examples/pass spec/examples/blocked spec/conformance
           for a in pass blocked; do
             test "$(git bundle list-heads spec/examples/$a.bundle)" = "$(git show HEAD:spec/examples/$a.bundle > /tmp/$a.bundle && git bundle list-heads /tmp/$a.bundle)"
@@ -50,7 +50,7 @@ jobs:
           python-version: "3.12"
       - name: Regenerate docs/cli.md, then require no diff
         run: |
-          uv run typer roadbed.cli.main utils docs --name roadbed --output docs/cli.md
+          uv run --locked typer roadbed.cli.main utils docs --name roadbed --output docs/cli.md
           git diff --exit-code -- docs/cli.md
 
   build:
@@ -74,4 +74,4 @@ jobs:
         with:
           fetch-depth: 0
       - name: Scan the history for secrets
-        run: docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.30.1 detect --source /repo --no-banner --redact
+        run: docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f detect --source /repo --no-banner --redact

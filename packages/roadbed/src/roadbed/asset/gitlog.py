@@ -10,7 +10,8 @@ import os
 import subprocess
 from pathlib import Path
 
-_SAFE = ("-c", "core.fsmonitor=false", "-c", f"core.hooksPath={os.devnull}", "-c", "core.autocrlf=false")
+_SAFE = ("-c", "core.fsmonitor=false", "-c", f"core.hooksPath={os.devnull}", "-c", "core.autocrlf=false",
+         "-c", "log.showSignature=false")
 
 
 class GitError(Exception):

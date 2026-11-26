@@ -76,3 +76,18 @@ def test_list_prints_the_names() -> None:
     r = cli.invoke(app, ["sample", "--list"])
     assert r.exit_code == 0 and r.output.split() == ["acme-2k"]
     assert json.loads(cli.invoke(app, ["sample", "--list", "--json"]).output)["samples"] == ["acme-2k"]
+
+
+def test_a_dangling_symlink_is_refused_and_not_followed(tmp_path: Path) -> None:
+    (tmp_path / "dangling").symlink_to(tmp_path / "elsewhere" / "made_by_sample")
+    r = cli.invoke(app, ["sample", "acme-2k", str(tmp_path / "dangling")])
+    assert r.exit_code == 2 and "exists" in r.output, r.output
+    assert not (tmp_path / "elsewhere").exists()
+
+
+def test_the_next_hint_quotes_the_path(tmp_path: Path) -> None:
+    dest = tmp_path / "x;touch PWN" / "my events"
+    r = cli.invoke(app, ["sample", "acme-2k", str(dest), "--json"])
+    assert r.exit_code == 0, r.output
+    nxt = json.loads(r.output)["next"]
+    assert f"--slices '{dest}/slices.yaml' --output-schema '{dest}/output.schema.json'" in nxt

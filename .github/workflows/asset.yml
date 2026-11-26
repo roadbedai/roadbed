@@ -27,8 +27,8 @@ jobs:
         with:
           python-version: "3.12"
       - name: Lint (ruff)
-        run: uv run ruff check packages/roadbed/src/roadbed/asset packages/roadbed/tests
+        run: uv run --locked ruff check packages/roadbed/src/roadbed/asset packages/roadbed/tests
       - name: Type check (mypy)
-        run: uv run mypy
+        run: uv run --locked mypy
       - name: Asset library tests
-        run: uv run pytest -q packages/roadbed/tests/test_asset_hashing.py packages/roadbed/tests/test_asset_signing.py packages/roadbed/tests/test_asset_lock.py packages/roadbed/tests/test_asset_seal.py packages/roadbed/tests/test_asset_verify.py packages/roadbed/tests/test_asset_conformance.py
+        run: uv run --locked pytest -q packages/roadbed/tests/test_asset_hashing.py packages/roadbed/tests/test_asset_signing.py packages/roadbed/tests/test_asset_lock.py packages/roadbed/tests/test_asset_seal.py packages/roadbed/tests/test_asset_verify.py packages/roadbed/tests/test_asset_conformance.py

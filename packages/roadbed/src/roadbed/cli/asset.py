@@ -21,6 +21,8 @@ MANIFEST = "MANIFEST.sha256"
 REBASE_META = "rebase.yaml"
 PROPOSED = "roadbed.yaml.proposed"
 SEAL_NAMES = ("SEAL.yaml", "SEAL.yml", "SEAL.json", "SEAL")
+# roadbed.yaml fields that name a file the CLI reads; each must stay inside the asset.
+PATH_FIELDS = (("gate",), ("evals", "scorers"), ("evals", "slices"), ("task", "output_schema"))
 
 
 class AssetError(Exception):
@@ -55,10 +57,38 @@ def find_root(start: Path) -> Path:
     raise AssetError(f"no roadbed.yaml in {start} or its parents; run inside an asset repo or pass --asset")
 
 
-def open_asset(root: Path) -> Asset:
+def refuse_symlinks(root: Path) -> None:
+    """Raise AssetError naming the first symlink among the asset's files and the directories on their paths."""
+    from roadbed.asset.files import tree_files  # roadbed.asset imports this module (verify)
+
+    for rel in tree_files(root):
+        parts = rel.split("/")
+        for i in range(1, len(parts) + 1):
+            if (root.joinpath(*parts[:i])).is_symlink():
+                raise AssetError(f"{'/'.join(parts[:i])} is a symlink: an asset holds plain files only")
+
+
+def refuse_outside_paths(cfg: Any) -> None:
+    """Raise AssetError when a PATH_FIELDS value of roadbed.yaml leaves the asset. The message never shows the value."""
+    from roadbed.asset.files import safe_rel  # roadbed.asset imports this module (verify)
+
+    for field in PATH_FIELDS:
+        node: Any = cfg
+        for k in field:
+            node = node.get(k) if isinstance(node, dict) else None
+        if node is not None and not (isinstance(node, str) and safe_rel(node)):
+            raise AssetError(f"roadbed.yaml {'.'.join(field)} must be a relative path inside the asset")
+
+
+def open_asset(root: Path, *, plain_files: bool = True) -> Asset:
+    """Load the asset at root. It always refuses a roadbed.yaml file path that leaves the asset. plain_files=False skips
+    only the symlink refusal: verify passes it and reports a symlink itself, as a V-PATH-UNSAFE failure."""
     root = root.resolve()
+    if plain_files:
+        refuse_symlinks(root)
     if not (root / "roadbed.yaml").is_file():
         raise AssetError(f"no roadbed.yaml in {root}")
+    refuse_outside_paths(read_yaml(root / "roadbed.yaml"))
     cfg = load_asset(root)
     lic_path = root / LICENSE_POLICY
     return Asset(

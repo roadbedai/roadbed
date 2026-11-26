@@ -20,13 +20,13 @@ classifiers = [
 requires-python = ">=3.12"
 dependencies = [
     "pydantic>=2",
-    "numpy",
-    "ruamel.yaml",
-    "jsonschema",
-    "typer",
-    "rich",
-    "httpx",
-    "rfc8785",
+    "numpy>=1.26",
+    "ruamel.yaml>=0.18",
+    "jsonschema>=4.18",
+    "typer>=0.12",
+    "rich>=13",
+    "httpx>=0.28",
+    "rfc8785>=0.1",
     "cryptography>=43",
     "duckdb>=2.0.0",
 ]

@@ -37,8 +37,8 @@ jobs:
         with:
           python-version: "3.12"
       - name: Lint (ruff)
-        run: uv run ruff check packages/roadbed/src/roadbed/watch.py packages/roadbed/src/roadbed/license_policy.py packages/roadbed/src/roadbed/cli packages/roadbed/tests/watch packages/roadbed/tests/cli/test_cli_watch.py
+        run: uv run --locked ruff check packages/roadbed/src/roadbed/watch.py packages/roadbed/src/roadbed/license_policy.py packages/roadbed/src/roadbed/cli packages/roadbed/tests/watch packages/roadbed/tests/cli/test_cli_watch.py
       - name: Type check (mypy)
-        run: uv run mypy
+        run: uv run --locked mypy
       - name: Watch and license tests, cassettes only, outbound sockets blocked
-        run: PYTHONPATH=packages/roadbed/tests/watch uv run pytest -q -p no_network packages/roadbed/tests/watch packages/roadbed/tests/cli/test_cli_watch.py
+        run: PYTHONPATH=packages/roadbed/tests/watch uv run --locked pytest -q -p no_network packages/roadbed/tests/watch packages/roadbed/tests/cli/test_cli_watch.py

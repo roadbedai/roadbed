@@ -33,8 +33,8 @@ jobs:
         with:
           python-version: "3.12"
       - name: Lint (ruff)
-        run: uv run ruff check packages/roadbed/src/roadbed/cli packages/roadbed/tests
+        run: uv run --locked ruff check packages/roadbed/src/roadbed/cli packages/roadbed/tests
       - name: Type check (mypy)
-        run: uv run mypy
+        run: uv run --locked mypy
       - name: CLI tests, outbound sockets blocked
-        run: PYTHONPATH=packages/roadbed/tests/watch uv run pytest -q -p no_network packages/roadbed/tests/test_cli_config.py packages/roadbed/tests/test_cli_fakeapi.py packages/roadbed/tests/test_cli_offline.py packages/roadbed/tests/test_cli_remote.py packages/roadbed/tests/test_cli_surface.py packages/roadbed/tests/cli
+        run: PYTHONPATH=packages/roadbed/tests/watch uv run --locked pytest -q -p no_network packages/roadbed/tests/test_cli_config.py packages/roadbed/tests/test_cli_fakeapi.py packages/roadbed/tests/test_cli_offline.py packages/roadbed/tests/test_cli_remote.py packages/roadbed/tests/test_cli_surface.py packages/roadbed/tests/cli

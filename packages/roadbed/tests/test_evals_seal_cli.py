@@ -125,3 +125,34 @@ def test_the_next_build_reads_the_local_seal(tmp_path, asset):
     cfg = yaml.safe_load((asset / "roadbed.yaml").read_text())
     rows, synthetic = read_sealed(asset, cfg["data"]["holdout"]["path"])
     assert len(rows) == json.loads((asset / "data/holdout" / HID / "SEAL.json").read_text())["rows"] > 0 and synthetic is True
+
+
+def _outside_state(d: Path) -> dict[str, bytes]:
+    return {p.relative_to(d).as_posix(): p.read_bytes() for p in sorted(d.rglob("*")) if p.is_file()}
+
+
+@pytest.mark.parametrize("link", ["evals/golden.jsonl", "evals/correction_tests.jsonl", f"data/holdout/{HID}", "roadbed.yaml"])
+def test_a_committed_symlink_is_refused_and_nothing_is_written_outside(tmp_path, asset, link):
+    """The reviewer's layout: links to an outside file, a dangling outside path, an outside dir, an outside roadbed.yaml."""
+    out = tmp_path / "outside"
+    out.mkdir()
+    (out / "victim.txt").write_text("keep\n")
+    (out / "dir").mkdir()
+    lp = asset / link
+    if link == "roadbed.yaml":
+        lp.rename(out / "roadbed.yaml")
+        target = out / "roadbed.yaml"
+    else:
+        target = {"evals/golden.jsonl": out / "victim.txt", "evals/correction_tests.jsonl": out / "dangling",
+                  f"data/holdout/{HID}": out / "dir"}[link]
+        if lp.exists():
+            lp.unlink()
+        lp.parent.mkdir(parents=True, exist_ok=True)
+    lp.symlink_to(target)
+    before = _outside_state(out)
+    r = cli.invoke(app, ["evals", "build", "--asset", str(asset), "--events", str(FIXTURE), "--as-of", AS_OF, "--seed", "8",
+                         "--suffix", "b", "--objects", str(tmp_path / "objects")])
+    assert r.exit_code == 2 and "an asset holds plain files only" in r.output and link in r.output, r.output
+    r = seal(tmp_path, asset)
+    assert r.exit_code == 2 and "an asset holds plain files only" in r.output, r.output
+    assert _outside_state(out) == before and not (out / "dangling").exists()

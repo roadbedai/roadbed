@@ -71,7 +71,7 @@ from roadbed.asset.overlap import (
 )
 from roadbed.asset.seal import holdout_row_hash
 from roadbed.asset.signing import SignatureError, verify_signature
-from roadbed.cli.asset import PRED_FILES, Asset, open_asset, seal_time
+from roadbed.cli.asset import PRED_FILES, Asset, AssetError, open_asset, refuse_symlinks, seal_time
 from roadbed.cli.rebase import FINDING_RE
 from roadbed.contracts import SCHEMA_MODELS, Scores
 from roadbed.gate import decide_license, evaluate
@@ -1210,6 +1210,16 @@ def _local_seal(root: Path) -> bool:
     return (seal or {}).get("provenance") == "local"
 
 
+def symlink_check(root: Path) -> Check | None:
+    """A failed V-PATH-UNSAFE check naming the first symlink among the asset's files and the directories on their paths,
+    or None for a tree of plain files. Every verify mode runs it before it reads a file the asset names."""
+    try:
+        refuse_symlinks(root)
+    except AssetError as e:
+        return Check("V-PATH-UNSAFE", "the asset holds plain files only", False, str(e))
+    return None
+
+
 def _control_plane_file(root: Path, d: Path) -> str | None:
     """The first file from the control plane that the asset holds, its rebase manifest names, or its git history
     (merges included) ever held, said in words; None when there is none."""
@@ -1421,8 +1431,12 @@ def verify(
     if not re.fullmatch(r"\d+", d.name):
         raise ValueError(f"rebase directory must be named by its number, e.g. rebases/13 (got {d.name})")
     n = int(d.name)
+    if (bad := symlink_check(root)) is not None:
+        if on_check is not None:
+            on_check(bad)
+        return VerifyResult(n, True, [bad], bad)
     try:
-        asset = open_asset(root)
+        asset = open_asset(root, plain_files=False)
     except (jsonschema.ValidationError, PydanticError) as e:
         # roadbed.yaml or a policy file it names does not conform; the asset cannot be read further.
         msg = e.message if isinstance(e, jsonschema.ValidationError) else str(e).splitlines()[0]
