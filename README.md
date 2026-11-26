@@ -14,9 +14,11 @@ This repository is the open part. It holds the asset format, the engine, the com
 You need Python 3.12 or newer.
 
 ```
-pip install roadbed        # engine and command line tool
-pip install roadbed-sdk    # capture SDK
+uv tool install roadbed    # the roadbed command, isolated; or: pip install roadbed
+uv add roadbed-sdk         # the capture SDK in your app; or: pip install roadbed-sdk
 ```
+
+`uvx roadbed --version` runs the command without an install.
 
 ## Quickstart: a sealed holdout in about 10 seconds
 
